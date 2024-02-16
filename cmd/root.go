@@ -1,36 +1,56 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
-	"bytes"
-	"log"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-// rootCmd represents the base command when called without any subcommands
+var Name string
+var Fqdn string
+var Token string
+var Instance http.Client
+
 var rootCmd = &cobra.Command{
 	Use:   "coolify-cli",
 	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) {},
+	Long:  ``,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Fetch(url string) (string, error) {
+	url = Fqdn + "/api/v1/" + url
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+Token)
+	resp, err := Instance.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("%d - Failed to fetch data from %s. Error: %s", resp.StatusCode, url, string(body))
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), nil
+}
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -39,49 +59,43 @@ func Execute() {
 }
 
 func init() {
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.coolify-cli.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
+	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "https://app.coolify.io", "Coolify instance hostname")
 }
-func Shellout(command string) (string, string, error) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd := exec.Command("bash", "-c", command)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	return strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err
-}
-
-type RemoteCommandParams struct {
-	command     string
-	host        string
-	exitOnError bool `default:"true"`
-}
-
-func remoteCommand(params RemoteCommandParams) string {
-	if host == "localhost" {
-		stdout, stderr, err := Shellout(params.command)
-		if err != nil || stderr != "" {
-			log.Fatalf("[ERROR](%v): %v with error status %v", params.command, stderr, err)
+func initConfig() {
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			viper.Set("instances", []interface{}{map[string]interface{}{
+				"default": true,
+				"fqdn":    "https://app.coolify.io",
+				"token":   "",
+			},
+			})
+			viper.Set("instances", append(viper.Get("instances").([]interface{}), map[string]interface{}{
+				"fqdn":  "http://localhost:8000",
+				"token": "",
+			}))
+			viper.SafeWriteConfig()
+			return
+			// Config file not found; ignore error if desired
+		} else {
+			fmt.Println("Error reading config file, ", err)
+			return
+			// Config file was found but another error was produced
 		}
-		return stdout
 	}
-	var userAndHost = user + "@" + host
-	var remoteCommand = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PasswordAuthentication=no -o ServerAliveInterval=20 -o LogLevel=ERROR -o ControlMaster=auto -o ControlPersist=1m -o ConnectTimeout=" + strconv.Itoa(sshTimeout) + " " + userAndHost + " " + params.command
-	if debug {
-		log.Println(remoteCommand)
+	instancesMap := viper.Get("instances").([]interface{})
+	for _, instance := range instancesMap {
+		instanceMap := instance.(map[string]interface{})
+		if instanceMap["default"] == true {
+			Fqdn = instanceMap["fqdn"].(string)
+			if Token == "" {
+				Token = instanceMap["token"].(string)
+			}
+		}
 	}
-	stdout, stderr, err := Shellout(remoteCommand)
-	if (err != nil || stderr != "") && params.exitOnError {
-		log.Fatalf("[ERROR](%v): %v with error status %v", params.command, stderr, err)
-	}
-	return stdout
 }
