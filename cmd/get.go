@@ -91,6 +91,7 @@ var serversCmd = &cobra.Command{
 			}
 		}
 		w.Flush()
+		fmt.Println("\nNote: -s to show sensitive information.")
 	},
 }
 
