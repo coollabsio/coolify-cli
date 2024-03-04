@@ -14,6 +14,8 @@ var Name string
 var Fqdn string
 var Token string
 var Instance http.Client
+var ShowSensitive bool
+var SensitiveInformationOverlay = "********"
 
 var rootCmd = &cobra.Command{
 	Use:   "coolify-cli",

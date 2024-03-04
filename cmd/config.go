@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
+
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -10,92 +12,112 @@ import (
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Configure tokens and instances",
+	Short: "Configure tokens and instances.",
 }
+
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all configured instances",
+	Short: "List all instances.",
 	Run: func(cmd *cobra.Command, args []string) {
-		instances := viper.Get("instances")
-		Json, _ := json.MarshalIndent(instances, "", " ")
-		fmt.Println(string(Json))
-	},
-}
-
-var defaultCmd = &cobra.Command{
-	Use:   "default",
-	Short: "Get default instance",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(Fqdn)
-	},
-}
-var setCmd = &cobra.Command{
-	Use: "set [default|<host>]",
-	Example: `
-config set default http://localhost:8000
-config set http://localhost:8000 <token>`,
-	Args:  cobra.ExactArgs(2),
-	Short: "Update an existing or set the default instance",
-	Long:  "Use 'default' as the second argument to set the default instance or",
-	Run: func(cmd *cobra.Command, args []string) {
-		Fqdn = args[0]
-		if Fqdn[len(Fqdn)-1:] == "/" {
-			Fqdn = Fqdn[:len(Fqdn)-1]
-		}
-		DefaultHost := ""
-		if len(args) == 2 {
-			if Fqdn == "default" {
-				DefaultHost = args[1]
-			} else {
-				Token = args[1]
-			}
-		}
-
 		instances := viper.Get("instances").([]interface{})
 
+		var defaultEntry map[string]interface{}
+		nonDefaultEntries := make([]map[string]interface{}, 0)
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "Instance\tToken\tDefault")
+		for _, entry := range instances {
+			entryMap, ok := entry.(map[string]interface{})
+			if !ok {
+				fmt.Println("Error")
+				return
+			}
+			if isDefault, ok := entryMap["default"].(bool); ok && isDefault {
+				defaultEntry = entryMap
+			} else {
+				nonDefaultEntries = append(nonDefaultEntries, entryMap)
+			}
+		}
+		if defaultEntry != nil {
+			if defaultEntry["token"] == "" {
+				fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], "(empty)", "true")
+			} else {
+				if ShowSensitive {
+					fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], defaultEntry["token"], "true")
+				} else {
+					fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], SensitiveInformationOverlay, "true")
+				}
+			}
+		}
+		for _, entryMap := range nonDefaultEntries {
+			if entryMap["token"] == "" {
+				fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], "(empty)", "true")
+			} else {
+				if ShowSensitive {
+					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], entryMap["token"], "true")
+				} else {
+					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], SensitiveInformationOverlay, "true")
+				}
+			}
+		}
+		w.Flush()
+		fmt.Println("\nNote: -s to show sensitive information.")
+
+	},
+}
+
+var setCmd = &cobra.Command{
+	Use:   "set",
+	Short: "Set the default instance or update a token.",
+}
+var setTokenCmd = &cobra.Command{
+	Use:     "token",
+	Example: `config set token "<token>" "<host>"`,
+	Args:    cobra.ExactArgs(2),
+	Short:   "Set token for the given instance.",
+	Run: func(cmd *cobra.Command, args []string) {
+		Token = args[0]
+		Fqdn = args[1]
+		instances := viper.Get("instances").([]interface{})
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
-			if Fqdn == "default" {
-				if instanceMap["fqdn"] == DefaultHost {
-					instanceMap["default"] = true
-				} else {
-					delete(instanceMap, "default")
-				}
-			} else {
-				if instanceMap["fqdn"] == Fqdn && Token != "" {
-					instanceMap["token"] = Token
-				}
+			if instanceMap["fqdn"] == Fqdn {
+				instanceMap["token"] = Token
 			}
 		}
-		if Fqdn != "default" {
-			exists := false
-			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["fqdn"] == Fqdn {
-					exists = true
-				}
-			}
-			if !exists {
-				instances = append(instances, map[string]interface{}{
-					"fqdn":  Fqdn,
-					"token": Token,
-				})
-			}
-		}
-
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		if Fqdn == "default" {
-			fmt.Printf("%s set as default. \n", DefaultHost)
-		} else {
-			fmt.Printf("%s set with the given token. \n", Fqdn)
+		fmt.Printf("%s set with the given token. \n", Fqdn)
+	},
+}
+var setDefaultCmd = &cobra.Command{
+	Use:     "default",
+	Example: `config set default <host>`,
+	Args:    cobra.ExactArgs(1),
+	Short:   "Set the default instance.",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		DefaultHost := args[0]
+		instances := viper.Get("instances").([]interface{})
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == DefaultHost {
+				instanceMap["default"] = true
+			} else {
+				delete(instanceMap, "default")
+			}
 		}
+		viper.Set("instances", instances)
+		viper.WriteConfig()
+		fmt.Printf("%s set as default. \n", DefaultHost)
 	},
 }
 
 func init() {
+	listCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
+
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(setCmd)
 	configCmd.AddCommand(listCmd)
-	configCmd.AddCommand(defaultCmd)
+	setCmd.AddCommand(setTokenCmd)
+	setCmd.AddCommand(setDefaultCmd)
 }
