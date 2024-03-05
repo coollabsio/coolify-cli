@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -15,7 +12,7 @@ var configCmd = &cobra.Command{
 	Short: "Configure tokens and instances.",
 }
 
-var listCmd = &cobra.Command{
+var listInstancesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all instances.",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -23,7 +20,6 @@ var listCmd = &cobra.Command{
 
 		var defaultEntry map[string]interface{}
 		nonDefaultEntries := make([]map[string]interface{}, 0)
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(w, "Instance\tToken\tDefault")
 		for _, entry := range instances {
 			entryMap, ok := entry.(map[string]interface{})
@@ -64,7 +60,7 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var setCmd = &cobra.Command{
+var setInstanceCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set the default instance or update a token.",
 }
@@ -112,11 +108,11 @@ var setDefaultCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
+	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 
 	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(setCmd)
-	configCmd.AddCommand(listCmd)
-	setCmd.AddCommand(setTokenCmd)
-	setCmd.AddCommand(setDefaultCmd)
+	configCmd.AddCommand(setInstanceCmd)
+	configCmd.AddCommand(listInstancesCmd)
+	setInstanceCmd.AddCommand(setTokenCmd)
+	setInstanceCmd.AddCommand(setDefaultCmd)
 }
