@@ -22,6 +22,7 @@ var ShowSensitive bool
 var Force bool
 var JsonMode bool
 var PrettyMode bool
+var SetDefaultInstance bool
 
 var w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
 

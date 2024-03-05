@@ -134,8 +134,17 @@ var addInstanceCmd = &cobra.Command{
 			instanceMap := instance.(map[string]interface{})
 			if instanceMap["fqdn"] == Host {
 				if Force {
-					fmt.Printf("%s already exists. Force overwriting. \n", Host)
 					instanceMap["token"] = Token
+					if SetDefaultInstance {
+						for _, instance := range instances {
+							instanceMap := instance.(map[string]interface{})
+							delete(instanceMap, "default")
+						}
+						instanceMap["default"] = true
+						fmt.Printf("%s already exists. Force overwriting. Setting it as default. \n", Host)
+					} else {
+						fmt.Printf("%s already exists. Force overwriting. \n", Host)
+					}
 					viper.Set("instances", instances)
 					viper.WriteConfig()
 					return
@@ -150,10 +159,20 @@ var addInstanceCmd = &cobra.Command{
 			"fqdn":  Host,
 			"token": Token,
 		})
+
+		if SetDefaultInstance {
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				delete(instanceMap, "default")
+			}
+			instances[len(instances)-1].(map[string]interface{})["default"] = true
+			fmt.Printf("%s added and set as default.\n", Host)
+		} else {
+			fmt.Printf("%s added. \n", Host)
+		}
+
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		fmt.Printf("%s added. \n", Host)
-
 	},
 }
 var removeInstanceCmd = &cobra.Command{
@@ -172,6 +191,16 @@ var removeInstanceCmd = &cobra.Command{
 				viper.Set("instances", instances)
 				viper.WriteConfig()
 				fmt.Printf("%s removed. \n", Host)
+				if instanceMap["default"] == true {
+					fmt.Println("Note: The default instance has been removed.")
+					if len(instances) > 0 {
+						instances[0].(map[string]interface{})["default"] = true
+						viper.Set("instances", instances)
+						viper.WriteConfig()
+						fmt.Printf("%s set as default. \n", instances[0].(map[string]interface{})["fqdn"])
+					}
+				}
+
 				return
 			}
 		}
@@ -209,6 +238,7 @@ func init() {
 	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	getInstanceCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	addInstanceCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force the operation")
+	addInstanceCmd.Flags().BoolVarP(&SetDefaultInstance, "--default", "d", false, "Set default instance")
 
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(listInstancesCmd)
