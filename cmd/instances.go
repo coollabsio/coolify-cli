@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,7 +60,7 @@ var listInstancesCmd = &cobra.Command{
 		}
 		var defaultEntry map[string]interface{}
 		nonDefaultEntries := make([]map[string]interface{}, 0)
-		fmt.Fprintln(w, "Fqdn\tToken\tDefault")
+		fmt.Fprintln(w, "Line #\tFqdn\tToken\tDefault")
 		for _, entry := range instances {
 			entryMap, ok := entry.(map[string]interface{})
 			if !ok {
@@ -73,23 +75,23 @@ var listInstancesCmd = &cobra.Command{
 		}
 		if defaultEntry != nil {
 			if defaultEntry["token"] == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], "", "true")
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], "", "true")
 			} else {
 				if ShowSensitive {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], defaultEntry["token"], "true")
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], defaultEntry["token"], "true")
 				} else {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], SensitiveInformationOverlay, "true")
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], SensitiveInformationOverlay, "true")
 				}
 			}
 		}
-		for _, entryMap := range nonDefaultEntries {
+		for index, entryMap := range nonDefaultEntries {
 			if entryMap["token"] == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], "", "")
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], "", "")
 			} else {
 				if ShowSensitive {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], entryMap["token"], "")
+					fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], entryMap["token"], "")
 				} else {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], SensitiveInformationOverlay, "")
+					fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], SensitiveInformationOverlay, "")
 				}
 			}
 		}
@@ -226,37 +228,70 @@ var setTokenCmd = &cobra.Command{
 }
 var setDefaultCmd = &cobra.Command{
 	Use:     "default",
-	Example: `set default <host>`,
+	Example: `set default <host|linenumber>`,
 	Args:    cobra.ExactArgs(1),
 	Short:   "Set the default Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		DefaultHost := args[0]
-		instances := viper.Get("instances").([]interface{})
-		var found bool
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == DefaultHost {
-				found = true
-				break
+		if strings.HasPrefix(DefaultHost, "http") {
+			instances := viper.Get("instances").([]interface{})
+			var found bool
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["fqdn"] == DefaultHost {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			fmt.Printf("%s not found. \n", DefaultHost)
-			return
+			if !found {
+				fmt.Printf("%s not found. \n", DefaultHost)
+				return
+			}
+
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["fqdn"] == DefaultHost {
+					instanceMap["default"] = true
+				} else {
+					delete(instanceMap, "default")
+				}
+			}
+			viper.Set("instances", instances)
+			viper.WriteConfig()
+			fmt.Printf("%s set as default. \n", DefaultHost)
+		} else {
+			lineNumber, err := strconv.Atoi(DefaultHost)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			println(lineNumber)
+			// TODO
+			// instances := viper.Get("instances").([]interface{})
+			// if len(instances) == 0 {
+			// 	fmt.Println("No instances found.")
+			// 	return
+			// }
+			// if len(instances) < lineNumber {
+			// 	fmt.Println("Invalid line number.")
+			// 	return
+			// }
+			// for i, instance := range instances {
+			// 	instanceMap := instance.(map[string]interface{})
+			// 	if lineNumber == 1 {
+			// 		instanceMap["default"] = true
+			// 	} else if i == lineNumber-2 {
+			// 		instanceMap["default"] = true
+			// 	} else {
+			// 		delete(instanceMap, "default")
+			// 	}
+			// }
+			// viper.Set("instances", instances)
+			// viper.WriteConfig()
+			// fmt.Printf("%s set as default. \n", instances[lineNumber-2].(map[string]interface{})["fqdn"])
 		}
 
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == DefaultHost {
-				instanceMap["default"] = true
-			} else {
-				delete(instanceMap, "default")
-			}
-		}
-		viper.Set("instances", instances)
-		viper.WriteConfig()
-		fmt.Printf("%s set as default. \n", DefaultHost)
 	},
 }
 var getInstanceCmd = &cobra.Command{

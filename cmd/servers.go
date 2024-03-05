@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -47,7 +48,7 @@ var listServersCmd = &cobra.Command{
 		CheckMinimumVersion("4.0.0-beta.235")
 		data, err := Fetch("servers")
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			return
 		}
 		if JsonMode {

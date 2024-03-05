@@ -4,18 +4,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"sort"
 	"text/tabwriter"
+	"time"
 
-	"github.com/hashicorp/go-version"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var CliVersion = "0.0.2"
+var CliVersion = "0.0.1"
+var LastUpdateCheckTime time.Time
+var CheckInverval = 10 * time.Minute
+
 var Version string
 var Name string
 var Fqdn string
@@ -24,6 +29,7 @@ var Instance http.Client
 var SensitiveInformationOverlay = "********"
 
 // Flags
+var Debug bool
 var ShowSensitive bool
 var Force bool
 var JsonMode bool
@@ -31,6 +37,10 @@ var PrettyMode bool
 var SetDefaultInstance bool
 
 var w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
+
+type Tag struct {
+	Ref string `json:"ref"`
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "coolify",
@@ -45,24 +55,25 @@ func CheckMinimumVersion(version string) {
 	FetchVersion()
 	requiredVersion, err := compareVersion.NewVersion(version)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	currentVersion, err := compareVersion.NewVersion(Version)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	if currentVersion.LessThan(requiredVersion) {
-		fmt.Printf("Minimum required Coolify API version is: %s\n", version)
-		fmt.Print("Please upgrade your Coolify instance for this command.\n\n")
+		log.Printf("Minimum required Coolify API version is: %s\n", version)
+		log.Print("Please upgrade your Coolify instance for this command.\n\n")
 		os.Exit(1)
 	}
 }
 func FetchVersion() (string, error) {
 	data, err := Fetch("version")
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
+		os.Exit(1)
 		return "", err
 	}
 	Version = data
@@ -84,7 +95,6 @@ func Fetch(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("%d - Failed to fetch data from %s. Error: %s", resp.StatusCode, url, string(body))
 	}
@@ -92,11 +102,15 @@ func Fetch(url string) (string, error) {
 	return string(body), nil
 }
 
-type Tag struct {
-	Ref string `json:"ref"`
-}
-
 func CheckLatestVersionOfCli() (string, error) {
+	getLastUpdateCheckTime()
+	if LastUpdateCheckTime.Add(CheckInverval).After(time.Now()) {
+		if Debug {
+			log.Println("Skipping update check. Last check was less than 10 minutes ago.")
+		}
+		return CliVersion, nil
+	}
+	setLastUpdateCheckTime()
 	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -130,16 +144,16 @@ func CheckLatestVersionOfCli() (string, error) {
 		versionsRaw = append(versionsRaw, versionStr)
 	}
 
-	versions := make([]*version.Version, len(versionsRaw))
+	versions := make([]*compareVersion.Version, len(versionsRaw))
 	for i, raw := range versionsRaw {
-		v, err := version.NewVersion(raw)
+		v, err := compareVersion.NewVersion(raw)
 		if err != nil {
 			return "", err
 		}
 		versions[i] = v
 	}
 
-	sort.Sort(version.Collection(versions))
+	sort.Sort(compareVersion.Collection(versions))
 	latestVersion := versions[len(versions)-1].String()
 	if latestVersion != CliVersion {
 		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify --update'.\n\n")
@@ -148,19 +162,18 @@ func CheckLatestVersionOfCli() (string, error) {
 
 }
 func Execute() {
-	// _, err := CheckLatestVersionOfCli()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
-
+func isNumber(value interface{}) bool {
+	kind := reflect.TypeOf(value).Kind()
+	return kind >= reflect.Int && kind <= reflect.Float64
+}
 func init() {
 	cobra.OnInitialize(initConfig)
+
 	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
 	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "https://app.coolify.io", "Coolify instance hostname")
 
@@ -168,6 +181,22 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&PrettyMode, "pretty", "", false, "Make json output pretty")
 	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	rootCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false, "Force")
+	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "d", false, "Debug mode")
+}
+func setLastUpdateCheckTime() {
+	timeNow := time.Now()
+	viper.Set("lastupdatechecktime", timeNow)
+	viper.WriteConfig()
+	LastUpdateCheckTime = timeNow
+}
+func getLastUpdateCheckTime() {
+	lastUpdateCheckTimeString := viper.Get("lastupdatechecktime").(string)
+	lastUpdateCheckTime, err := time.Parse(time.RFC3339, lastUpdateCheckTimeString)
+	if err != nil {
+		log.Fatalf("Error parsing time: %v", err)
+	}
+	LastUpdateCheckTime = lastUpdateCheckTime
+
 }
 func initConfig() {
 	viper.SetConfigName("config")
@@ -175,6 +204,8 @@ func initConfig() {
 	viper.AddConfigPath(".")
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Println("Config file not found. Creating a new one.")
+			viper.Set("lastUpdateCheckTime", time.Now())
 			viper.Set("instances", []interface{}{map[string]interface{}{
 				"default": true,
 				"fqdn":    "https://app.coolify.io",
@@ -194,6 +225,7 @@ func initConfig() {
 			// Config file was found but another error was produced
 		}
 	}
+
 	instancesMap := viper.Get("instances").([]interface{})
 	for _, instance := range instancesMap {
 		instanceMap := instance.(map[string]interface{})
@@ -203,5 +235,12 @@ func initConfig() {
 				Token = instanceMap["token"].(string)
 			}
 		}
+	}
+	data, err := CheckLatestVersionOfCli()
+	if err != nil {
+		log.Println(err)
+	}
+	if data != CliVersion {
+		log.Printf("New version of Coolify CLI is available: %s\n", data)
 	}
 }
