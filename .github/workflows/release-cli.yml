@@ -1,7 +1,8 @@
 name: Release CLI
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -22,10 +23,18 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
+          distribution: goreleaser
           version: latest
           args: release --clean 
         env:
