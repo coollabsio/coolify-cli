@@ -20,6 +20,7 @@ var updateCmd = &cobra.Command{
 			log.Printf("error occurred while detecting version: %v", err)
 			return
 		}
+		log.Printf("found latest version: %t", found)
 		if !found {
 			log.Printf("latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
 			return
@@ -35,6 +36,8 @@ var updateCmd = &cobra.Command{
 			log.Printf("could not locate executable path: %v", err)
 			return
 		}
+		log.Printf("Current version: %s, Latest version: %s", Version, latest.Version())
+		log.Printf("asset url: %s, asset name: %s", latest.AssetURL, latest.AssetName)
 		if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
 			fmt.Printf("error occurred while updating binary: %v", err)
 			return
