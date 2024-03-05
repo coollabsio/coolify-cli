@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var CliVersion = "0.0.1"
+var CliVersion = "0.0.0"
 var Version string
 var Name string
 var Fqdn string
