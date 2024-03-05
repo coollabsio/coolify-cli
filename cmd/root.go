@@ -27,9 +27,9 @@ var SetDefaultInstance bool
 var w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
 
 var rootCmd = &cobra.Command{
-	Use:   "coolify-cli",
-	Short: "A brief description of your application",
-	Long:  ``,
+	Use:   "coolify",
+	Short: "Coolify CLI",
+	Long:  `A CLI tool to interact with Coolify API.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
@@ -54,10 +54,6 @@ func Fetch(url string) (string, error) {
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("%d - Failed to fetch data from %s. Error: %s", resp.StatusCode, url, string(body))
-	}
-
-	if err != nil {
-		return "", err
 	}
 
 	return string(body), nil

@@ -237,7 +237,7 @@ var getInstanceCmd = &cobra.Command{
 func init() {
 	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	getInstanceCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	addInstanceCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force the operation")
+	addInstanceCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force")
 	addInstanceCmd.Flags().BoolVarP(&SetDefaultInstance, "default", "d", false, "Set default instance")
 
 	rootCmd.AddCommand(configCmd)
