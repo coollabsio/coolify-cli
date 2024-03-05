@@ -2,4 +2,13 @@ before:
   hooks:
     - go mod tidy
 builds:
-  - binary: go-blueprint
+  - binary: coolify
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
