@@ -52,7 +52,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
-          version: latest
+          version: ${{ env.GITHUB_REF_NAME }}
           args: release --clean
           workdir: ./
         env:
