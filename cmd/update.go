@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	selfupdate "github.com/creativeprojects/go-selfupdate"
+	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 )
 
@@ -17,32 +18,37 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
 		if err != nil {
-			log.Printf("error occurred while detecting version: %v", err)
+			log.Printf("Error occurred while detecting version: %v", err)
 			return
 		}
-		log.Printf("found latest version: %t", found)
 		if !found {
-			log.Printf("latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
+			log.Printf("Latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
 			return
 		}
-
-		if latest.LessOrEqual(Version) {
-			log.Printf("Current version (%s) is the latest", Version)
-			return
-		}
-
-		exe, err := os.Executable()
+		currentVersion, err := compareVersion.NewVersion(CliVersion)
 		if err != nil {
-			log.Printf("could not locate executable path: %v", err)
+			log.Printf("Could not parse current version: %v", err)
 			return
 		}
-		log.Printf("Current version: %s, Latest version: %s", Version, latest.Version())
-		log.Printf("asset url: %s, asset name: %s", latest.AssetURL, latest.AssetName)
-		if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
-			fmt.Printf("error occurred while updating binary: %v", err)
+
+		latestVersion, err := compareVersion.NewVersion(latest.Version())
+		if err != nil {
+			log.Printf("Could not parse latest version: %v", err)
 			return
 		}
-		log.Printf("Successfully updated to version %s", latest.Version())
+		if currentVersion.LessThan(latestVersion) {
+			exe, err := os.Executable()
+			if err != nil {
+				log.Printf("Could not locate executable path: %v", err)
+				return
+			}
+			if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
+				fmt.Printf("Error occurred while updating binary: %v", err)
+				return
+			}
+			log.Printf("Successfully updated to version %s", latest.Version())
+		}
+
 	},
 }
 
