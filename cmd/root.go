@@ -103,7 +103,7 @@ func CheckLatestVersionOfCli() (string, error) {
 		return "", err
 	}
 
-	client := &http.Client{} // Ensure the HTTP client is initialized
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -141,16 +141,19 @@ func CheckLatestVersionOfCli() (string, error) {
 
 	sort.Sort(version.Collection(versions))
 	latestVersion := versions[len(versions)-1].String()
-	fmt.Println("Latest version of Coolify CLI is: ", latestVersion)
 	if latestVersion != CliVersion {
-		fmt.Println("Please upgrade your Coolify CLI to the latest version.")
+		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify --update'.\n\n")
 	}
 	return latestVersion, nil
 
 }
 func Execute() {
-	CheckLatestVersionOfCli()
-	err := rootCmd.Execute()
+	_, err := CheckLatestVersionOfCli()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
