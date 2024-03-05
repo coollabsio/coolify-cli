@@ -1,0 +1,5 @@
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - binary: go-blueprint
