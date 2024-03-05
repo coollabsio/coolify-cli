@@ -148,12 +148,12 @@ func CheckLatestVersionOfCli() (string, error) {
 
 }
 func Execute() {
-	_, err := CheckLatestVersionOfCli()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// _, err := CheckLatestVersionOfCli()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}

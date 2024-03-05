@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"runtime"
 
 	selfupdate "github.com/creativeprojects/go-selfupdate"
@@ -16,11 +17,11 @@ var updateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
 		if err != nil {
-			fmt.Printf("error occurred while detecting version: %w", err)
+			log.Printf("error occurred while detecting version: %v", err)
 			return
 		}
 		if !found {
-			fmt.Printf("latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
+			log.Printf("latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
 			return
 		}
 
@@ -29,15 +30,15 @@ var updateCmd = &cobra.Command{
 			return
 		}
 
-		// exe, err := os.Executable()
-		// if err != nil {
-		// 	errors.New("could not locate executable path")
-		// 	return
-		// }
-		// if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
-		// 	fmt.Printf("error occurred while updating binary: %w", err)
-		// 	return
-		// }
+		exe, err := os.Executable()
+		if err != nil {
+			log.Printf("could not locate executable path: %v", err)
+			return
+		}
+		if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
+			fmt.Printf("error occurred while updating binary: %v", err)
+			return
+		}
 		log.Printf("Successfully updated to version %s", latest.Version())
 	},
 }
