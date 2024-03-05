@@ -7,10 +7,12 @@ import (
 	"os"
 	"text/tabwriter"
 
+	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+var Version string
 var Name string
 var Fqdn string
 var Token string
@@ -35,6 +37,33 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func CheckMinimumVersion(version string) {
+	FetchVersion()
+	requiredVersion, err := compareVersion.NewVersion(version)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	currentVersion, err := compareVersion.NewVersion(Version)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if currentVersion.LessThan(requiredVersion) {
+		fmt.Printf("Minimum required Coolify API version is: %s\n", version)
+		fmt.Print("Please upgrade your Coolify instance for this command.\n\n")
+		os.Exit(1)
+	}
+}
+func FetchVersion() (string, error) {
+	data, err := Fetch("version")
+	if err != nil {
+		fmt.Println(err)
+		return "", err
+	}
+	Version = data
+	return data, nil
+}
 func Fetch(url string) (string, error) {
 	url = Fqdn + "/api/v1/" + url
 	req, err := http.NewRequest("GET", url, nil)
@@ -69,6 +98,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
 	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "https://app.coolify.io", "Coolify instance hostname")
+
+	rootCmd.PersistentFlags().BoolVarP(&JsonMode, "json", "", false, "Json mode")
+	rootCmd.PersistentFlags().BoolVarP(&PrettyMode, "pretty", "", false, "Make json output pretty")
+	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
+	rootCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false, "Force")
 }
 func initConfig() {
 	viper.SetConfigName("config")

@@ -1,26 +1,64 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Configure Coolify instances and tokens.",
+var instancesCmd = &cobra.Command{
+	Use:   "instances",
+	Short: "Coolify instance related commands.",
 }
 
+var instanceVersionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Get instance version.",
+	Run: func(cmd *cobra.Command, args []string) {
+		data, err := Fetch("version")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(data)
+	},
+}
 var listInstancesCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all Coolify instances",
+	Short: "List all Coolify instances.",
 	Run: func(cmd *cobra.Command, args []string) {
 		instances := viper.Get("instances").([]interface{})
 
+		if JsonMode {
+			if PrettyMode {
+				var prettyJSON bytes.Buffer
+				instancesBytes, err := json.Marshal(instances)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Println(prettyJSON.String())
+				return
+			}
+			instancesBytes, err := json.Marshal(instances)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(string(instancesBytes))
+			return
+		}
 		var defaultEntry map[string]interface{}
 		nonDefaultEntries := make([]map[string]interface{}, 0)
-		fmt.Fprintln(w, "Instance\tToken\tDefault")
+		fmt.Fprintln(w, "Fqdn\tToken\tDefault")
 		for _, entry := range instances {
 			entryMap, ok := entry.(map[string]interface{})
 			if !ok {
@@ -59,72 +97,11 @@ var listInstancesCmd = &cobra.Command{
 		fmt.Println("\nNote: Use -s to show sensitive information.")
 	},
 }
-
-var setInstanceCmd = &cobra.Command{
-	Use:   "set",
-	Short: "Set the default Coolify instance or update a token.",
-}
-var setTokenCmd = &cobra.Command{
-	Use:     "token",
-	Example: `config set token "<token>" "<host>"`,
-	Args:    cobra.ExactArgs(2),
-	Short:   "Set token for the given Coolify instance.",
-	Run: func(cmd *cobra.Command, args []string) {
-		Token = args[0]
-		Fqdn = args[1]
-		instances := viper.Get("instances").([]interface{})
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Fqdn {
-				instanceMap["token"] = Token
-			}
-		}
-		viper.Set("instances", instances)
-		viper.WriteConfig()
-		fmt.Printf("%s set with the given token. \n", Fqdn)
-	},
-}
-var setDefaultCmd = &cobra.Command{
-	Use:     "default",
-	Example: `config set default <host>`,
-	Args:    cobra.ExactArgs(1),
-	Short:   "Set the default Coolify instance.",
-
-	Run: func(cmd *cobra.Command, args []string) {
-		DefaultHost := args[0]
-		instances := viper.Get("instances").([]interface{})
-		var found bool
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == DefaultHost {
-				found = true
-				break
-			}
-		}
-		if !found {
-			fmt.Printf("%s not found. \n", DefaultHost)
-			return
-		}
-
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == DefaultHost {
-				instanceMap["default"] = true
-			} else {
-				delete(instanceMap, "default")
-			}
-		}
-		viper.Set("instances", instances)
-		viper.WriteConfig()
-		fmt.Printf("%s set as default. \n", DefaultHost)
-	},
-}
-
 var addInstanceCmd = &cobra.Command{
 	Use:     "add",
-	Example: `config add <host> <token>`,
+	Example: `add <host> <token>`,
 	Args:    cobra.ExactArgs(2),
-	Short:   "Add a Coolify instance",
+	Short:   "Add a Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Host := args[0]
@@ -177,9 +154,9 @@ var addInstanceCmd = &cobra.Command{
 }
 var removeInstanceCmd = &cobra.Command{
 	Use:     "remove",
-	Example: `config remove <host>`,
+	Example: `remove <host>`,
 	Args:    cobra.ExactArgs(1),
-	Short:   "Remove a Coolify instance",
+	Short:   "Remove a Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Host := args[0]
@@ -207,15 +184,123 @@ var removeInstanceCmd = &cobra.Command{
 		fmt.Printf("%s not found. \n", Host)
 	},
 }
+var setCmd = &cobra.Command{
+	Use:   "set",
+	Args:  cobra.ExactArgs(2),
+	Short: "Set default instance or token.",
+	Run: func(cmd *cobra.Command, args []string) {
+	},
+}
+var setTokenCmd = &cobra.Command{
+	Use:     "token",
+	Example: `set token "<token>" "<host>"`,
+	Args:    cobra.ExactArgs(2),
+	Short:   "Set token for the given Coolify instance.",
+	Run: func(cmd *cobra.Command, args []string) {
+		Token = args[0]
+		Fqdn = args[1]
+		var found bool
+		for _, instance := range viper.Get("instances").([]interface{}) {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == Fqdn {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Printf("%s instance is not found. \n", Fqdn)
+			return
+		}
+
+		instances := viper.Get("instances").([]interface{})
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == Fqdn {
+				instanceMap["token"] = Token
+			}
+		}
+		viper.Set("instances", instances)
+		viper.WriteConfig()
+		fmt.Printf("%s set with the given token. \n", Fqdn)
+	},
+}
+var setDefaultCmd = &cobra.Command{
+	Use:     "default",
+	Example: `set default <host>`,
+	Args:    cobra.ExactArgs(1),
+	Short:   "Set the default Coolify instance.",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		DefaultHost := args[0]
+		instances := viper.Get("instances").([]interface{})
+		var found bool
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == DefaultHost {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Printf("%s not found. \n", DefaultHost)
+			return
+		}
+
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == DefaultHost {
+				instanceMap["default"] = true
+			} else {
+				delete(instanceMap, "default")
+			}
+		}
+		viper.Set("instances", instances)
+		viper.WriteConfig()
+		fmt.Printf("%s set as default. \n", DefaultHost)
+	},
+}
 var getInstanceCmd = &cobra.Command{
 	Use:     "get",
 	Example: `config get <host>`,
 	Args:    cobra.ExactArgs(1),
-	Short:   "Get a Coolify instance",
+	Short:   "Get a Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Host := args[0]
 		instances := viper.Get("instances").([]interface{})
+		if JsonMode {
+			if PrettyMode {
+				var prettyJSON bytes.Buffer
+				for _, instance := range instances {
+					instanceMap := instance.(map[string]interface{})
+					instanceMap["token"] = SensitiveInformationOverlay
+				}
+				instancesBytes, err := json.Marshal(instances)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Println(prettyJSON.String())
+				return
+
+			}
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				instanceMap["token"] = SensitiveInformationOverlay
+			}
+			instancesBytes, err := json.Marshal(instances)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(string(instancesBytes))
+			return
+		}
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
 			if instanceMap["fqdn"] == Host {
@@ -235,18 +320,16 @@ var getInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	getInstanceCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	addInstanceCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force")
 	addInstanceCmd.Flags().BoolVarP(&SetDefaultInstance, "default", "d", false, "Set default instance")
 
-	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(listInstancesCmd)
-	configCmd.AddCommand(addInstanceCmd)
-	configCmd.AddCommand(setInstanceCmd)
-	configCmd.AddCommand(getInstanceCmd)
-	configCmd.AddCommand(removeInstanceCmd)
+	rootCmd.AddCommand(instancesCmd)
+	instancesCmd.AddCommand(instanceVersionCmd)
+	instancesCmd.AddCommand(listInstancesCmd)
+	instancesCmd.AddCommand(addInstanceCmd)
+	instancesCmd.AddCommand(removeInstanceCmd)
+	instancesCmd.AddCommand(setCmd)
+	instancesCmd.AddCommand(getInstanceCmd)
+	setCmd.AddCommand(setTokenCmd)
+	setCmd.AddCommand(setDefaultCmd)
 
-	setInstanceCmd.AddCommand(setTokenCmd)
-	setInstanceCmd.AddCommand(setDefaultCmd)
 }

@@ -35,26 +35,16 @@ type Server struct {
 	} `json:"settings"`
 }
 
-var getCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Query resources from the server",
-}
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Get instance version",
-	Run: func(cmd *cobra.Command, args []string) {
-		data, err := Fetch("version")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println(data)
-	},
-}
 var serversCmd = &cobra.Command{
 	Use:   "servers",
-	Short: "Get all servers",
+	Short: "Server related commands",
+}
+
+var listServersCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all servers",
 	Run: func(cmd *cobra.Command, args []string) {
+		CheckMinimumVersion("4.0.0-beta.235")
 		data, err := Fetch("servers")
 		if err != nil {
 			fmt.Println(err)
@@ -94,10 +84,11 @@ var serversCmd = &cobra.Command{
 	},
 }
 var oneServerCmd = &cobra.Command{
-	Use:   "server [uuid]",
+	Use:   "get [uuid]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Get server details by uuid",
 	Run: func(cmd *cobra.Command, args []string) {
+		CheckMinimumVersion("4.0.0-beta.235")
 		uuid := args[0]
 		var url = "server/" + uuid
 		if WithResources {
@@ -157,19 +148,9 @@ var oneServerCmd = &cobra.Command{
 }
 
 func init() {
-	serversCmd.Flags().BoolVarP(&JsonMode, "json", "", false, "Json mode")
-	serversCmd.Flags().BoolVarP(&PrettyMode, "pretty", "", false, "Pretty mode")
-
-	oneServerCmd.Flags().BoolVarP(&JsonMode, "json", "", false, "Json mode")
-	oneServerCmd.Flags().BoolVarP(&PrettyMode, "pretty", "", false, "Pretty mode")
 	oneServerCmd.Flags().BoolVarP(&WithResources, "resources", "", false, "With resources")
-
-	serversCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	oneServerCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-
-	rootCmd.AddCommand(getCmd)
-	getCmd.AddCommand(versionCmd)
-	getCmd.AddCommand(serversCmd)
-	getCmd.AddCommand(oneServerCmd)
+	rootCmd.AddCommand(serversCmd)
+	serversCmd.AddCommand(listServersCmd)
+	serversCmd.AddCommand(oneServerCmd)
 
 }
