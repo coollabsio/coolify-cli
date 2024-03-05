@@ -90,7 +90,7 @@ var serversCmd = &cobra.Command{
 			}
 		}
 		w.Flush()
-		fmt.Println("\nNote: -s to show sensitive information.")
+		fmt.Println("\nNote: Use -s to show sensitive information.")
 	},
 }
 var oneServerCmd = &cobra.Command{
@@ -150,7 +150,7 @@ var oneServerCmd = &cobra.Command{
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%t\n", jsondata.UUID, jsondata.Name, SensitiveInformationOverlay, SensitiveInformationOverlay, SensitiveInformationOverlay, jsondata.Settings.Reachable, jsondata.Settings.Usable)
 			}
 			w.Flush()
-			fmt.Println("\nNote: -s to show sensitive information.")
+			fmt.Println("\nNote: Use -s to show sensitive information.")
 		}
 
 	},

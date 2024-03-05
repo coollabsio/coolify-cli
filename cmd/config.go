@@ -14,7 +14,7 @@ var configCmd = &cobra.Command{
 
 var listInstancesCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all instances.",
+	Short: "List all Coolify instances",
 	Run: func(cmd *cobra.Command, args []string) {
 		instances := viper.Get("instances").([]interface{})
 
@@ -56,19 +56,19 @@ var listInstancesCmd = &cobra.Command{
 			}
 		}
 		w.Flush()
-		fmt.Println("\nNote: -s to show sensitive information.")
+		fmt.Println("\nNote: Use -s to show sensitive information.")
 	},
 }
 
 var setInstanceCmd = &cobra.Command{
 	Use:   "set",
-	Short: "Set the default instance or update a token.",
+	Short: "Set the default Coolify instance or update a token.",
 }
 var setTokenCmd = &cobra.Command{
 	Use:     "token",
 	Example: `config set token "<token>" "<host>"`,
 	Args:    cobra.ExactArgs(2),
-	Short:   "Set token for the given instance.",
+	Short:   "Set token for the given Coolify instance.",
 	Run: func(cmd *cobra.Command, args []string) {
 		Token = args[0]
 		Fqdn = args[1]
@@ -88,7 +88,7 @@ var setDefaultCmd = &cobra.Command{
 	Use:     "default",
 	Example: `config set default <host>`,
 	Args:    cobra.ExactArgs(1),
-	Short:   "Set the default instance.",
+	Short:   "Set the default Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		DefaultHost := args[0]
@@ -107,12 +107,51 @@ var setDefaultCmd = &cobra.Command{
 	},
 }
 
+var addDefaultCmd = &cobra.Command{
+	Use:     "add",
+	Example: `config add <host> <token>`,
+	Args:    cobra.ExactArgs(2),
+	Short:   "Add a Coolify instance",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		Host := args[0]
+		Token := args[1]
+		instances := viper.Get("instances").([]interface{})
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == Host {
+				if Force {
+					fmt.Printf("%s already exists. Force overwriting. \n", Host)
+					instanceMap["token"] = Token
+					viper.Set("instances", instances)
+					viper.WriteConfig()
+					return
+				}
+				fmt.Printf("%s already exists. \n", Host)
+				fmt.Println("\nNote: Use -f to force overwrite.")
+				return
+			}
+		}
+
+		instances = append(instances, map[string]interface{}{
+			"fqdn":  Host,
+			"token": Token,
+		})
+		viper.Set("instances", instances)
+		viper.WriteConfig()
+		fmt.Printf("%s added. \n", Host)
+
+	},
+}
+
 func init() {
 	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
+	addDefaultCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force the operation")
 
 	rootCmd.AddCommand(configCmd)
 	configCmd.AddCommand(setInstanceCmd)
 	configCmd.AddCommand(listInstancesCmd)
+	configCmd.AddCommand(addDefaultCmd)
 	setInstanceCmd.AddCommand(setTokenCmd)
 	setInstanceCmd.AddCommand(setDefaultCmd)
 }

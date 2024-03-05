@@ -15,10 +15,14 @@ var Name string
 var Fqdn string
 var Token string
 var Instance http.Client
-var ShowSensitive bool
 var SensitiveInformationOverlay = "********"
+
+// Flags
+var ShowSensitive bool
+var Force bool
 var JsonMode bool
 var PrettyMode bool
+
 var w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
 
 var rootCmd = &cobra.Command{
