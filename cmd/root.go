@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"text/tabwriter"
 
+	"github.com/hashicorp/go-version"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -88,15 +91,61 @@ func Fetch(url string) (string, error) {
 
 	return string(body), nil
 }
-func CheckLatestVersionOfCli() {
-	latestVersion, err := Fetch("cli/latest")
+
+type Tag struct {
+	Ref string `json:"ref"`
+}
+
+func CheckLatestVersionOfCli() (string, error) {
+	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return "", err
 	}
-	if latestVersion != Version {
-		fmt.Printf("New version of Coolify CLI is available. Please upgrade to %s\n", latestVersion)
+
+	client := &http.Client{} // Ensure the HTTP client is initialized
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
 	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("%d - Failed to fetch data from %s. Error: %s", resp.StatusCode, url, string(body))
+	}
+
+	var tags []Tag
+	if err := json.Unmarshal(body, &tags); err != nil {
+		return "", err
+	}
+
+	versionsRaw := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		versionStr := tag.Ref[10:]
+		versionsRaw = append(versionsRaw, versionStr)
+	}
+
+	versions := make([]*version.Version, len(versionsRaw))
+	for i, raw := range versionsRaw {
+		v, err := version.NewVersion(raw)
+		if err != nil {
+			return "", err
+		}
+		versions[i] = v
+	}
+
+	sort.Sort(version.Collection(versions))
+	latestVersion := versions[len(versions)-1].String()
+	fmt.Println("Latest version of Coolify CLI is: ", latestVersion)
+	if latestVersion != CliVersion {
+		fmt.Println("Please upgrade your Coolify CLI to the latest version.")
+	}
+	return latestVersion, nil
 
 }
 func Execute() {
