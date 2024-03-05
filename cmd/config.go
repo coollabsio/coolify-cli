@@ -9,7 +9,7 @@ import (
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Configure tokens and instances.",
+	Short: "Configure Coolify instances and tokens.",
 }
 
 var listInstancesCmd = &cobra.Command{
@@ -35,7 +35,7 @@ var listInstancesCmd = &cobra.Command{
 		}
 		if defaultEntry != nil {
 			if defaultEntry["token"] == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], "(empty)", "true")
+				fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], "", "true")
 			} else {
 				if ShowSensitive {
 					fmt.Fprintf(w, "%s\t%s\t%s\n", defaultEntry["fqdn"], defaultEntry["token"], "true")
@@ -46,12 +46,12 @@ var listInstancesCmd = &cobra.Command{
 		}
 		for _, entryMap := range nonDefaultEntries {
 			if entryMap["token"] == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], "(empty)", "true")
+				fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], "", "")
 			} else {
 				if ShowSensitive {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], entryMap["token"], "true")
+					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], entryMap["token"], "")
 				} else {
-					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], SensitiveInformationOverlay, "true")
+					fmt.Fprintf(w, "%s\t%s\t%s\n", entryMap["fqdn"], SensitiveInformationOverlay, "")
 				}
 			}
 		}
@@ -93,6 +93,19 @@ var setDefaultCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		DefaultHost := args[0]
 		instances := viper.Get("instances").([]interface{})
+		var found bool
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == DefaultHost {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Printf("%s not found. \n", DefaultHost)
+			return
+		}
+
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
 			if instanceMap["fqdn"] == DefaultHost {
@@ -107,7 +120,7 @@ var setDefaultCmd = &cobra.Command{
 	},
 }
 
-var addDefaultCmd = &cobra.Command{
+var addInstanceCmd = &cobra.Command{
 	Use:     "add",
 	Example: `config add <host> <token>`,
 	Args:    cobra.ExactArgs(2),
@@ -143,15 +156,67 @@ var addDefaultCmd = &cobra.Command{
 
 	},
 }
+var removeInstanceCmd = &cobra.Command{
+	Use:     "remove",
+	Example: `config remove <host>`,
+	Args:    cobra.ExactArgs(1),
+	Short:   "Remove a Coolify instance",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		Host := args[0]
+		instances := viper.Get("instances").([]interface{})
+		for i, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == Host {
+				instances = append(instances[:i], instances[i+1:]...)
+				viper.Set("instances", instances)
+				viper.WriteConfig()
+				fmt.Printf("%s removed. \n", Host)
+				return
+			}
+		}
+		fmt.Printf("%s not found. \n", Host)
+	},
+}
+var getInstanceCmd = &cobra.Command{
+	Use:     "get",
+	Example: `config get <host>`,
+	Args:    cobra.ExactArgs(1),
+	Short:   "Get a Coolify instance",
+
+	Run: func(cmd *cobra.Command, args []string) {
+		Host := args[0]
+		instances := viper.Get("instances").([]interface{})
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["fqdn"] == Host {
+				fmt.Fprintln(w, "Host\tToken")
+				if ShowSensitive {
+					fmt.Fprintf(w, "%s\t%s\n", Host, instanceMap["token"])
+				} else {
+					fmt.Fprintf(w, "%s\t%s\n", Host, SensitiveInformationOverlay)
+				}
+				w.Flush()
+				fmt.Println("\nNote: Use -s to show sensitive information.")
+				return
+			}
+		}
+		fmt.Printf("%s not found. \n", Host)
+	},
+}
 
 func init() {
 	listInstancesCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	addDefaultCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force the operation")
+	getInstanceCmd.Flags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
+	addInstanceCmd.Flags().BoolVarP(&Force, "force", "f", false, "Force the operation")
 
 	rootCmd.AddCommand(configCmd)
-	configCmd.AddCommand(setInstanceCmd)
 	configCmd.AddCommand(listInstancesCmd)
-	configCmd.AddCommand(addDefaultCmd)
+	configCmd.AddCommand(addInstanceCmd)
+	configCmd.AddCommand(setInstanceCmd)
+	configCmd.AddCommand(getInstanceCmd)
+	configCmd.AddCommand(removeInstanceCmd)
+
 	setInstanceCmd.AddCommand(setTokenCmd)
 	setInstanceCmd.AddCommand(setDefaultCmd)
 }
