@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+var CliVersion = "0.0.1"
 var Version string
 var Name string
 var Fqdn string
@@ -87,7 +88,19 @@ func Fetch(url string) (string, error) {
 
 	return string(body), nil
 }
+func CheckLatestVersionOfCli() {
+	latestVersion, err := Fetch("cli/latest")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if latestVersion != Version {
+		fmt.Printf("New version of Coolify CLI is available. Please upgrade to %s\n", latestVersion)
+	}
+
+}
 func Execute() {
+	CheckLatestVersionOfCli()
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
