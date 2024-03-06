@@ -7,11 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"sort"
 	"text/tabwriter"
 	"time"
 
+	"github.com/adrg/xdg"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,6 +20,8 @@ import (
 var CliVersion = "0.0.1"
 var LastUpdateCheckTime time.Time
 var CheckInverval = 10 * time.Minute
+
+var ConfigDir = xdg.ConfigHome
 
 var Version string
 var Name string
@@ -167,10 +169,7 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-func isNumber(value interface{}) bool {
-	kind := reflect.TypeOf(value).Kind()
-	return kind >= reflect.Int && kind <= reflect.Float64
-}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -201,10 +200,13 @@ func getLastUpdateCheckTime() {
 func initConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath(ConfigDir + "/coolify")
+	if _, err := os.Stat(ConfigDir + "/coolify"); os.IsNotExist(err) {
+		os.MkdirAll(ConfigDir+"/coolify", 0755)
+	}
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Println("Config file not found. Creating a new one.")
+			log.Println("Config file not found. Creating a new one at", ConfigDir+"/coolify/config.json")
 			viper.Set("lastUpdateCheckTime", time.Now())
 			viper.Set("instances", []interface{}{map[string]interface{}{
 				"default": true,
@@ -226,6 +228,9 @@ func initConfig() {
 		}
 	}
 
+	if Debug {
+		log.Println("Using config file:", viper.ConfigFileUsed())
+	}
 	instancesMap := viper.Get("instances").([]interface{})
 	for _, instance := range instancesMap {
 		instanceMap := instance.(map[string]interface{})
