@@ -58,42 +58,19 @@ var listInstancesCmd = &cobra.Command{
 			fmt.Println(string(instancesBytes))
 			return
 		}
-		var defaultEntry map[string]interface{}
-		nonDefaultEntries := make([]map[string]interface{}, 0)
-		fmt.Fprintln(w, "Line #\tFqdn\tToken\tDefault")
-		for _, entry := range instances {
+		fmt.Fprintln(w, "Line#\tFqdn\tToken\tDefault")
+		for index, entry := range instances {
 			entryMap, ok := entry.(map[string]interface{})
 			if !ok {
 				fmt.Println("Error")
 				return
 			}
-			if isDefault, ok := entryMap["default"].(bool); ok && isDefault {
-				defaultEntry = entryMap
+			if ShowSensitive {
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+1, entryMap["fqdn"], entryMap["token"], map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
 			} else {
-				nonDefaultEntries = append(nonDefaultEntries, entryMap)
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+1, entryMap["fqdn"], SensitiveInformationOverlay, map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
 			}
-		}
-		if defaultEntry != nil {
-			if defaultEntry["token"] == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], "", "true")
-			} else {
-				if ShowSensitive {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], defaultEntry["token"], "true")
-				} else {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "1", defaultEntry["fqdn"], SensitiveInformationOverlay, "true")
-				}
-			}
-		}
-		for index, entryMap := range nonDefaultEntries {
-			if entryMap["token"] == "" {
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], "", "")
-			} else {
-				if ShowSensitive {
-					fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], entryMap["token"], "")
-				} else {
-					fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+2, entryMap["fqdn"], SensitiveInformationOverlay, "")
-				}
-			}
+
 		}
 		w.Flush()
 		fmt.Println("\nNote: Use -s to show sensitive information.")
@@ -201,29 +178,54 @@ var setTokenCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		Token = args[0]
 		Fqdn = args[1]
-		var found bool
-		for _, instance := range viper.Get("instances").([]interface{}) {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Fqdn {
-				found = true
-				break
+		if strings.HasPrefix(Fqdn, "http") {
+			var found bool
+			for _, instance := range viper.Get("instances").([]interface{}) {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["fqdn"] == Fqdn {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			fmt.Printf("%s instance is not found. \n", Fqdn)
-			return
-		}
+			if !found {
+				fmt.Printf("%s instance is not found. \n", Fqdn)
+				return
+			}
 
-		instances := viper.Get("instances").([]interface{})
-		for _, instance := range instances {
-			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Fqdn {
-				instanceMap["token"] = Token
+			instances := viper.Get("instances").([]interface{})
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["fqdn"] == Fqdn {
+					instanceMap["token"] = Token
+				}
 			}
+			viper.Set("instances", instances)
+			viper.WriteConfig()
+		} else {
+			lineNumber, err := strconv.Atoi(Fqdn)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			instances := viper.Get("instances").([]interface{})
+			if len(instances) == 0 {
+				fmt.Println("No instances found.")
+				return
+			}
+			if lineNumber < 1 || lineNumber > len(instances) {
+				fmt.Println("Invalid line number.")
+				return
+			}
+			for i, instance := range instances {
+				if i+1 == lineNumber {
+					instanceMap := instance.(map[string]interface{})
+					instanceMap["token"] = Token
+				}
+			}
+			viper.Set("instances", instances)
+			viper.WriteConfig()
 		}
-		viper.Set("instances", instances)
-		viper.WriteConfig()
-		fmt.Printf("%s set with the given token. \n", Fqdn)
+		listInstancesCmd.Run(cmd, args)
 	},
 }
 var setDefaultCmd = &cobra.Command{
@@ -259,39 +261,34 @@ var setDefaultCmd = &cobra.Command{
 			}
 			viper.Set("instances", instances)
 			viper.WriteConfig()
-			fmt.Printf("%s set as default. \n", DefaultHost)
 		} else {
 			lineNumber, err := strconv.Atoi(DefaultHost)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
-			println(lineNumber)
-			// TODO
-			// instances := viper.Get("instances").([]interface{})
-			// if len(instances) == 0 {
-			// 	fmt.Println("No instances found.")
-			// 	return
-			// }
-			// if len(instances) < lineNumber {
-			// 	fmt.Println("Invalid line number.")
-			// 	return
-			// }
-			// for i, instance := range instances {
-			// 	instanceMap := instance.(map[string]interface{})
-			// 	if lineNumber == 1 {
-			// 		instanceMap["default"] = true
-			// 	} else if i == lineNumber-2 {
-			// 		instanceMap["default"] = true
-			// 	} else {
-			// 		delete(instanceMap, "default")
-			// 	}
-			// }
-			// viper.Set("instances", instances)
-			// viper.WriteConfig()
-			// fmt.Printf("%s set as default. \n", instances[lineNumber-2].(map[string]interface{})["fqdn"])
+			instances := viper.Get("instances").([]interface{})
+			if len(instances) == 0 {
+				fmt.Println("No instances found.")
+				return
+			}
+			if lineNumber < 1 || lineNumber > len(instances) {
+				fmt.Println("Invalid line number.")
+				return
+			}
+			for i, instance := range instances {
+				if i+1 == lineNumber {
+					instanceMap := instance.(map[string]interface{})
+					instanceMap["default"] = true
+				} else {
+					instanceMap := instance.(map[string]interface{})
+					delete(instanceMap, "default")
+				}
+			}
+			viper.Set("instances", instances)
+			viper.WriteConfig()
 		}
-
+		listInstancesCmd.Run(cmd, args)
 	},
 }
 var getInstanceCmd = &cobra.Command{
