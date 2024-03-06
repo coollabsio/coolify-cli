@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,22 +32,22 @@ var listInstancesCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		instances := viper.Get("instances").([]interface{})
 
-		if JsonMode {
-			if PrettyMode {
-				var prettyJSON bytes.Buffer
-				instancesBytes, err := json.Marshal(instances)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(prettyJSON.String())
+		if PrettyMode {
+			var prettyJSON bytes.Buffer
+			instancesBytes, err := json.Marshal(instances)
+			if err != nil {
+				fmt.Println(err)
 				return
 			}
+			err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(prettyJSON.String())
+			return
+		}
+		if JsonMode {
 			instancesBytes, err := json.Marshal(instances)
 			if err != nil {
 				fmt.Println(err)
@@ -58,7 +56,7 @@ var listInstancesCmd = &cobra.Command{
 			fmt.Println(string(instancesBytes))
 			return
 		}
-		fmt.Fprintln(w, "Line#\tFqdn\tToken\tDefault")
+		fmt.Fprintln(w, "#\tName\tFqdn\tToken\tDefault")
 		for index, entry := range instances {
 			entryMap, ok := entry.(map[string]interface{})
 			if !ok {
@@ -66,9 +64,9 @@ var listInstancesCmd = &cobra.Command{
 				return
 			}
 			if ShowSensitive {
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+1, entryMap["fqdn"], entryMap["token"], map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", index+1, entryMap["name"], entryMap["fqdn"], entryMap["token"], map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
 			} else {
-				fmt.Fprintf(w, "%d\t%s\t%s\t%s\n", index+1, entryMap["fqdn"], SensitiveInformationOverlay, map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
+				fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", index+1, entryMap["name"], entryMap["fqdn"], SensitiveInformationOverlay, map[bool]string{true: "true", false: ""}[entryMap["default"] == true])
 			}
 
 		}
@@ -78,17 +76,17 @@ var listInstancesCmd = &cobra.Command{
 }
 var addInstanceCmd = &cobra.Command{
 	Use:     "add",
-	Example: `add <host> <token>`,
-	Args:    cobra.ExactArgs(2),
+	Example: `add <instanceName> <fqdn> <token>`,
+	Args:    cobra.ExactArgs(3),
 	Short:   "Add a Coolify instance.",
-
 	Run: func(cmd *cobra.Command, args []string) {
-		Host := args[0]
-		Token := args[1]
+		Name := args[0]
+		Host := args[1]
+		Token := args[2]
 		instances := viper.Get("instances").([]interface{})
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Host {
+			if instanceMap["name"] == Name {
 				if Force {
 					instanceMap["token"] = Token
 					if SetDefaultInstance {
@@ -97,21 +95,22 @@ var addInstanceCmd = &cobra.Command{
 							delete(instanceMap, "default")
 						}
 						instanceMap["default"] = true
-						fmt.Printf("%s already exists. Force overwriting. Setting it as default. \n", Host)
+						fmt.Printf("%s already exists. Force overwriting. Setting it as default. \n", Name)
 					} else {
-						fmt.Printf("%s already exists. Force overwriting. \n", Host)
+						fmt.Printf("%s already exists. Force overwriting. \n", Name)
 					}
 					viper.Set("instances", instances)
 					viper.WriteConfig()
 					return
 				}
-				fmt.Printf("%s already exists. \n", Host)
+				fmt.Printf("%s already exists. \n", Name)
 				fmt.Println("\nNote: Use -f to force overwrite.")
 				return
 			}
 		}
 
 		instances = append(instances, map[string]interface{}{
+			"name":  Name,
 			"fqdn":  Host,
 			"token": Token,
 		})
@@ -122,31 +121,28 @@ var addInstanceCmd = &cobra.Command{
 				delete(instanceMap, "default")
 			}
 			instances[len(instances)-1].(map[string]interface{})["default"] = true
-			fmt.Printf("%s added and set as default.\n", Host)
-		} else {
-			fmt.Printf("%s added. \n", Host)
 		}
-
 		viper.Set("instances", instances)
 		viper.WriteConfig()
+		listInstancesCmd.Run(cmd, args)
 	},
 }
 var removeInstanceCmd = &cobra.Command{
 	Use:     "remove",
-	Example: `remove <host>`,
+	Example: `remove <instanceName>`,
 	Args:    cobra.ExactArgs(1),
 	Short:   "Remove a Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		Host := args[0]
+		Name := args[0]
 		instances := viper.Get("instances").([]interface{})
 		for i, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Host {
+			if instanceMap["name"] == Name {
 				instances = append(instances[:i], instances[i+1:]...)
 				viper.Set("instances", instances)
 				viper.WriteConfig()
-				fmt.Printf("%s removed. \n", Host)
+				fmt.Printf("%s removed. \n", Name)
 				if instanceMap["default"] == true {
 					fmt.Println("Note: The default instance has been removed.")
 					if len(instances) > 0 {
@@ -156,11 +152,10 @@ var removeInstanceCmd = &cobra.Command{
 						fmt.Printf("%s set as default. \n", instances[0].(map[string]interface{})["fqdn"])
 					}
 				}
-
 				return
 			}
 		}
-		fmt.Printf("%s not found. \n", Host)
+		fmt.Printf("%s not found. \n", Name)
 	},
 }
 var setCmd = &cobra.Command{
@@ -172,155 +167,99 @@ var setCmd = &cobra.Command{
 }
 var setTokenCmd = &cobra.Command{
 	Use:     "token",
-	Example: `set token "<token>" "<host>"`,
+	Example: `set token <instanceName> "<token>"`,
 	Args:    cobra.ExactArgs(2),
 	Short:   "Set token for the given Coolify instance.",
 	Run: func(cmd *cobra.Command, args []string) {
-		Token = args[0]
-		Fqdn = args[1]
-		if strings.HasPrefix(Fqdn, "http") {
-			var found bool
-			for _, instance := range viper.Get("instances").([]interface{}) {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["fqdn"] == Fqdn {
-					found = true
-					break
-				}
+		Name = args[0]
+		Token = args[1]
+		var found interface{}
+		for _, instance := range viper.Get("instances").([]interface{}) {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["name"] == Name {
+				found = instanceMap
+				break
 			}
-			if !found {
-				fmt.Printf("%s instance is not found. \n", Fqdn)
-				return
-			}
-
-			instances := viper.Get("instances").([]interface{})
-			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["fqdn"] == Fqdn {
-					instanceMap["token"] = Token
-				}
-			}
-			viper.Set("instances", instances)
-			viper.WriteConfig()
-		} else {
-			lineNumber, err := strconv.Atoi(Fqdn)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			instances := viper.Get("instances").([]interface{})
-			if len(instances) == 0 {
-				fmt.Println("No instances found.")
-				return
-			}
-			if lineNumber < 1 || lineNumber > len(instances) {
-				fmt.Println("Invalid line number.")
-				return
-			}
-			for i, instance := range instances {
-				if i+1 == lineNumber {
-					instanceMap := instance.(map[string]interface{})
-					instanceMap["token"] = Token
-				}
-			}
-			viper.Set("instances", instances)
-			viper.WriteConfig()
 		}
+		if found == nil {
+			fmt.Printf("%s instance is not found. \n", Name)
+			return
+		}
+		instances := viper.Get("instances").([]interface{})
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["name"] == Name {
+				instanceMap["token"] = Token
+			}
+		}
+		viper.Set("instances", instances)
+		viper.WriteConfig()
 		listInstancesCmd.Run(cmd, args)
 	},
 }
 var setDefaultCmd = &cobra.Command{
 	Use:     "default",
-	Example: `set default <host|linenumber>`,
+	Example: `set default <instanceName>`,
 	Args:    cobra.ExactArgs(1),
 	Short:   "Set the default Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		DefaultHost := args[0]
-		if strings.HasPrefix(DefaultHost, "http") {
-			instances := viper.Get("instances").([]interface{})
-			var found bool
-			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["fqdn"] == DefaultHost {
-					found = true
-					break
-				}
+		Name := args[0]
+		instances := viper.Get("instances").([]interface{})
+		var found interface{}
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["name"] == Name {
+				found = instanceMap
+				break
 			}
-			if !found {
-				fmt.Printf("%s not found. \n", DefaultHost)
-				return
-			}
-
-			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["fqdn"] == DefaultHost {
-					instanceMap["default"] = true
-				} else {
-					delete(instanceMap, "default")
-				}
-			}
-			viper.Set("instances", instances)
-			viper.WriteConfig()
-		} else {
-			lineNumber, err := strconv.Atoi(DefaultHost)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			instances := viper.Get("instances").([]interface{})
-			if len(instances) == 0 {
-				fmt.Println("No instances found.")
-				return
-			}
-			if lineNumber < 1 || lineNumber > len(instances) {
-				fmt.Println("Invalid line number.")
-				return
-			}
-			for i, instance := range instances {
-				if i+1 == lineNumber {
-					instanceMap := instance.(map[string]interface{})
-					instanceMap["default"] = true
-				} else {
-					instanceMap := instance.(map[string]interface{})
-					delete(instanceMap, "default")
-				}
-			}
-			viper.Set("instances", instances)
-			viper.WriteConfig()
 		}
+		if found == nil {
+			fmt.Printf("%s not found. \n", Name)
+			return
+		}
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["name"] == Name {
+				instanceMap["default"] = true
+			} else {
+				delete(instanceMap, "default")
+			}
+		}
+		viper.Set("instances", instances)
+		viper.WriteConfig()
 		listInstancesCmd.Run(cmd, args)
 	},
 }
 var getInstanceCmd = &cobra.Command{
 	Use:     "get",
-	Example: `config get <host>`,
+	Example: `config get <instanceName>`,
 	Args:    cobra.ExactArgs(1),
 	Short:   "Get a Coolify instance.",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		Host := args[0]
+		Name := args[0]
 		instances := viper.Get("instances").([]interface{})
-		if JsonMode {
-			if PrettyMode {
-				var prettyJSON bytes.Buffer
-				for _, instance := range instances {
-					instanceMap := instance.(map[string]interface{})
-					instanceMap["token"] = SensitiveInformationOverlay
-				}
-				instancesBytes, err := json.Marshal(instances)
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(prettyJSON.String())
-				return
-
+		if PrettyMode {
+			var prettyJSON bytes.Buffer
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				instanceMap["token"] = SensitiveInformationOverlay
 			}
+			instancesBytes, err := json.Marshal(instances)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			err = json.Indent(&prettyJSON, instancesBytes, "", "\t")
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(prettyJSON.String())
+			return
+		}
+		if JsonMode {
 			for _, instance := range instances {
 				instanceMap := instance.(map[string]interface{})
 				instanceMap["token"] = SensitiveInformationOverlay
@@ -335,19 +274,19 @@ var getInstanceCmd = &cobra.Command{
 		}
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
-			if instanceMap["fqdn"] == Host {
-				fmt.Fprintln(w, "Host\tToken")
+			if instanceMap["name"] == Name {
+				fmt.Fprintln(w, "Name\tHost\tToken")
 				if ShowSensitive {
-					fmt.Fprintf(w, "%s\t%s\n", Host, instanceMap["token"])
+					fmt.Fprintf(w, "%s\t%s\t%s\n", Name, instanceMap["fqdn"], instanceMap["token"])
 				} else {
-					fmt.Fprintf(w, "%s\t%s\n", Host, SensitiveInformationOverlay)
+					fmt.Fprintf(w, "%s\t%s\t%s\n", Name, instanceMap["fqdn"], SensitiveInformationOverlay)
 				}
 				w.Flush()
 				fmt.Println("\nNote: Use -s to show sensitive information.")
 				return
 			}
 		}
-		fmt.Printf("%s not found. \n", Host)
+		fmt.Printf("%s not found. \n", Name)
 	},
 }
 

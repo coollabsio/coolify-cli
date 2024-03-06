@@ -1,4 +1,11 @@
 #!/bin/bash
+# This script installs the coolify-cli to /usr/local/bin/coolify from Github release
+
+args=("$@")
+custom_version=${args[0]}
+if [ -z "$custom_version" ]; then
+  custom_version="0.0.1"
+fi
 
 # Function to detect platform, architecture, etc.
 detect_platform() {
@@ -34,22 +41,26 @@ download_from_github() {
   # Construct download URL
   local download_url="https://github.com/${repo}/releases/download/${release}/${filename}"
 
-  # Use curl to download the file
-  curl -L -o "${filename}" $download_url
+  # Use curl to download the file quietly
+  echo "Downloading ${name} from ${download_url}"
+  curl -sL -o "${filename}" "${download_url}"
 
   # Determine the binary directory
   local binary_dir=""
   if [ "$OS" == "linux" ] || [ "$OS" == "darwin" ]; then
     binary_dir="/usr/local/bin"
   fi
+  echo "Installing ${name} to ${binary_dir}/coolify"
+  sudo tar -xzvf "${filename}" -C "${binary_dir}" > /dev/null
 
-  sudo tar -xzvf "${filename}" -C "${binary_dir}"
+  # Make the binary executable
+  sudo chmod +x "${binary_dir}/coolify"
 
   # Cleanup
   rm "${filename}"
 
-  echo "${name} installed successfully to ${binary_dir}"
+  echo "${name} installed successfully to ${binary_dir}/coolify"
 }
 
 detect_platform
-download_from_github "coollabsio/coolify-cli" "0.0.1" "coolify-cli"
+download_from_github "coollabsio/coolify-cli" $custom_version "coolify-cli"

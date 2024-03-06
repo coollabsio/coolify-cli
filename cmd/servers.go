@@ -51,17 +51,17 @@ var listServersCmd = &cobra.Command{
 			log.Println(err)
 			return
 		}
-		if JsonMode {
-			if PrettyMode {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(string(prettyJSON.String()))
+		if PrettyMode {
+			var prettyJSON bytes.Buffer
+			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
+			if err != nil {
+				fmt.Println(err)
 				return
 			}
+			fmt.Println(string(prettyJSON.String()))
+			return
+		}
+		if JsonMode {
 			fmt.Println(data)
 			return
 		}
@@ -101,17 +101,17 @@ var oneServerCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		if JsonMode {
-			if PrettyMode {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(string(prettyJSON.String()))
+		if PrettyMode {
+			var prettyJSON bytes.Buffer
+			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
+			if err != nil {
+				fmt.Println(err)
 				return
 			}
+			fmt.Println(string(prettyJSON.String()))
+			return
+		}
+		if JsonMode {
 			fmt.Println(data)
 			return
 		}

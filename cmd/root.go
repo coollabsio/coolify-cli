@@ -83,6 +83,9 @@ func FetchVersion() (string, error) {
 }
 func Fetch(url string) (string, error) {
 	url = Fqdn + "/api/v1/" + url
+	if Debug {
+		log.Println("Fetching data from", url)
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -174,13 +177,13 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
-	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "https://app.coolify.io", "Coolify instance hostname")
+	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "", "Coolify instance hostname")
 
 	rootCmd.PersistentFlags().BoolVarP(&JsonMode, "json", "", false, "Json mode")
-	rootCmd.PersistentFlags().BoolVarP(&PrettyMode, "pretty", "", false, "Make json output pretty")
+	rootCmd.PersistentFlags().BoolVarP(&PrettyMode, "pretty", "", false, "Pretty json mode")
 	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	rootCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false, "Force")
-	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "d", false, "Debug mode")
+	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "", false, "Debug mode")
 }
 func setLastUpdateCheckTime() {
 	timeNow := time.Now()
@@ -209,12 +212,14 @@ func initConfig() {
 			log.Println("Config file not found. Creating a new one at", ConfigDir+"/coolify/config.json")
 			viper.Set("lastUpdateCheckTime", time.Now())
 			viper.Set("instances", []interface{}{map[string]interface{}{
+				"name":    "cloud",
 				"default": true,
 				"fqdn":    "https://app.coolify.io",
 				"token":   "",
 			},
 			})
 			viper.Set("instances", append(viper.Get("instances").([]interface{}), map[string]interface{}{
+				"name":  "localhost",
 				"fqdn":  "http://localhost:8000",
 				"token": "",
 			}))
@@ -235,7 +240,9 @@ func initConfig() {
 	for _, instance := range instancesMap {
 		instanceMap := instance.(map[string]interface{})
 		if instanceMap["default"] == true {
-			Fqdn = instanceMap["fqdn"].(string)
+			if Fqdn == "" {
+				Fqdn = instanceMap["fqdn"].(string)
+			}
 			if Token == "" {
 				Token = instanceMap["token"].(string)
 			}
