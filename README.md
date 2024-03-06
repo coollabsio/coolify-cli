@@ -13,15 +13,16 @@ It will install the CLI in `/usr/local/bin/coolify` and the configuration file i
 ## Configuration
 1. Get a `<token>` from your Coolify dashboard (Cloud or self-hosted) at `/security/api-tokens`
 
-If you are using the Cloud version:
+### Cloud
 
-2. Add the token with `coolify instances set token <token> https://app.coolify.io`
+2. Add the token with `coolify instances set token cloud <token>`
 
-If you are using a self-hosted version:
+### Self-hosted
 
-2. Add the token with `coolify instances add -d <fqdn> <token>`
+2. Add the token with `coolify instances add -d <name> <fqdn> <token>`
    
-> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance
+> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
+> Replace `<name>` with the name you want to give to the instance.
 
 Now you can use the CLI with the token you just added.
 
