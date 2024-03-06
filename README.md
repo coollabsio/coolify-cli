@@ -1,1 +1,1 @@
-# CLI for [Coolify](https://coolify.io)
+# CLI for [Coolify](https://coolify.io) API
