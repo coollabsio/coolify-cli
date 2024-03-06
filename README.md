@@ -21,14 +21,14 @@ It will install the CLI in `/usr/local/bin/coolify` and the configuration file i
 
 2. Add the token with `coolify instances add -d <name> <fqdn> <token>`
    
-> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
-> 
 > Replace `<name>` with the name you want to give to the instance.
+>
+> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
 
 Now you can use the CLI with the token you just added.
 
 ## Change default instance
-You can change the default instance with `coolify instances set default <fqdn|linenumber>`
+You can change the default instance with `coolify instances set default <name>`
 ## Currently Supported Commands
 ### Update
 - `coolify update` - Update the CLI to the latest version
