@@ -58,24 +58,24 @@ func CheckMinimumVersion(version string) {
 	requiredVersion, err := compareVersion.NewVersion(version)
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(0)
 	}
 	currentVersion, err := compareVersion.NewVersion(Version)
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(0)
 	}
 	if currentVersion.LessThan(requiredVersion) {
 		log.Printf("Minimum required Coolify API version is: %s\n", version)
-		log.Print("Please upgrade your Coolify instance for this command.\n\n")
-		os.Exit(1)
+		log.Print("Please upgrade your Coolify instance for this command.\n")
+		os.Exit(0)
 	}
 }
 func FetchVersion() (string, error) {
 	data, err := Fetch("version")
 	if err != nil {
 		log.Println(err)
-		os.Exit(1)
+		os.Exit(0)
 		return "", err
 	}
 	Version = data
@@ -169,7 +169,7 @@ func CheckLatestVersionOfCli() (string, error) {
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		os.Exit(1)
+		os.Exit(0)
 	}
 }
 
