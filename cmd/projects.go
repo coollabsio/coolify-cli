@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var WithResources bool
+var WithPrograms bool
 
-type Resource struct {
+type Program struct {
 	ID     int    `json:"id"`
 	Uuid   string `json:"uuid"`
 	Name   string `json:"name"`
@@ -19,8 +19,8 @@ type Resource struct {
 	Status string `json:"status"`
 }
 
-type Resources struct {
-	Resources []Resource `json:"resources"`
+type Programs struct {
+	Programs []Program `json:"programs"`
 }
 
 type Project struct {
@@ -73,11 +73,11 @@ var listProjectsCmd = &cobra.Command{
 		}
 
 		fmt.Fprintln(w, "Uuid\tName\tIP Address\tUser\tPort\tReachable\tUsable")
-		for _, resource := range jsondata {
+		for _, program := range jsondata {
 			if ShowSensitive {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%t\t%t\n", resource.UUID, resource.Name, resource.IP, resource.User, resource.Port, resource.Settings.Reachable, resource.Settings.Usable)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%t\t%t\n", program.UUID, program.Name, program.IP, program.User, program.Port, program.Settings.Reachable, program.Settings.Usable)
 			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%t\n", resource.UUID, resource.Name, SensitiveInformationOverlay, SensitiveInformationOverlay, SensitiveInformationOverlay, resource.Settings.Reachable, resource.Settings.Usable)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%t\n", program.UUID, program.Name, SensitiveInformationOverlay, SensitiveInformationOverlay, SensitiveInformationOverlay, program.Settings.Reachable, program.Settings.Usable)
 			}
 		}
 		w.Flush()
@@ -92,8 +92,8 @@ var oneProjectCmd = &cobra.Command{
 		CheckMinimumVersion("4.0.0-beta.235")
 		uuid := args[0]
 		var url = "projects/" + uuid
-		if WithResources {
-			url = "projects/" + uuid + "?resources=true"
+		if WithPrograms {
+			url = "projects/" + uuid + "?programs=true"
 		}
 
 		data, err := Fetch(url)
@@ -115,16 +115,16 @@ var oneProjectCmd = &cobra.Command{
 			fmt.Println(data)
 			return
 		}
-		if WithResources {
-			var jsondata Resources
+		if WithPrograms {
+			var jsondata Programs
 			err = json.Unmarshal([]byte(data), &jsondata)
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 			fmt.Fprintln(w, "Uuid\tName\tType\tStatus")
-			for _, resource := range jsondata.Resources {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", resource.Uuid, resource.Name, resource.Type, resource.Status)
+			for _, program := range jsondata.Programs {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", program.Uuid, program.Name, program.Type, program.Status)
 			}
 			w.Flush()
 		} else {
@@ -149,8 +149,8 @@ var oneProjectCmd = &cobra.Command{
 }
 
 func init() {
-	
-	oneProjectCmd.Flags().BoolVarP(&WithResources, "resources", "", false, "With resources")
+
+	oneProjectCmd.Flags().BoolVarP(&WithPrograms, "programs", "", false, "With programs")
 	rootCmd.AddCommand(projectsCmd)
 	projectsCmd.AddCommand(listProjectsCmd)
 	projectsCmd.AddCommand(oneProjectCmd)
