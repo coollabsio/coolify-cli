@@ -91,9 +91,9 @@ var oneServerCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		CheckMinimumVersion("4.0.0-beta.235")
 		uuid := args[0]
-		var url = "server/" + uuid
+		var url = "servers/" + uuid
 		if WithResources {
-			url = "server/" + uuid + "?resources=true"
+			url = "servers/" + uuid + "?resources=true"
 		}
 
 		data, err := Fetch(url)
