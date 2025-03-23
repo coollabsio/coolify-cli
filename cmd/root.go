@@ -6,6 +6,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/cliinit"
 	"github.com/coollabsio/coolify-cli/cmd/cliinstances"
+	"github.com/coollabsio/coolify-cli/cmd/cliversion"
 	"github.com/coollabsio/coolify-cli/cmd/runtime"
 	"github.com/spf13/cobra"
 )
@@ -14,8 +15,6 @@ var (
 	coolify *runtime.Coolify
 )
 
-type runtimeGetter func() *runtime.Coolify
-
 type cliRoot struct {
 	logTrace     bool
 	logDebug     bool
@@ -23,7 +22,7 @@ type cliRoot struct {
 	logWarn      bool
 	logErr       bool
 	outputColor  string
-	outputForamt string
+	outputFormat string
 	fqdn         string
 	token        string
 	name         string
@@ -50,15 +49,17 @@ func (cli *cliRoot) NewCommand() (*cobra.Command, error) {
 	}
 
 	pFlags := cmd.PersistentFlags()
-	pFlags.SortFlags = false
 
-	pFlags.StringVarP(&cli.token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
-	pFlags.StringVarP(&cli.fqdn, "host", "", "", "Coolify instance hostname EG: https://app.coolify.io")
-	pFlags.StringVarP(&cli.name, "name", "", "", "Name of the instance to use from configuration file")
-	pFlags.StringVarP(&cli.outputForamt, "format", "", "table", "Format output (table|json|pretty)")
+	pFlags.StringVar(&cli.token, "token", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
+	pFlags.StringVar(&cli.fqdn, "host", "", "Coolify instance hostname EG: https://app.coolify.io")
+	pFlags.StringVarP(&cli.name, "name", "n", "", "Name of the instance to use from configuration file")
+	pFlags.StringVar(&cli.outputFormat, "format", "table", "Format output (table|json|pretty)")
+	pFlags.Bool("disableColor", false, "Disable color output for table format")
 
 	cmd.AddCommand(cliinit.New(cli.runtime).NewCommand())
 	cmd.AddCommand(cliinstances.New(cli.runtime).NewCommand())
+	cmd.AddCommand(cliversion.New(cli.runtime).NewCommand())
+
 	if len(os.Args) > 1 {
 		cobra.OnInitialize(
 			func() {

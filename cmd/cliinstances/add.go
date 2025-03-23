@@ -23,6 +23,7 @@ coolify-cli instances add MyInstance https://my.instance.tld 91011 --force
 		Long: `
 Add a new instance to the CLI configuration file.
 `,
+		Aliases:      []string{"create"},
 		SilenceUsage: true,
 		Args:         cobra.ExactArgs(3),
 		PreRunE: func(cmd *cobra.Command, args []string) error {

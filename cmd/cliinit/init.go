@@ -10,13 +10,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-type runtimeGetter func() *runtime.Coolify
-
 type cliInit struct {
-	coolify runtimeGetter
+	coolify runtime.Getter
 }
 
-func New(c runtimeGetter) *cliInit {
+func New(c runtime.Getter) *cliInit {
 	return &cliInit{
 		coolify: c,
 	}
@@ -52,7 +50,7 @@ Initialize Coolify CLI by generating a configuration file in the default directo
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if instances := viper.Get("instances"); instances != nil && !force {
+			if c.coolify().Config.JsonExists && !force {
 				return errors.New("Configuration file already exists. Please use instances command to make further modifications or force flag to regenerate a new configuration file.")
 			}
 			return nil

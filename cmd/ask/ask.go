@@ -21,11 +21,12 @@ func PromptYesOrNo(question string, defaultToYes bool) (bool, error) {
 			return defaultToYes, err
 		}
 		answer = strings.ToLower(strings.TrimSpace(answer))
-		if answer == "y" || answer == "yes" {
+		switch answer {
+		case "y", "yes":
 			return true, nil
-		} else if answer == "n" || answer == "no" {
+		case "n", "no":
 			return false, nil
-		} else if answer == "" {
+		case "":
 			return defaultToYes, nil
 		}
 		fmt.Fprintf(os.Stderr, "Please answer with 'y' or 'n': ")

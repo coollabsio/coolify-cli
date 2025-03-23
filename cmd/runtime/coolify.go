@@ -16,6 +16,8 @@ var (
 	DefaultConfigDirectory string = xdg.ConfigHome // Currently using xdg.ConfigHome but maybe we can expose this as a flag in future.
 )
 
+type Getter func() *Coolify
+
 type Config struct {
 	Directory  string
 	FQDN       string
@@ -75,7 +77,7 @@ func (conf *Config) Load(instanceName string) error {
 func (conf *Config) Save() error {
 	baseDir := path.Join(conf.Directory, "coolify")
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		os.MkdirAll(baseDir, 0755)
+		os.MkdirAll(baseDir, 0o755)
 	}
 	if conf.JsonExists {
 		return viper.WriteConfig()
