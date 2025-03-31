@@ -28,14 +28,14 @@ type initModel struct {
 	showHelp      bool
 	result        chan<- []coolTypes.Instance
 	step          int // Current step in the initialization process
+	tick          int // For rainbow effect
 }
 
 var (
 	checkboxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
 	checked       = checkboxStyle.Render("[x]")
 	unchecked     = checkboxStyle.Render("[ ]")
-	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("220"))
-	fancyStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true).Underline(true)
+	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
 )
 
 func newInitModel(result chan<- []coolTypes.Instance) initModel {
@@ -108,7 +108,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.useCloud {
 					// Validate cloud token
 					if m.cloudToken == "" {
-						m.err = fmt.Errorf("cloud token is required when using Coolify Cloud")
+						m.err = fmt.Errorf("token is required when using Coolify Cloud")
 						return m, nil
 					}
 					m.step++
@@ -337,7 +337,6 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 	}
-
 	return m, nil
 }
 
@@ -358,7 +357,7 @@ func (m initModel) View() string {
 			cloudStyle = FocusedStyle
 		}
 		s.WriteString(cloudStyle.Render("Do you use "))
-		s.WriteString(fancyStyle.Render("Coolify Cloud?"))
+		s.WriteString(goldStyle.Render("Coolify Cloud?"))
 		s.WriteString(" ")
 		if m.useCloud {
 			s.WriteString(checked)
