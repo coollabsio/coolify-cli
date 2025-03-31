@@ -8,6 +8,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/cliinstances"
 	"github.com/coollabsio/coolify-cli/cmd/cliversion"
 	"github.com/coollabsio/coolify-cli/cmd/runtime"
+	"github.com/coollabsio/coolify-cli/cmd/update"
 	"github.com/spf13/cobra"
 )
 
@@ -59,6 +60,7 @@ func (cli *cliRoot) NewCommand() (*cobra.Command, error) {
 	cmd.AddCommand(cliinit.New(cli.runtime).NewCommand())
 	cmd.AddCommand(cliinstances.New(cli.runtime).NewCommand())
 	cmd.AddCommand(cliversion.New(cli.runtime).NewCommand())
+	cmd.AddCommand(update.New(cli.runtime).NewCommand())
 
 	if len(os.Args) > 1 {
 		cobra.OnInitialize(
