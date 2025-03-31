@@ -8,7 +8,6 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
 )
 
@@ -30,13 +29,6 @@ type addModel struct {
 type sendInstanceMsg struct {
 	instance coolTypes.Instance
 }
-
-var (
-	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))  // Purple color for focused elements
-	blurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("60"))  // Darker purple for blurred elements
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("204")) // Keep red for errors
-	cursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))  // Purple color for cursor
-)
 
 func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addModel {
 	return addModel{
@@ -77,6 +69,8 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor += len(text)
 				}
 			}
+		case "ctrl+c":
+			return m, tea.Quit
 		case "ctrl+x":
 			if m.focus < len(m.inputs) {
 				// Cut the current line
@@ -240,16 +234,16 @@ func (m addModel) View() string {
 
 	// Input fields
 	for i := range m.inputs {
-		style := blurredStyle
+		style := BlurredStyle
 		if m.focus == i {
-			style = focusedStyle
+			style = FocusedStyle
 		}
 		value := m.values[i]
 		if m.focus == i {
 			if value == "" {
-				value = cursorStyle.Render("█")
+				value = CursorStyle.Render("█")
 			} else {
-				value = value[:m.cursor] + cursorStyle.Render("█") + value[m.cursor:]
+				value = value[:m.cursor] + CursorStyle.Render("█") + value[m.cursor:]
 			}
 		}
 		s.WriteString(style.Render(fmt.Sprintf("%s: %s", m.inputs[i], value)))
@@ -257,23 +251,23 @@ func (m addModel) View() string {
 	}
 
 	// Submit and Cancel buttons
-	submitStyle := blurredStyle
+	submitStyle := BlurredStyle
 	if m.focus == len(m.inputs) {
-		submitStyle = focusedStyle
+		submitStyle = FocusedStyle
 	}
 	s.WriteString(submitStyle.Render("Submit"))
 	s.WriteString(" ")
 
-	cancelStyle := blurredStyle
+	cancelStyle := BlurredStyle
 	if m.focus == len(m.inputs)+1 {
-		cancelStyle = focusedStyle
+		cancelStyle = FocusedStyle
 	}
 	s.WriteString(cancelStyle.Render("Cancel"))
 
 	// Error message
 	if m.err != nil {
 		s.WriteString("\n\n")
-		s.WriteString(errorStyle.Render(m.err.Error()))
+		s.WriteString(ErrorStyle.Render(m.err.Error()))
 	}
 
 	return s.String()

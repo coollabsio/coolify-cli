@@ -1,49 +1,78 @@
 package cliinstances
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 
-	"github.com/coollabsio/coolify-cli/cmd/clitable"
-	"github.com/coollabsio/coolify-cli/cmd/emoji"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
 	"github.com/spf13/cobra"
 )
 
 func (c *cliInstances) newListCommand() *cobra.Command {
 	sensitive := false
+	format := "table"
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list [name]",
 		Short: "List all instances",
 		Long: `
 List all instances from the CLI configuration file.
+If a name is provided, only instances matching that name will be shown.
 `,
 		SilenceUsage: true,
-		Args:         cobra.NoArgs,
+		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			disableColor, err := cmd.Flags().GetBool("disableColor")
-			if err != nil {
-				return err
-			}
-			t := clitable.NewStyledTable(os.Stdout, disableColor)
-			t.SetHeaders("Name", "URL", "Token", "Default")
-			for _, instance := range c.instances {
-				token := instance.Token
-				if !sensitive && token != "" {
-					token = "********" // !TODO implement either utils string or emoji for this
-				}
-				e := emoji.CrossMark
-				if instance.Default {
-					e = emoji.CheckMarkButton
-				}
-				t.AddRow(instance.Name, instance.Fqdn, token, e)
+			initialFilter := ""
+			if len(args) > 0 {
+				initialFilter = args[0]
 			}
 
-			t.Render()
+			// If format is json, output JSON and exit
+			if format == "json" {
+				// Filter instances for JSON output
+				filteredInstances := c.instances
+				if initialFilter != "" {
+					filteredInstances = make([]coolTypes.Instance, 0)
+					for _, instance := range c.instances {
+						if strings.Contains(strings.ToLower(instance.Name), strings.ToLower(initialFilter)) {
+							filteredInstances = append(filteredInstances, instance)
+						}
+					}
+				}
+
+				output := make([]map[string]interface{}, len(filteredInstances))
+				for i, instance := range filteredInstances {
+					token := instance.Token
+					if !sensitive && token != "" {
+						token = "********"
+					}
+					output[i] = map[string]interface{}{
+						"name":    instance.Name,
+						"fqdn":    instance.Fqdn,
+						"token":   token,
+						"default": instance.Default,
+					}
+				}
+				encoder := json.NewEncoder(os.Stdout)
+				encoder.SetIndent("", "  ")
+				return encoder.Encode(output)
+			}
+
+			// Run interactive UI
+			p := tea.NewProgram(newListModel(c.instances, sensitive, initialFilter))
+			_, err := p.Run()
+			if err != nil {
+				return fmt.Errorf("program error: %v", err)
+			}
 			return nil
 		},
 	}
 
 	flags := cmd.Flags()
 	flags.BoolVarP(&sensitive, "sensitive", "s", false, "Show sensitive information such as tokens")
+	flags.StringVar(&format, "format", "table", "Output format (table|json)")
 
 	return cmd
 }
