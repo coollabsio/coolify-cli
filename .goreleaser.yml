@@ -18,6 +18,6 @@ archives:
   - format: tar.gz
     name_template: >-
       coolify_{{ .Version }}_
-      {{- title .Os }}_{{ .Arch }}
+      {{- .Os }}_{{ .Arch }}
 checksum:
   name_template: 'coolify_{{ .Version }}_checksums.txt'
