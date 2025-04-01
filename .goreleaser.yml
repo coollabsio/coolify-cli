@@ -11,7 +11,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/coollabsio/coolify-cli/cmd/runtime.Version={{.Version}}
+      - -s -w -X github.com/coollabsio/cli-coolify/cmd/runtime.Version={{.Version}}
     env:
       - CGO_ENABLED=0
 archives:

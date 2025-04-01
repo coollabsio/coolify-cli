@@ -1,9 +1,9 @@
 package cliinstances
 
 import (
-	cliinstancesset "github.com/coollabsio/coolify-cli/cmd/cliinstances/set"
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
-	"github.com/coollabsio/coolify-cli/cmd/runtime"
+	cliinstancesset "github.com/coollabsio/cli-coolify/cmd/cliinstances/set"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/runtime"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

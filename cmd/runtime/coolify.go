@@ -6,7 +6,7 @@ import (
 	"path"
 
 	"github.com/adrg/xdg"
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
 	"github.com/spf13/viper"
 )
 

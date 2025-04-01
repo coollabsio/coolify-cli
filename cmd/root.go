@@ -4,11 +4,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/coollabsio/coolify-cli/cmd/cliinit"
-	"github.com/coollabsio/coolify-cli/cmd/cliinstances"
-	"github.com/coollabsio/coolify-cli/cmd/cliversion"
-	"github.com/coollabsio/coolify-cli/cmd/runtime"
-	"github.com/coollabsio/coolify-cli/cmd/update"
+	"github.com/coollabsio/cli-coolify/cmd/cliinit"
+	"github.com/coollabsio/cli-coolify/cmd/cliinstances"
+	"github.com/coollabsio/cli-coolify/cmd/cliversion"
+	"github.com/coollabsio/cli-coolify/cmd/runtime"
+	"github.com/coollabsio/cli-coolify/cmd/update"
 	"github.com/spf13/cobra"
 )
 

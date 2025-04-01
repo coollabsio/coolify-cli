@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
 )
 
 // addKeyMap defines keybindings for the add instance form

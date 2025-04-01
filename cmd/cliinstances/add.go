@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
-	"github.com/coollabsio/coolify-cli/cmd/utils"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

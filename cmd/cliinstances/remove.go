@@ -4,7 +4,7 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/coollabsio/coolify-cli/cmd/utils"
+	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

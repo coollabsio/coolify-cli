@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
 )
 
 var (

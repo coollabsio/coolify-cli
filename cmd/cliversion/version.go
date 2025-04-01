@@ -1,7 +1,7 @@
 package cliversion
 
 import (
-	"github.com/coollabsio/coolify-cli/cmd/runtime"
+	"github.com/coollabsio/cli-coolify/cmd/runtime"
 	"github.com/spf13/cobra"
 )
 

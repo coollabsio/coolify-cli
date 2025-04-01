@@ -3,8 +3,8 @@ package cliinstancesset
 import (
 	"errors"
 
-	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
-	"github.com/coollabsio/coolify-cli/cmd/runtime"
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/runtime"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

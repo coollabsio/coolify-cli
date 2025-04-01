@@ -6,7 +6,7 @@
 ## Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/coollabsio/cli-coolify/main/scripts/install.sh | bash
 ```
 
 This will install the CLI in `/usr/local/bin/coolify`.

@@ -1,4 +1,4 @@
-module github.com/coollabsio/coolify-cli
+module github.com/coollabsio/cli-coolify
 
 go 1.24.1
 

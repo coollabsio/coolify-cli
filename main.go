@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/coollabsio/coolify-cli/cmd"
+	"github.com/coollabsio/cli-coolify/cmd"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime"
 
-	coolifyRuntime "github.com/coollabsio/coolify-cli/cmd/runtime"
+	coolifyRuntime "github.com/coollabsio/cli-coolify/cmd/runtime"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
