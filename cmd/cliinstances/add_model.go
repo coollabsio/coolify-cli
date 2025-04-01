@@ -6,14 +6,14 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/atotto/clipboard"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/coolify-cli/cmd/utils"
 )
 
 type addModel struct {
-	inputs    []string
-	values    []string
+	inputs    []textinput.Model
 	focus     int
 	err       error
 	instance  coolTypes.Instance
@@ -22,7 +22,6 @@ type addModel struct {
 	result    chan<- coolTypes.Instance
 	force     bool
 	isDefault bool
-	cursor    int
 }
 
 // Add a new command type for sending the instance
@@ -31,53 +30,58 @@ type sendInstanceMsg struct {
 }
 
 func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addModel {
+	// Create text inputs
+	inputs := make([]textinput.Model, 3)
+	labels := []string{"Name", "FQDN", "Token"}
+
+	for i, label := range labels {
+		input := textinput.New()
+		input.Placeholder = fmt.Sprintf("Enter instance %s", label)
+		input.Prompt = fmt.Sprintf("%s: ", label)
+		input.PromptStyle = FocusedStyle
+		input.TextStyle = FocusedStyle
+
+		// Focus first input by default
+		if i == 0 {
+			input.Focus()
+		}
+
+		inputs[i] = input
+	}
+
 	return addModel{
-		inputs: []string{
-			"Name",
-			"FQDN",
-			"Token",
-		},
-		values:    make([]string, 3),
+		inputs:    inputs,
 		focus:     0,
 		result:    result,
 		force:     force,
 		isDefault: isDefault,
-		cursor:    0,
 	}
 }
 
 func (m addModel) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
 			return m, tea.Quit
-		case "ctrl+v":
-			if m.focus < len(m.inputs) {
-				text, err := clipboard.ReadAll()
-				if err == nil {
-					// Insert clipboard content at cursor position
-					if m.values[m.focus] == "" {
-						m.values[m.focus] = text
-					} else {
-						m.values[m.focus] = m.values[m.focus][:m.cursor] + text + m.values[m.focus][m.cursor:]
-					}
-					m.cursor += len(text)
-				}
-			}
 		case "ctrl+c":
 			return m, tea.Quit
+		case "ctrl+v":
+			if m.focus < len(m.inputs) {
+				utils.PasteToInput(&m.inputs[m.focus])
+			}
+			return m, nil
 		case "ctrl+x":
 			if m.focus < len(m.inputs) {
-				// Cut the current line
-				clipboard.WriteAll(m.values[m.focus])
-				m.values[m.focus] = ""
-				m.cursor = 0
+				utils.CutFromInput(&m.inputs[m.focus])
 			}
+			return m, nil
 		case "enter":
 			if m.focus == len(m.inputs) {
 				// Submit
@@ -86,9 +90,9 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.instance = coolTypes.Instance{
-					Name:    m.values[0],
-					Fqdn:    m.values[1],
-					Token:   m.values[2],
+					Name:    m.inputs[0].Value(),
+					Fqdn:    m.inputs[1].Value(),
+					Token:   m.inputs[2].Value(),
 					Default: m.isDefault,
 				}
 				// Return a command to send the instance
@@ -104,95 +108,75 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Move to next input
 			m.focus++
-			if m.focus < len(m.inputs) {
-				m.cursor = 0
-			}
-			if m.focus > len(m.inputs)+1 {
-				m.focus = 0
-			}
-		case "backspace":
-			if m.focus < len(m.inputs) {
-				if m.cursor > 0 {
-					if m.values[m.focus] == "" {
-						return m, nil
-					}
-					m.values[m.focus] = m.values[m.focus][:m.cursor-1] + m.values[m.focus][m.cursor:]
-					m.cursor--
-				}
-			}
-		case "left":
-			if m.focus < len(m.inputs) {
-				if m.cursor > 0 {
-					m.cursor--
-				}
-			}
-		case "right":
-			if m.focus < len(m.inputs) {
-				if m.cursor < len(m.values[m.focus]) {
-					m.cursor++
-				}
-			}
+			m.updateFocus()
 		case "tab", "shift+tab":
 			if msg.String() == "tab" {
 				m.focus++
 			} else {
 				m.focus--
 			}
+
+			// Wrap around
 			if m.focus > len(m.inputs)+1 {
 				m.focus = 0
 			} else if m.focus < 0 {
 				m.focus = len(m.inputs) + 1
 			}
-			if m.focus < len(m.inputs) {
-				m.cursor = 0
-			}
+
+			m.updateFocus()
 		case "up":
 			m.focus--
 			if m.focus < 0 {
 				m.focus = len(m.inputs) + 1
 			}
-			if m.focus < len(m.inputs) {
-				m.cursor = 0
-			}
+			m.updateFocus()
 		case "down":
 			m.focus++
 			if m.focus > len(m.inputs)+1 {
 				m.focus = 0
 			}
-			if m.focus < len(m.inputs) {
-				m.cursor = 0
-			}
-		default:
-			if m.focus < len(m.inputs) && len(msg.String()) == 1 {
-				if m.values[m.focus] == "" {
-					m.values[m.focus] = msg.String()
-				} else {
-					m.values[m.focus] = m.values[m.focus][:m.cursor] + msg.String() + m.values[m.focus][m.cursor:]
-				}
-				m.cursor++
-			}
+			m.updateFocus()
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 	}
 
-	return m, nil
+	// Handle text input updates
+	if m.focus < len(m.inputs) {
+		var cmd tea.Cmd
+		m.inputs[m.focus], cmd = m.inputs[m.focus].Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *addModel) updateFocus() {
+	// Blur all inputs
+	for i := range m.inputs {
+		m.inputs[i].Blur()
+	}
+
+	// Focus current input if it's a text input
+	if m.focus < len(m.inputs) {
+		m.inputs[m.focus].Focus()
+	}
 }
 
 func (m addModel) validate() error {
-	if m.values[0] == "" {
+	if m.inputs[0].Value() == "" {
 		return fmt.Errorf("name is required")
 	}
-	if m.values[1] == "" {
+	if m.inputs[1].Value() == "" {
 		return fmt.Errorf("FQDN is required")
 	}
-	if m.values[2] == "" {
+	if m.inputs[2].Value() == "" {
 		return fmt.Errorf("token is required")
 	}
 
 	// Validate FQDN format
-	fqdn := m.values[1]
+	fqdn := m.inputs[1].Value()
 	if strings.Contains(fqdn, "://") {
 		// Check if it's a valid HTTP(S) URL
 		u, err := url.Parse(fqdn)
@@ -234,19 +218,7 @@ func (m addModel) View() string {
 
 	// Input fields
 	for i := range m.inputs {
-		style := BlurredStyle
-		if m.focus == i {
-			style = FocusedStyle
-		}
-		value := m.values[i]
-		if m.focus == i {
-			if value == "" {
-				value = CursorStyle.Render("█")
-			} else {
-				value = value[:m.cursor] + CursorStyle.Render("█") + value[m.cursor:]
-			}
-		}
-		s.WriteString(style.Render(fmt.Sprintf("%s: %s", m.inputs[i], value)))
+		s.WriteString(m.inputs[i].View())
 		s.WriteString("\n")
 	}
 
@@ -263,6 +235,20 @@ func (m addModel) View() string {
 		cancelStyle = FocusedStyle
 	}
 	s.WriteString(cancelStyle.Render("Cancel"))
+
+	// Keyboard shortcuts help
+	s.WriteString("\n\n")
+	s.WriteString(BlurredStyle.Render("Shortcuts:"))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("• Tab/Arrows to navigate"))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("• Enter to submit/select"))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("• Ctrl+V to paste from clipboard"))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("• Ctrl+X to cut to clipboard"))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("• Ctrl+C to exit"))
 
 	// Error message
 	if m.err != nil {

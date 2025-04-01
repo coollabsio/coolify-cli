@@ -6,10 +6,18 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/atotto/clipboard"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/coolify-cli/cmd/utils"
+)
+
+var (
+	checkboxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
+	checked       = checkboxStyle.Render("[x]")
+	unchecked     = checkboxStyle.Render("[ ]")
+	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
 )
 
 type initModel struct {
@@ -19,41 +27,63 @@ type initModel struct {
 	focus         int
 	err           error
 	useCloud      bool
-	cloudToken    string
 	useSelfHost   bool
-	selfHostFqdn  string
-	selfHostName  string
-	selfHostToken string
-	cursor        int
+	cloudToken    textinput.Model
+	selfHostName  textinput.Model
+	selfHostFqdn  textinput.Model
+	selfHostToken textinput.Model
 	showHelp      bool
 	result        chan<- []coolTypes.Instance
 	step          int // Current step in the initialization process
 	tick          int // For rainbow effect
 }
 
-var (
-	checkboxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
-	checked       = checkboxStyle.Render("[x]")
-	unchecked     = checkboxStyle.Render("[ ]")
-	goldStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true)
-)
-
 func newInitModel(result chan<- []coolTypes.Instance) initModel {
+	cloudToken := textinput.New()
+	cloudToken.Placeholder = "Enter your Coolify Cloud token"
+	cloudToken.Prompt = "Cloud Token: "
+	cloudToken.PromptStyle = FocusedStyle
+	cloudToken.TextStyle = FocusedStyle
+
+	selfHostName := textinput.New()
+	selfHostName.Placeholder = "Enter name for self-hosted instance"
+	selfHostName.Prompt = "Name: "
+	selfHostName.PromptStyle = FocusedStyle
+	selfHostName.TextStyle = FocusedStyle
+
+	selfHostFqdn := textinput.New()
+	selfHostFqdn.Placeholder = "Enter FQDN for self-hosted instance"
+	selfHostFqdn.Prompt = "FQDN: "
+	selfHostFqdn.PromptStyle = FocusedStyle
+	selfHostFqdn.TextStyle = FocusedStyle
+
+	selfHostToken := textinput.New()
+	selfHostToken.Placeholder = "Enter token for self-hosted instance"
+	selfHostToken.Prompt = "Token: "
+	selfHostToken.PromptStyle = FocusedStyle
+	selfHostToken.TextStyle = FocusedStyle
+
 	return initModel{
-		instances: make([]coolTypes.Instance, 0),
-		focus:     0,
-		cursor:    0,
-		showHelp:  false,
-		result:    result,
-		step:      0,
+		instances:     make([]coolTypes.Instance, 0),
+		focus:         0,
+		showHelp:      false,
+		result:        result,
+		step:          0,
+		cloudToken:    cloudToken,
+		selfHostName:  selfHostName,
+		selfHostFqdn:  selfHostFqdn,
+		selfHostToken: selfHostToken,
 	}
 }
 
 func (m initModel) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -62,32 +92,31 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "ctrl+v":
-			text, err := clipboard.ReadAll()
-			if err == nil {
-				switch m.focus {
-				case 1:
-					m.cloudToken = text
-				case 3:
-					m.selfHostName = text
-				case 4:
-					m.selfHostFqdn = text
-				case 5:
-					m.selfHostToken = text
-				}
-				m.cursor = len(text)
-			}
-		case "ctrl+x":
+			// Handle paste based on the current focus
 			switch m.focus {
 			case 1:
-				clipboard.WriteAll(m.cloudToken)
+				utils.PasteToInput(&m.cloudToken)
 			case 3:
-				clipboard.WriteAll(m.selfHostName)
+				utils.PasteToInput(&m.selfHostName)
 			case 4:
-				clipboard.WriteAll(m.selfHostFqdn)
+				utils.PasteToInput(&m.selfHostFqdn)
 			case 5:
-				clipboard.WriteAll(m.selfHostToken)
+				utils.PasteToInput(&m.selfHostToken)
 			}
-			m.cursor = 0
+			return m, nil
+		case "ctrl+x":
+			// Handle cut based on the current focus
+			switch m.focus {
+			case 1:
+				utils.CutFromInput(&m.cloudToken)
+			case 3:
+				utils.CutFromInput(&m.selfHostName)
+			case 4:
+				utils.CutFromInput(&m.selfHostFqdn)
+			case 5:
+				utils.CutFromInput(&m.selfHostToken)
+			}
+			return m, nil
 		case "enter", " ":
 			if m.step == 0 {
 				if msg.String() == " " {
@@ -98,7 +127,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.useCloud {
 						m.step++
 						m.focus = 1
-						m.cursor = 0
+						m.cloudToken.Focus()
 					} else {
 						m.step += 2
 						m.focus = 2
@@ -107,12 +136,13 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 1 {
 				if m.useCloud {
 					// Validate cloud token
-					if m.cloudToken == "" {
+					if m.cloudToken.Value() == "" {
 						m.err = fmt.Errorf("token is required when using Coolify Cloud")
 						return m, nil
 					}
 					m.step++
 					m.focus = 2
+					m.cloudToken.Blur()
 				}
 			} else if m.step == 2 {
 				if msg.String() == " " {
@@ -123,7 +153,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.useSelfHost {
 						m.step++
 						m.focus = 3
-						m.cursor = 0
+						m.selfHostName.Focus()
 					} else {
 						// If self-hosted is false, build instances and quit
 						if m.useCloud {
@@ -131,7 +161,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								Name:    "cloud",
 								Default: true,
 								Fqdn:    "https://app.coolify.io",
-								Token:   m.cloudToken,
+								Token:   m.cloudToken.Value(),
 							})
 						}
 						// Send instances back to command
@@ -144,22 +174,23 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.step == 3 {
 				if m.useSelfHost {
 					// Validate self-hosted inputs
-					if m.selfHostName == "" {
+					if m.selfHostName.Value() == "" {
 						m.err = fmt.Errorf("name is required for self-hosted instance")
 						return m, nil
 					}
-					if m.selfHostFqdn == "" {
+					if m.selfHostFqdn.Value() == "" {
 						m.err = fmt.Errorf("FQDN is required for self-hosted instance")
 						return m, nil
 					}
-					if m.selfHostToken == "" {
+					if m.selfHostToken.Value() == "" {
 						m.err = fmt.Errorf("token is required for self-hosted instance")
 						return m, nil
 					}
 
 					// Validate FQDN format
-					if strings.Contains(m.selfHostFqdn, "://") {
-						u, err := url.Parse(m.selfHostFqdn)
+					fqdn := m.selfHostFqdn.Value()
+					if strings.Contains(fqdn, "://") {
+						u, err := url.Parse(fqdn)
 						if err != nil {
 							m.err = fmt.Errorf("invalid URL format: %s", err)
 							return m, nil
@@ -173,7 +204,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							return m, nil
 						}
 					} else {
-						host, port, err := net.SplitHostPort(m.selfHostFqdn)
+						host, port, err := net.SplitHostPort(fqdn)
 						if err != nil {
 							m.err = fmt.Errorf("invalid IP:port format: %s", err)
 							return m, nil
@@ -193,14 +224,14 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Name:    "cloud",
 							Default: true,
 							Fqdn:    "https://app.coolify.io",
-							Token:   m.cloudToken,
+							Token:   m.cloudToken.Value(),
 						})
 					}
 					m.instances = append(m.instances, coolTypes.Instance{
-						Name:    m.selfHostName,
+						Name:    m.selfHostName.Value(),
 						Default: !m.useCloud,
-						Fqdn:    m.selfHostFqdn,
-						Token:   m.selfHostToken,
+						Fqdn:    m.selfHostFqdn.Value(),
+						Token:   m.selfHostToken.Value(),
 					})
 					// Send instances back to command
 					if m.result != nil {
@@ -214,7 +245,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Name:    "cloud",
 							Default: true,
 							Fqdn:    "https://app.coolify.io",
-							Token:   m.cloudToken,
+							Token:   m.cloudToken.Value(),
 						})
 					}
 					// Send instances back to command
@@ -224,120 +255,71 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.Quit
 				}
 			}
-		case "backspace":
-			if m.focus == 1 || m.focus == 3 || m.focus == 4 || m.focus == 5 {
-				switch m.focus {
-				case 1:
-					if m.cursor > 0 {
-						m.cloudToken = m.cloudToken[:m.cursor-1] + m.cloudToken[m.cursor:]
-						m.cursor--
-					}
-				case 3:
-					if m.cursor > 0 {
-						m.selfHostName = m.selfHostName[:m.cursor-1] + m.selfHostName[m.cursor:]
-						m.cursor--
-					}
-				case 4:
-					if m.cursor > 0 {
-						m.selfHostFqdn = m.selfHostFqdn[:m.cursor-1] + m.selfHostFqdn[m.cursor:]
-						m.cursor--
-					}
-				case 5:
-					if m.cursor > 0 {
-						m.selfHostToken = m.selfHostToken[:m.cursor-1] + m.selfHostToken[m.cursor:]
-						m.cursor--
-					}
-				}
-			}
-		case "left":
-			if m.focus == 1 || m.focus == 3 || m.focus == 4 || m.focus == 5 {
-				switch m.focus {
-				case 1:
-					if m.cursor > 0 {
-						m.cursor--
-					}
-				case 3:
-					if m.cursor > 0 {
-						m.cursor--
-					}
-				case 4:
-					if m.cursor > 0 {
-						m.cursor--
-					}
-				case 5:
-					if m.cursor > 0 {
-						m.cursor--
-					}
-				}
-			}
-		case "right":
-			if m.focus == 1 || m.focus == 3 || m.focus == 4 || m.focus == 5 {
-				switch m.focus {
-				case 1:
-					if m.cursor < len(m.cloudToken) {
-						m.cursor++
-					}
-				case 3:
-					if m.cursor < len(m.selfHostName) {
-						m.cursor++
-					}
-				case 4:
-					if m.cursor < len(m.selfHostFqdn) {
-						m.cursor++
-					}
-				case 5:
-					if m.cursor < len(m.selfHostToken) {
-						m.cursor++
-					}
-				}
-			}
 		case "up":
 			// Only allow up/down navigation when multiple items are visible
 			if m.step == 3 && m.useSelfHost {
 				m.focus--
-				if m.focus < 0 {
+				if m.focus < 3 {
 					m.focus = 5
 				}
-				if m.focus == 3 || m.focus == 4 || m.focus == 5 {
-					m.cursor = 0
-				}
+				m.updateFocus()
 			}
-		case "down":
+		case "down", "tab":
 			// Only allow up/down navigation when multiple items are visible
 			if m.step == 3 && m.useSelfHost {
 				m.focus++
 				if m.focus > 5 {
-					m.focus = 0
+					m.focus = 3
 				}
-				if m.focus == 3 || m.focus == 4 || m.focus == 5 {
-					m.cursor = 0
-				}
+				m.updateFocus()
 			}
 		case "?":
 			m.showHelp = !m.showHelp
-		default:
-			if m.focus >= 1 && m.focus <= 5 && len(msg.String()) == 1 {
-				switch m.focus {
-				case 1:
-					m.cloudToken = m.cloudToken[:m.cursor] + msg.String() + m.cloudToken[m.cursor:]
-					m.cursor++
-				case 3:
-					m.selfHostName = m.selfHostName[:m.cursor] + msg.String() + m.selfHostName[m.cursor:]
-					m.cursor++
-				case 4:
-					m.selfHostFqdn = m.selfHostFqdn[:m.cursor] + msg.String() + m.selfHostFqdn[m.cursor:]
-					m.cursor++
-				case 5:
-					m.selfHostToken = m.selfHostToken[:m.cursor] + msg.String() + m.selfHostToken[m.cursor:]
-					m.cursor++
-				}
-			}
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 	}
-	return m, nil
+
+	// Handle text input updates
+	if m.step == 1 && m.focus == 1 {
+		m.cloudToken, cmd = m.cloudToken.Update(msg)
+		cmds = append(cmds, cmd)
+	} else if m.step == 3 {
+		switch m.focus {
+		case 3:
+			m.selfHostName, cmd = m.selfHostName.Update(msg)
+			cmds = append(cmds, cmd)
+		case 4:
+			m.selfHostFqdn, cmd = m.selfHostFqdn.Update(msg)
+			cmds = append(cmds, cmd)
+		case 5:
+			m.selfHostToken, cmd = m.selfHostToken.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+func (m *initModel) updateFocus() {
+	// Blur all inputs
+	m.cloudToken.Blur()
+	m.selfHostName.Blur()
+	m.selfHostFqdn.Blur()
+	m.selfHostToken.Blur()
+
+	// Focus the selected input
+	switch m.focus {
+	case 1:
+		m.cloudToken.Focus()
+	case 3:
+		m.selfHostName.Focus()
+	case 4:
+		m.selfHostFqdn.Focus()
+	case 5:
+		m.selfHostToken.Focus()
+	}
 }
 
 func (m initModel) View() string {
@@ -369,19 +351,7 @@ func (m initModel) View() string {
 
 	// Step 2: Cloud token input
 	if m.step == 1 && m.useCloud {
-		tokenStyle := BlurredStyle
-		if m.focus == 1 {
-			tokenStyle = FocusedStyle
-		}
-		tokenValue := m.cloudToken
-		if m.focus == 1 {
-			if tokenValue == "" {
-				tokenValue = CursorStyle.Render("█")
-			} else {
-				tokenValue = tokenValue[:m.cursor] + CursorStyle.Render("█") + tokenValue[m.cursor:]
-			}
-		}
-		s.WriteString(tokenStyle.Render(fmt.Sprintf("Cloud Token: %s", tokenValue)))
+		s.WriteString(m.cloudToken.View())
 		s.WriteString("\n")
 	}
 
@@ -404,51 +374,15 @@ func (m initModel) View() string {
 	// Step 4: Self-hosted inputs
 	if m.step == 3 && m.useSelfHost {
 		// Name input
-		nameStyle := BlurredStyle
-		if m.focus == 3 {
-			nameStyle = FocusedStyle
-		}
-		nameValue := m.selfHostName
-		if m.focus == 3 {
-			if nameValue == "" {
-				nameValue = CursorStyle.Render("█")
-			} else {
-				nameValue = nameValue[:m.cursor] + CursorStyle.Render("█") + nameValue[m.cursor:]
-			}
-		}
-		s.WriteString(nameStyle.Render(fmt.Sprintf("Name: %s", nameValue)))
+		s.WriteString(m.selfHostName.View())
 		s.WriteString("\n\n")
 
 		// FQDN input
-		fqdnStyle := BlurredStyle
-		if m.focus == 4 {
-			fqdnStyle = FocusedStyle
-		}
-		fqdnValue := m.selfHostFqdn
-		if m.focus == 4 {
-			if fqdnValue == "" {
-				fqdnValue = CursorStyle.Render("█")
-			} else {
-				fqdnValue = fqdnValue[:m.cursor] + CursorStyle.Render("█") + fqdnValue[m.cursor:]
-			}
-		}
-		s.WriteString(fqdnStyle.Render(fmt.Sprintf("FQDN: %s", fqdnValue)))
+		s.WriteString(m.selfHostFqdn.View())
 		s.WriteString("\n\n")
 
 		// Token input
-		tokenStyle := BlurredStyle
-		if m.focus == 5 {
-			tokenStyle = FocusedStyle
-		}
-		tokenValue := m.selfHostToken
-		if m.focus == 5 {
-			if tokenValue == "" {
-				tokenValue = CursorStyle.Render("█")
-			} else {
-				tokenValue = tokenValue[:m.cursor] + CursorStyle.Render("█") + tokenValue[m.cursor:]
-			}
-		}
-		s.WriteString(tokenStyle.Render(fmt.Sprintf("Token: %s", tokenValue)))
+		s.WriteString(m.selfHostToken.View())
 		s.WriteString("\n")
 	}
 
@@ -463,9 +397,13 @@ func (m initModel) View() string {
 		s.WriteString("\n")
 		s.WriteString(BlurredStyle.Render("• Enter to continue"))
 		s.WriteString("\n")
-		s.WriteString(BlurredStyle.Render("• Ctrl+V to paste"))
+		s.WriteString(BlurredStyle.Render("• Tab to move between fields"))
 		s.WriteString("\n")
-		s.WriteString(BlurredStyle.Render("• Ctrl+X to cut"))
+		s.WriteString(BlurredStyle.Render("• Ctrl+V to paste from clipboard"))
+		s.WriteString("\n")
+		s.WriteString(BlurredStyle.Render("• Ctrl+X to cut to clipboard"))
+		s.WriteString("\n")
+		s.WriteString(BlurredStyle.Render("• Ctrl+C to exit"))
 		s.WriteString("\n")
 		s.WriteString(BlurredStyle.Render("• ? to toggle help"))
 	}

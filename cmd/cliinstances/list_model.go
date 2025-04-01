@@ -5,24 +5,25 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
 	"github.com/coollabsio/coolify-cli/cmd/emoji"
+	"github.com/coollabsio/coolify-cli/cmd/utils"
 )
 
 type listModel struct {
-	instances    []coolTypes.Instance
-	filter       string
-	sensitive    bool
-	width        int
-	height       int
-	cursor       int
-	selected     int
-	err          error
-	table        table.Model
-	filterCursor int
-	tableHeight  int
+	instances   []coolTypes.Instance
+	filterInput textinput.Model
+	sensitive   bool
+	width       int
+	height      int
+	cursor      int
+	selected    int
+	err         error
+	table       table.Model
+	tableHeight int
 }
 
 func newListModel(instances []coolTypes.Instance, sensitive bool, initialFilter string) listModel {
@@ -41,23 +42,33 @@ func newListModel(instances []coolTypes.Instance, sensitive bool, initialFilter 
 		}),
 	)
 
+	// Create the filter input
+	filterInput := textinput.New()
+	filterInput.Placeholder = "Filter by name"
+	filterInput.Prompt = "Filter: "
+	filterInput.PromptStyle = FocusedStyle
+	filterInput.TextStyle = FocusedStyle
+	filterInput.Focus()
+	filterInput.SetValue(initialFilter)
+
 	return listModel{
-		instances:    instances,
-		sensitive:    sensitive,
-		filter:       initialFilter,
-		cursor:       0,
-		selected:     0,
-		table:        t,
-		filterCursor: len(initialFilter),
-		tableHeight:  0,
+		instances:   instances,
+		sensitive:   sensitive,
+		filterInput: filterInput,
+		cursor:      0,
+		selected:    0,
+		table:       t,
+		tableHeight: 0,
 	}
 }
 
 func (m listModel) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -65,6 +76,14 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "ctrl+c":
 			return m, tea.Quit
+		case "ctrl+v":
+			// Add paste functionality to the filter input
+			utils.PasteToInput(&m.filterInput)
+			return m, nil
+		case "ctrl+x":
+			// Add cut functionality to the filter input
+			utils.CutFromInput(&m.filterInput)
+			return m, nil
 		case "up":
 			if m.selected > 0 {
 				m.selected--
@@ -72,6 +91,7 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor = m.selected
 				}
 			}
+			return m, nil
 		case "down":
 			filtered := m.filteredInstances()
 			if m.selected < len(filtered)-1 {
@@ -80,31 +100,10 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cursor = m.selected - m.tableHeight + 1
 				}
 			}
+			return m, nil
 		case "ctrl+s":
 			m.sensitive = !m.sensitive
-		case "backspace":
-			if len(m.filter) > 0 && m.filterCursor > 0 {
-				m.filter = m.filter[:m.filterCursor-1] + m.filter[m.filterCursor:]
-				m.filterCursor--
-				m.selected = 0
-				m.cursor = 0
-			}
-		case "left":
-			if m.filterCursor > 0 {
-				m.filterCursor--
-			}
-		case "right":
-			if m.filterCursor < len(m.filter) {
-				m.filterCursor++
-			}
-		default:
-			if len(msg.String()) == 1 {
-				// Insert character at cursor position
-				m.filter = m.filter[:m.filterCursor] + msg.String() + m.filter[m.filterCursor:]
-				m.filterCursor++
-				m.selected = 0
-				m.cursor = 0
-			}
+			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -119,16 +118,31 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(availableHeight)
 	}
 
-	return m, nil
+	// Handle filter input updates
+	m.filterInput, cmd = m.filterInput.Update(msg)
+
+	// Reset cursor and selection position when filter changes
+	if m.filterInput.Value() != m.getFilterValue() {
+		m.selected = 0
+		m.cursor = 0
+	}
+
+	return m, cmd
+}
+
+// Helper to get the previous filter value for change detection
+func (m listModel) getFilterValue() string {
+	return m.filterInput.Value()
 }
 
 func (m listModel) filteredInstances() []coolTypes.Instance {
-	if m.filter == "" {
+	filter := m.filterInput.Value()
+	if filter == "" {
 		return m.instances
 	}
 	filtered := make([]coolTypes.Instance, 0)
 	for _, instance := range m.instances {
-		if strings.Contains(strings.ToLower(instance.Name), strings.ToLower(m.filter)) {
+		if strings.Contains(strings.ToLower(instance.Name), strings.ToLower(filter)) {
 			filtered = append(filtered, instance)
 		}
 	}
@@ -145,14 +159,9 @@ func (m listModel) View() string {
 	// Title and filter
 	s.WriteString("List Instances\n\n")
 
-	// Render filter with cursor
-	filterDisplay := m.filter
-	if m.filterCursor < len(filterDisplay) {
-		filterDisplay = filterDisplay[:m.filterCursor] + CursorStyle.Render("█") + filterDisplay[m.filterCursor:]
-	} else {
-		filterDisplay = filterDisplay + CursorStyle.Render("█")
-	}
-	s.WriteString(fmt.Sprintf("Filter: %s\n\n", filterDisplay))
+	// Render filter input
+	s.WriteString(m.filterInput.View())
+	s.WriteString("\n\n")
 
 	// Update table rows
 	rows := make([]table.Row, 0)
@@ -194,6 +203,8 @@ func (m listModel) View() string {
 	// Footer
 	s.WriteString("\n")
 	s.WriteString(fmt.Sprintf("Sensitive: %v (press 'ctrl+s' to toggle)", m.sensitive))
+	s.WriteString("\n")
+	s.WriteString(BlurredStyle.Render("Shortcuts: ↑/↓ to navigate • Ctrl+V to paste • Ctrl+X to cut • Ctrl+C to exit"))
 
 	// Error message
 	if m.err != nil {

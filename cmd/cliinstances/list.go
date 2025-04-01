@@ -32,32 +32,17 @@ If a name is provided, only instances matching that name will be shown.
 			// If format is json, output JSON and exit
 			if format == "json" {
 				// Filter instances for JSON output
-				filteredInstances := c.instances
-				if initialFilter != "" {
-					filteredInstances = make([]coolTypes.Instance, 0)
-					for _, instance := range c.instances {
-						if strings.Contains(strings.ToLower(instance.Name), strings.ToLower(initialFilter)) {
-							filteredInstances = append(filteredInstances, instance)
-						}
-					}
+				filteredInstances := filterInstances(c.instances, initialFilter)
+
+				// If not sensitive, redact tokens
+				if !sensitive {
+					filteredInstances = redactTokens(filteredInstances)
 				}
 
-				output := make([]map[string]interface{}, len(filteredInstances))
-				for i, instance := range filteredInstances {
-					token := instance.Token
-					if !sensitive && token != "" {
-						token = "********"
-					}
-					output[i] = map[string]interface{}{
-						"name":    instance.Name,
-						"fqdn":    instance.Fqdn,
-						"token":   token,
-						"default": instance.Default,
-					}
-				}
+				// Encode directly to JSON using the struct's annotations
 				encoder := json.NewEncoder(os.Stdout)
 				encoder.SetIndent("", "  ")
-				return encoder.Encode(output)
+				return encoder.Encode(filteredInstances)
 			}
 
 			// Run interactive UI
@@ -75,4 +60,32 @@ If a name is provided, only instances matching that name will be shown.
 	flags.StringVar(&format, "format", "table", "Output format (table|json)")
 
 	return cmd
+}
+
+// filterInstances filters instances based on a name filter
+func filterInstances(instances []coolTypes.Instance, filter string) []coolTypes.Instance {
+	if filter == "" {
+		return instances
+	}
+
+	filtered := make([]coolTypes.Instance, 0)
+	for _, instance := range instances {
+		if strings.Contains(strings.ToLower(instance.Name), strings.ToLower(filter)) {
+			filtered = append(filtered, instance)
+		}
+	}
+	return filtered
+}
+
+// redactTokens creates a copy of instances with redacted tokens
+func redactTokens(instances []coolTypes.Instance) []coolTypes.Instance {
+	redacted := make([]coolTypes.Instance, len(instances))
+	for i, instance := range instances {
+		// Create a copy to avoid modifying original
+		redacted[i] = instance
+		if instance.Token != "" {
+			redacted[i].Token = "********"
+		}
+	}
+	return redacted
 }
