@@ -1,17 +1,68 @@
 package cliinstances
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
 	"github.com/coollabsio/coolify-cli/cmd/emoji"
-	"github.com/coollabsio/coolify-cli/cmd/utils"
 )
+
+// listKeyMap defines keybindings for the list instances view
+type listKeyMap struct {
+	Up        key.Binding
+	Down      key.Binding
+	Paste     key.Binding
+	Sensitive key.Binding
+	Help      key.Binding
+	Quit      key.Binding
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view
+func (k listKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view
+func (k listKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down},                 // first column
+		{k.Paste, k.Sensitive, k.Help}, // second column
+		{k.Quit},                       // third column
+	}
+}
+
+var listKeys = listKeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up"),
+		key.WithHelp("↑", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down"),
+		key.WithHelp("↓", "move down"),
+	),
+	Paste: key.NewBinding(
+		key.WithKeys("ctrl+v"),
+		key.WithHelp("ctrl+v", "paste"),
+	),
+	Sensitive: key.NewBinding(
+		key.WithKeys("ctrl+s"),
+		key.WithHelp("ctrl+s", "toggle sensitive info"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	),
+}
 
 type listModel struct {
 	instances   []coolTypes.Instance
@@ -24,6 +75,8 @@ type listModel struct {
 	err         error
 	table       table.Model
 	tableHeight int
+	keys        listKeyMap
+	help        help.Model
 }
 
 func newListModel(instances []coolTypes.Instance, sensitive bool, initialFilter string) listModel {
@@ -59,6 +112,8 @@ func newListModel(instances []coolTypes.Instance, sensitive bool, initialFilter 
 		selected:    0,
 		table:       t,
 		tableHeight: 0,
+		keys:        listKeys,
+		help:        help.New(),
 	}
 }
 
@@ -71,20 +126,13 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
+		switch {
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
-		case "ctrl+c":
-			return m, tea.Quit
-		case "ctrl+v":
-			// Add paste functionality to the filter input
-			utils.PasteToInput(&m.filterInput)
+		case key.Matches(msg, m.keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
 			return m, nil
-		case "ctrl+x":
-			// Add cut functionality to the filter input
-			utils.CutFromInput(&m.filterInput)
-			return m, nil
-		case "up":
+		case key.Matches(msg, m.keys.Up):
 			if m.selected > 0 {
 				m.selected--
 				if m.selected < m.cursor {
@@ -92,7 +140,7 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
-		case "down":
+		case key.Matches(msg, m.keys.Down):
 			filtered := m.filteredInstances()
 			if m.selected < len(filtered)-1 {
 				m.selected++
@@ -101,7 +149,7 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
-		case "ctrl+s":
+		case key.Matches(msg, m.keys.Sensitive):
 			m.sensitive = !m.sensitive
 			return m, nil
 		}
@@ -116,6 +164,7 @@ func (m listModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tableHeight = availableHeight
 		m.table.SetHeight(availableHeight)
+		m.help.Width = msg.Width
 	}
 
 	// Handle filter input updates
@@ -200,11 +249,9 @@ func (m listModel) View() string {
 	tableView = strings.TrimSuffix(tableView, "\n10")
 	s.WriteString(tableView)
 
-	// Footer
-	s.WriteString("\n")
-	s.WriteString(fmt.Sprintf("Sensitive: %v (press 'ctrl+s' to toggle)", m.sensitive))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("Shortcuts: ↑/↓ to navigate • Ctrl+V to paste • Ctrl+X to cut • Ctrl+C to exit"))
+	// Help view
+	s.WriteString("\n\n")
+	s.WriteString(m.help.View(m.keys))
 
 	// Error message
 	if m.err != nil {

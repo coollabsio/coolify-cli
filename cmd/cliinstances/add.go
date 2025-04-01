@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
+	"github.com/coollabsio/coolify-cli/cmd/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,12 +17,12 @@ func (c *cliInstances) newAddCommand() *cobra.Command {
 	isNewDefault := false
 	cmd := &cobra.Command{
 		Use: "add [name] [fqdn] [token]",
-		Example: `
-coolify-cli instances add MyInstance https://my.instance.tld 1234
-coolify-cli instances add AnotherInstance https://another.instance.tld 5678 --default
-coolify-cli instances add MyInstance https://my.instance.tld 91011 --force
-coolify-cli instances add  # Interactive mode
-`,
+		Example: utils.GetCommandExample(`
+%[1]s instances add MyInstance https://my.instance.tld 1234
+%[1]s instances add AnotherInstance https://another.instance.tld 5678 --default
+%[1]s instances add MyInstance https://my.instance.tld 91011 --force
+%[1]s instances add  # Interactive mode
+`),
 		Short: "Add a new instance",
 		Long: `
 Add a new instance to the CLI configuration file.

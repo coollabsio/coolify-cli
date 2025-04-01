@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/coollabsio/coolify-cli/cmd/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -13,10 +14,10 @@ func (c *cliInstances) newRemoveCommand() *cobra.Command {
 	indexToRemove := -1
 	cmd := &cobra.Command{
 		Use: "remove [name]",
-		Example: `
-coolify-cli instances remove MyInstance
-coolify-cli instances remove localhost --force
-`,
+		Example: utils.GetCommandExample(`
+%[1]s instances remove MyInstance
+%[1]s instances remove localhost --force
+`),
 		Short: "remove a instance",
 		Long: `
 remove a instance from CLI configuration file.

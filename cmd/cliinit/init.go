@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
 	"github.com/coollabsio/coolify-cli/cmd/runtime"
+	"github.com/coollabsio/coolify-cli/cmd/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -39,11 +40,11 @@ func (c *cliInit) NewCommand() *cobra.Command {
 	force := false
 	cmd := &cobra.Command{
 		Use: "init",
-		Example: `
-coolify-cli init
-coolify-cli init --default
-coolify-cli init --force
-`,
+		Example: utils.GetCommandExample(`
+%[1]s init
+%[1]s init --default
+%[1]s init --force
+`),
 		Short: "Initialize a new Coolify CLI configuration file",
 		Long: `
 Initialize Coolify CLI by generating a configuration file in the default directory.

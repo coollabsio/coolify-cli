@@ -1,5 +1,5 @@
 #!/bin/bash
-# This script installs the coolify-cli to /usr/local/bin/coolify from Github release
+# This script installs the coolify binary to /usr/local/bin/coolify from Github release
 
 args=("$@")
 custom_version=${args[0]}
@@ -37,7 +37,7 @@ download_from_github() {
   local release=$2
   local name=$3
   local filename=${name}_${release}_${OS}_${ARCH}.tar.gz
-  # https://github.com/coollabsio/coolify-cli/releases/download/0.0.1/coolify-cli_0.0.1_linux_amd64.tar.gz
+  # https://github.com/coollabsio/coolify-cli/releases/download/0.0.1/coolify_0.0.1_linux_amd64.tar.gz
   # Construct download URL
   local download_url="https://github.com/${repo}/releases/download/${release}/${filename}"
 
@@ -63,4 +63,4 @@ download_from_github() {
 }
 
 detect_platform
-download_from_github "coollabsio/coolify-cli" $custom_version "coolify-cli"
+download_from_github "coollabsio/coolify-cli" $custom_version "coolify"

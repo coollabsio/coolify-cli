@@ -1,16 +1,74 @@
 package cliinstances
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/coolify-cli/cmd/coolTypes"
-	"github.com/coollabsio/coolify-cli/cmd/utils"
 )
+
+// addKeyMap defines keybindings for the add instance form
+type addKeyMap struct {
+	Up    key.Binding
+	Down  key.Binding
+	Tab   key.Binding
+	Enter key.Binding
+	Paste key.Binding
+	Help  key.Binding
+	Quit  key.Binding
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view
+func (k addKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view
+func (k addKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Tab},      // first column
+		{k.Enter, k.Paste, k.Help}, // second column
+		{k.Quit},                   // third column
+	}
+}
+
+var addKeys = addKeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up"),
+		key.WithHelp("↑", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down"),
+		key.WithHelp("↓", "move down"),
+	),
+	Tab: key.NewBinding(
+		key.WithKeys("tab", "shift+tab"),
+		key.WithHelp("tab", "next field"),
+	),
+	Enter: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "submit/select"),
+	),
+	Paste: key.NewBinding(
+		key.WithKeys("ctrl+v"),
+		key.WithHelp("ctrl+v", "paste"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	),
+}
 
 type addModel struct {
 	inputs    []textinput.Model
@@ -22,11 +80,65 @@ type addModel struct {
 	result    chan<- coolTypes.Instance
 	force     bool
 	isDefault bool
+	keys      addKeyMap
+	help      help.Model
 }
 
 // Add a new command type for sending the instance
 type sendInstanceMsg struct {
 	instance coolTypes.Instance
+}
+
+// validateName validates the instance name
+func validateName(s string) error {
+	if s == "" {
+		return errors.New("name is required")
+	}
+	return nil
+}
+
+// validateFQDN validates the instance FQDN
+func validateFQDN(s string) error {
+	if s == "" {
+		return errors.New("FQDN is required")
+	}
+
+	// Validate FQDN format
+	if strings.Contains(s, "://") {
+		// Check if it's a valid HTTP(S) URL
+		u, err := url.Parse(s)
+		if err != nil {
+			return fmt.Errorf("invalid URL format: %s", err)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return fmt.Errorf("URL scheme must be http or https")
+		}
+		if u.Host == "" {
+			return fmt.Errorf("URL must contain a host")
+		}
+	} else {
+		// Check if it's a valid IP:port format
+		host, port, err := net.SplitHostPort(s)
+		if err != nil {
+			return fmt.Errorf("invalid IP:port format: %s", err)
+		}
+		if net.ParseIP(host) == nil {
+			return fmt.Errorf("invalid IP address: %s", host)
+		}
+		if port == "" {
+			return fmt.Errorf("port is required for IP address format")
+		}
+	}
+
+	return nil
+}
+
+// validateToken validates the instance token
+func validateToken(s string) error {
+	if s == "" {
+		return errors.New("token is required")
+	}
+	return nil
 }
 
 func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addModel {
@@ -40,6 +152,16 @@ func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addMod
 		input.Prompt = fmt.Sprintf("%s: ", label)
 		input.PromptStyle = FocusedStyle
 		input.TextStyle = FocusedStyle
+
+		// Set up validation for each input type
+		switch label {
+		case "Name":
+			input.Validate = validateName
+		case "FQDN":
+			input.Validate = validateFQDN
+		case "Token":
+			input.Validate = validateToken
+		}
 
 		// Focus first input by default
 		if i == 0 {
@@ -55,6 +177,8 @@ func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addMod
 		result:    result,
 		force:     force,
 		isDefault: isDefault,
+		keys:      addKeys,
+		help:      help.New(),
 	}
 }
 
@@ -67,28 +191,28 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "esc":
+		switch {
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
-		case "ctrl+c":
-			return m, tea.Quit
-		case "ctrl+v":
-			if m.focus < len(m.inputs) {
-				utils.PasteToInput(&m.inputs[m.focus])
-			}
-			return m, nil
-		case "ctrl+x":
-			if m.focus < len(m.inputs) {
-				utils.CutFromInput(&m.inputs[m.focus])
-			}
-			return m, nil
-		case "enter":
+		case key.Matches(msg, m.keys.Help):
+			m.help.ShowAll = !m.help.ShowAll
+		case key.Matches(msg, m.keys.Enter):
 			if m.focus == len(m.inputs) {
-				// Submit
-				if err := m.validate(); err != nil {
+				// Submit - first check if any field has validation errors
+				for _, input := range m.inputs {
+					if input.Err != nil {
+						// Don't proceed if any field has validation errors
+						m.err = errors.New("please fix all field errors before submitting")
+						return m, nil
+					}
+				}
+
+				// Also validate in case fields haven't been edited
+				if err := m.validateOnSubmit(); err != nil {
 					m.err = err
 					return m, nil
 				}
+
 				m.instance = coolTypes.Instance{
 					Name:    m.inputs[0].Value(),
 					Fqdn:    m.inputs[1].Value(),
@@ -109,7 +233,7 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Move to next input
 			m.focus++
 			m.updateFocus()
-		case "tab", "shift+tab":
+		case key.Matches(msg, m.keys.Tab):
 			if msg.String() == "tab" {
 				m.focus++
 			} else {
@@ -124,13 +248,13 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.updateFocus()
-		case "up":
+		case key.Matches(msg, m.keys.Up):
 			m.focus--
 			if m.focus < 0 {
 				m.focus = len(m.inputs) + 1
 			}
 			m.updateFocus()
-		case "down":
+		case key.Matches(msg, m.keys.Down):
 			m.focus++
 			if m.focus > len(m.inputs)+1 {
 				m.focus = 0
@@ -140,6 +264,7 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.help.Width = msg.Width
 	}
 
 	// Handle text input updates
@@ -164,45 +289,22 @@ func (m *addModel) updateFocus() {
 	}
 }
 
-func (m addModel) validate() error {
-	if m.inputs[0].Value() == "" {
-		return fmt.Errorf("name is required")
-	}
-	if m.inputs[1].Value() == "" {
-		return fmt.Errorf("FQDN is required")
-	}
-	if m.inputs[2].Value() == "" {
-		return fmt.Errorf("token is required")
-	}
-
-	// Validate FQDN format
-	fqdn := m.inputs[1].Value()
-	if strings.Contains(fqdn, "://") {
-		// Check if it's a valid HTTP(S) URL
-		u, err := url.Parse(fqdn)
-		if err != nil {
-			return fmt.Errorf("invalid URL format: %s", err)
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("URL scheme must be http or https")
-		}
-		if u.Host == "" {
-			return fmt.Errorf("URL must contain a host")
-		}
-	} else {
-		// Check if it's a valid IP:port format
-		host, port, err := net.SplitHostPort(fqdn)
-		if err != nil {
-			return fmt.Errorf("invalid IP:port format: %s", err)
-		}
-		if net.ParseIP(host) == nil {
-			return fmt.Errorf("invalid IP address: %s", host)
-		}
-		if port == "" {
-			return fmt.Errorf("port is required for IP address format")
+// validateOnSubmit handles validation for fields that haven't been edited
+func (m addModel) validateOnSubmit() error {
+	// Trigger validation for all fields
+	for i, input := range m.inputs {
+		// If the field hasn't been edited and is empty, it hasn't triggered validation yet
+		if input.Value() == "" {
+			switch i {
+			case 0:
+				return validateName(input.Value())
+			case 1:
+				return validateFQDN(input.Value())
+			case 2:
+				return validateToken(input.Value())
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -216,9 +318,14 @@ func (m addModel) View() string {
 	// Title
 	s.WriteString("Add New Instance\n\n")
 
-	// Input fields
-	for i := range m.inputs {
-		s.WriteString(m.inputs[i].View())
+	// Input fields with validation errors
+	for _, input := range m.inputs {
+		s.WriteString(input.View())
+		if input.Err != nil {
+			// Display the validation error next to the input
+			s.WriteString(" ")
+			s.WriteString(ErrorStyle.Render(input.Err.Error()))
+		}
 		s.WriteString("\n")
 	}
 
@@ -236,21 +343,11 @@ func (m addModel) View() string {
 	}
 	s.WriteString(cancelStyle.Render("Cancel"))
 
-	// Keyboard shortcuts help
+	// Help view at the bottom
 	s.WriteString("\n\n")
-	s.WriteString(BlurredStyle.Render("Shortcuts:"))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("• Tab/Arrows to navigate"))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("• Enter to submit/select"))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("• Ctrl+V to paste from clipboard"))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("• Ctrl+X to cut to clipboard"))
-	s.WriteString("\n")
-	s.WriteString(BlurredStyle.Render("• Ctrl+C to exit"))
+	s.WriteString(m.help.View(m.keys))
 
-	// Error message
+	// General form error message (if any)
 	if m.err != nil {
 		s.WriteString("\n\n")
 		s.WriteString(ErrorStyle.Render(m.err.Error()))

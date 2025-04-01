@@ -6,30 +6,80 @@
 curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
 ```
 
-It will install the CLI in `/usr/local/bin/coolify` and the configuration file in `~/.config/coolify/config.json`
+This will install the CLI in `/usr/local/bin/coolify`.
 
-> If you are a windows or mac user, please test the installation script and let us know if it works for you.
+> If you are a Windows or macOS user, please test the installation script and let us know if it works for you.
 
-## Configuration
-1. Get a `<token>` from your Coolify dashboard (Cloud or self-hosted) at `/security/api-tokens`
+## Initial Setup
 
-### Cloud
+Before using any commands, you need to initialize the CLI by creating a configuration file:
 
-2. Add the token with `coolify instances set token cloud <token>`
+```bash
+coolify init
+```
 
-### Self-hosted
+This interactive wizard will guide you through setting up your Coolify instance(s). You can choose to:
+- Connect to Coolify Cloud using your API token
+- Add self-hosted Coolify instance(s) with their FQDN and token
 
-2. Add the token with `coolify instances add -d <name> <fqdn> <token>`
-   
-> Replace `<name>` with the name you want to give to the instance.
->
-> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
+Alternatively, you can generate a default configuration non-interactively:
 
-Now you can use the CLI with the token you just added.
+```bash
+coolify init --default
+```
 
-## Change default instance
-You can change the default instance with `coolify instances set default <name>`
+The configuration will be stored in `~/.config/coolify/config.json`.
+
+## Getting Your API Token
+
+To use the CLI, you'll need an API token:
+1. Log in to your Coolify dashboard (Cloud or self-hosted)
+2. Navigate to `/security/api-tokens`
+3. Create a new token with appropriate permissions
+4. Use this token when initializing the CLI or adding a new instance
+
+## Managing Instances
+
+After initialization, you can manage your Coolify instances:
+
+### Add a New Instance
+
+```bash
+coolify instances add MyInstance https://my.instance.tld mytoken
+```
+
+Or use the interactive mode:
+
+```bash
+coolify instances add
+```
+
+### List All Instances
+
+```bash
+coolify instances list
+```
+
+### Set Default Instance
+
+```bash
+coolify instances set default MyInstance
+```
+
+### Remove an Instance
+
+```bash
+coolify instances remove MyInstance
+```
+
+### Update Instance Token
+
+```bash
+coolify instances set token MyInstance newtoken
+```
+
 ## Currently Supported Commands
+
 ### Update
 - `coolify update` - Update the CLI to the latest version
   
