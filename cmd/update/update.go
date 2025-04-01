@@ -61,19 +61,22 @@ Update the Coolify CLI to the latest version from GitHub releases.
 					return fmt.Errorf("could not locate executable path: %v", err)
 				}
 
-				cmd.Println("Updating to version", latest.Version())
+				cmd.Printf("Updating to version v%s\n", latest.Version())
+
+				// The selfupdate library needs to know the name of the binary inside the tar.gz
+				// This is set to "coolify" in our goreleaser configuration
 				if err := selfupdate.UpdateTo(
 					cmd.Context(),
 					latest.AssetURL,
-					latest.AssetName,
+					"coolify", // The actual binary name inside the archive
 					exe,
 				); err != nil {
 					return fmt.Errorf("error updating binary: %v", err)
 				}
 
-				cmd.Println("Successfully updated to version", latest.Version())
+				cmd.Printf("Successfully updated to version v%s\n", latest.Version())
 			} else {
-				cmd.Println("You are already on the latest version:", c.coolify().Version)
+				cmd.Printf("You are already on the latest version: %s\n", c.coolify().GetFormattedVersion())
 			}
 
 			return nil

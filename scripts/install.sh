@@ -63,4 +63,4 @@ download_from_github() {
 }
 
 detect_platform
-download_from_github "coollabsio/coolify-cli" $custom_version "coolify"
+download_from_github "coollabsio/cli-coolify" $custom_version "coolify"

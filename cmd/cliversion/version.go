@@ -25,7 +25,7 @@ Print the version of the CLI.
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Println(runtime.Version)
+			cmd.Println(c.coolify().GetFormattedVersion())
 		},
 	}
 

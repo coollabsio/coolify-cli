@@ -1,5 +1,8 @@
 # CLI for [Coolify](https://coolify.io) API
 
+> [!WARNING]
+> Until version 1.0.0, the CLI should be considered unstable. Any minor or patch release may introduce breaking changes. Please read the release notes carefully before updating.
+
 ## Installation
 
 ```bash

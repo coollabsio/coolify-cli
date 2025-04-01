@@ -17,7 +17,7 @@ builds:
 archives:
   - format: tar.gz
     name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_
+      coolify_{{ .Version }}_
       {{- title .Os }}_{{ .Arch }}
 checksum:
-  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  name_template: 'coolify_{{ .Version }}_checksums.txt'

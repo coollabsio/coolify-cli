@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -12,8 +13,8 @@ import (
 // Package runtime provides a reuseable struct that holds configuration, http client and other common functions shared by all the commands.
 
 var (
-	// Version will be injected during build by goreleaser
-	Version                       = "v0.0.0-dev"
+	// Version will be injected during build by goreleaser, without the 'v' prefix
+	Version                       = "0.0.0-dev"
 	DefaultConfigDirectory string = xdg.ConfigHome // Currently using xdg.ConfigHome but maybe we can expose this as a flag in future.
 )
 
@@ -42,6 +43,12 @@ func NewCoolify(fqdn, token string) *Coolify {
 			JsonExists: false,
 		},
 	}
+}
+
+// GetFormattedVersion returns the version with 'v' prefix for display
+func (c *Coolify) GetFormattedVersion() string {
+	// Tags on GitHub don't have 'v' prefix, but we want to display it
+	return fmt.Sprintf("v%s", c.Version)
 }
 
 // Load reads the configuration file from the default directory and loads it into the Coolify struct.
