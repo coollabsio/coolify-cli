@@ -45,7 +45,7 @@ set a property on a instance from CLI configuration file.
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			// Save the configuration file after setting the property.
-			return c.coolify().Config.Save()
+			return c.coolify().Save()
 		},
 	}
 

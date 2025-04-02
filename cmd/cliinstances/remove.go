@@ -40,7 +40,7 @@ remove a instance from CLI configuration file.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c.instances = slices.Delete(c.instances, indexToRemove, indexToRemove+1)
 			viper.Set("instances", c.instances)
-			return c.coolify().Config.Save()
+			return c.coolify().Save()
 		},
 	}
 

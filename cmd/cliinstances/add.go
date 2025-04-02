@@ -94,7 +94,7 @@ func (c *cliInstances) runInteractiveMode(cmd *cobra.Command, force, isDefault b
 
 	c.instances = append(c.instances, instance)
 	viper.Set("instances", c.instances)
-	return c.coolify().Config.Save()
+	return c.coolify().Save()
 }
 
 func (c *cliInstances) runNonInteractiveMode(args []string, force, isNewDefault bool) error {
@@ -124,5 +124,5 @@ func (c *cliInstances) runNonInteractiveMode(args []string, force, isNewDefault 
 
 	c.instances = append(c.instances, newInstance)
 	viper.Set("instances", c.instances)
-	return c.coolify().Config.Save()
+	return c.coolify().Save()
 }

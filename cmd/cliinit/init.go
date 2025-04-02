@@ -61,7 +61,7 @@ Initialize Coolify CLI by generating a configuration file in the default directo
 			if generateDefault {
 				viper.Set("instances", defaultInstances)
 				cmd.Println("Configuration file generated with default instances, use the instances command to make further modifications.")
-				return c.coolify().Config.Save()
+				return c.coolify().Save()
 			}
 
 			// Create a channel to receive the instances
@@ -92,7 +92,7 @@ Initialize Coolify CLI by generating a configuration file in the default directo
 			}
 
 			viper.Set("instances", instances)
-			return c.coolify().Config.Save()
+			return c.coolify().Save()
 		},
 	}
 
