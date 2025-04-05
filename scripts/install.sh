@@ -1,5 +1,7 @@
 #!/bin/bash
-# This script installs the coolify binary to /usr/local/bin/coolify from Github release
+
+# Exit on error
+set -e
 
 args=("$@")
 custom_version=${args[0]}

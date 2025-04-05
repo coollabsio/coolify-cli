@@ -1,0 +1,37 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Use Debian 12 (Bookworm) base box
+  config.vm.box = "debian/bookworm64"
+  
+  # Configure VM settings for different providers
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "4096"  # 4GB RAM (Coolify requires at least 2GB)
+    vb.cpus = 2
+    vb.name = "coolify-test-box"
+  end
+
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.memory = "4096"
+    libvirt.cpus = 2
+    libvirt.default_prefix = "coolify"
+  end
+
+  # Common configuration for all providers
+  config.vm.hostname = "coolify-test"
+
+  # Network configuration
+  config.vm.network "private_network", type: "dhcp"
+
+  # Forward ports from VM to host loopback
+  config.vm.network "forwarded_port", guest: 8000, host: 8000, host_ip: "127.0.0.1"  # Coolify default port
+  config.vm.network "forwarded_port", guest: 6001, host: 6001, host_ip: "127.0.0.1"  # Coolify default port
+  config.vm.network "forwarded_port", guest: 6002, host: 6002, host_ip: "127.0.0.1"  # Coolify default port
+
+  # Sync the current directory to /vagrant in the VM
+  config.vm.synced_folder ".", "/vagrant"
+
+  # Run the initialization script
+  config.vm.provision "shell", path: "vagrant-init.sh"
+end 
