@@ -6,14 +6,123 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/cmd/emoji"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+// wrappedInstance implements the FilterableItem interface
+type wrappedInstance struct {
+	instance coolTypes.Instance
+}
+
+func (w wrappedInstance) GetFilterValue() string {
+	return w.instance.Name
+}
+
+type filterableListModel struct {
+	filterableTable *tui.FilterableTable
+}
+
+func (c *cliInstances) handleDelete(item tui.FilterableItem) error {
+	instance := item.(wrappedInstance).instance
+
+	// Don't allow deleting default instance without force flag
+	if instance.Default {
+		return fmt.Errorf("cannot delete default instance. Use 'instances remove %s --force' instead", instance.Name)
+	}
+
+	// Find and remove the instance from the slice
+	for i, existing := range c.instances {
+		if existing.Name == instance.Name {
+			c.instances = append(c.instances[:i], c.instances[i+1:]...)
+			break
+		}
+	}
+
+	// Update viper and save
+	viper.Set("instances", c.instances)
+	return c.coolify().Save()
+}
+
+func newFilterableListModel(instances []coolTypes.Instance, sensitive bool, initialFilter string, deleteHandler func(tui.FilterableItem) error) *filterableListModel {
+	columns := []table.Column{
+		{Title: "Name", Width: 30},
+		{Title: "URL", Width: 40},
+		{Title: "Default", Width: 8},
+	}
+
+	// Convert instances to FilterableItems
+	items := make([]tui.FilterableItem, len(instances))
+	for i, instance := range instances {
+		items[i] = wrappedInstance{instance: instance}
+	}
+
+	// Create row builder function
+	rowBuilder := func(item tui.FilterableItem) table.Row {
+		instance := item.(wrappedInstance).instance
+		e := emoji.CrossMark
+		if instance.Default {
+			e = emoji.CheckMarkButton
+		}
+
+		return table.Row{
+			instance.Name,
+			instance.Fqdn,
+			e,
+		}
+	}
+
+	// Create detail view builder function
+	detailBuilder := func(item tui.FilterableItem, sensitive bool) string {
+		instance := item.(wrappedInstance).instance
+		var s strings.Builder
+
+		addSection := func(title, value string) {
+			s.WriteString(tui.FocusedStyle.Bold(true).Render(title + ": "))
+			s.WriteString(value + "\n\n")
+		}
+
+		addSection("Name", instance.Name)
+		addSection("URL", instance.Fqdn)
+		if sensitive {
+			addSection("Token", instance.Token)
+		} else {
+			addSection("Token", "********")
+		}
+		addSection("Default", fmt.Sprintf("%v", instance.Default))
+
+		return s.String()
+	}
+
+	ft := tui.NewTableFilter(items, columns, rowBuilder, initialFilter).
+		WithDetailView(detailBuilder).
+		WithDetailHeader("Instance Details").
+		WithDeleteHandler(deleteHandler)
+
+	return &filterableListModel{
+		filterableTable: ft,
+	}
+}
+
+func (m *filterableListModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m *filterableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, m.filterableTable.Update(msg)
+}
+
+func (m *filterableListModel) View() string {
+	return m.filterableTable.View()
+}
 
 func (c *cliInstances) newListCommand() *cobra.Command {
 	sensitive := false
-	format := "table"
 	cmd := &cobra.Command{
 		Use:   "list [name]",
 		Short: "List all instances",
@@ -29,6 +138,10 @@ If a name is provided, only instances matching that name will be shown.
 				initialFilter = args[0]
 			}
 
+			format, err := cmd.Flags().GetString("format")
+			if err != nil {
+				return fmt.Errorf("failed to get format: %v", err)
+			}
 			// If format is json, output JSON and exit
 			if format == "json" {
 				// Filter instances for JSON output
@@ -46,8 +159,8 @@ If a name is provided, only instances matching that name will be shown.
 			}
 
 			// Run interactive UI
-			p := tea.NewProgram(newListModel(c.instances, sensitive, initialFilter))
-			_, err := p.Run()
+			p := tea.NewProgram(newFilterableListModel(c.instances, sensitive, initialFilter, c.handleDelete))
+			_, err = p.Run()
 			if err != nil {
 				return fmt.Errorf("program error: %v", err)
 			}
@@ -57,7 +170,6 @@ If a name is provided, only instances matching that name will be shown.
 
 	flags := cmd.Flags()
 	flags.BoolVarP(&sensitive, "sensitive", "s", false, "Show sensitive information such as tokens")
-	flags.StringVar(&format, "format", "table", "Output format (table|json)")
 
 	return cmd
 }

@@ -98,7 +98,6 @@ func (m *filterableListModel) View() string {
 
 func (c *cliPrivateKeys) handleDelete(item tui.FilterableItem) error {
 	key := item.(wrappedKey)
-	c.coolify().Logger.Debugf("Deleting private key %s", key.key.UUID)
 	deleteReq, err := c.coolify().NewRequest(context.Background(), http.MethodDelete, fmt.Sprintf("security/keys/%s", key.key.UUID), http.NoBody)
 	if err != nil {
 		return fmt.Errorf("failed to create delete request: %w", err)

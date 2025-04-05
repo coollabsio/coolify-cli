@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -12,6 +13,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// Message types for success/error notifications
+type tickMsg struct{}
+type clearMessageMsg struct{}
+
+// Duration for how long to show messages
+const messageTimeout = 5 * time.Second
 
 // FilterableItem represents an item that can be filtered by name
 type FilterableItem interface {
@@ -106,6 +114,7 @@ type FilterableTable struct {
 	Sensitive         bool
 	Width             int
 	Height            int
+	messageTimer      *time.Timer
 	Err               error
 	SuccessMsg        string
 }
@@ -164,8 +173,46 @@ func (ft *FilterableTable) WithDetailHeader(header string) *FilterableTable {
 	return ft
 }
 
+// setError sets an error message and starts the clear timer
+func (ft *FilterableTable) setError(err error) tea.Cmd {
+	ft.Err = err
+	ft.SuccessMsg = "" // Clear success when showing error
+
+	// Cancel existing timer if any
+	if ft.messageTimer != nil {
+		ft.messageTimer.Stop()
+	}
+
+	return tea.Tick(messageTimeout, func(t time.Time) tea.Msg {
+		return clearMessageMsg{}
+	})
+}
+
+// setSuccess sets a success message and starts the clear timer
+func (ft *FilterableTable) setSuccess(msg string) tea.Cmd {
+	ft.SuccessMsg = msg
+	ft.Err = nil // Clear error when showing success
+
+	// Cancel existing timer if any
+	if ft.messageTimer != nil {
+		ft.messageTimer.Stop()
+	}
+
+	return tea.Tick(messageTimeout, func(t time.Time) tea.Msg {
+		return clearMessageMsg{}
+	})
+}
+
 func (ft *FilterableTable) Update(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
+
+	switch msg.(type) {
+	case clearMessageMsg:
+		ft.Err = nil
+		ft.SuccessMsg = ""
+		return nil
+	}
+
 	var cmd tea.Cmd
 	ft.FilterInput, cmd = ft.updateFilter(msg)
 	cmds = append(cmds, cmd)
@@ -183,8 +230,8 @@ func (ft *FilterableTable) updateFilter(msg tea.Msg) (textinput.Model, tea.Cmd) 
 		if key.Matches(keyMsg, ft.KeyMap.Help) {
 			return ft.FilterInput, nil
 		}
-		// If in confirm delete mode, quit updating filter input
-		if ft.ConfirmDeleteMode && key.Matches(keyMsg, ft.KeyMap.Cancel) {
+		// If in confirm delete mode, quit updating filter input from y/n inputs
+		if ft.ConfirmDeleteMode && (key.Matches(keyMsg, ft.KeyMap.Cancel) || key.Matches(keyMsg, ft.KeyMap.Confirm)) {
 			return ft.FilterInput, nil
 		}
 	}
@@ -203,6 +250,8 @@ func (ft *FilterableTable) updateFilter(msg tea.Msg) (textinput.Model, tea.Cmd) 
 
 // UpdateTable updates the table with the given message
 func (ft *FilterableTable) updateTable(msg tea.Msg) (table.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		// If in detail mode, handle viewport navigation
 		if ft.DetailMode {
@@ -219,9 +268,9 @@ func (ft *FilterableTable) updateTable(msg tea.Msg) (table.Model, tea.Cmd) {
 		switch {
 		case key.Matches(keyMsg, ft.KeyMap.Detail):
 			if ft.DetailBuilder != nil {
-				ft.DetailMode = true
 				// Update viewport content with current item's details
 				if item, ok := ft.GetSelectedItem(); ok {
+					ft.DetailMode = true
 					content := ft.DetailBuilder(item, ft.Sensitive)
 					ft.Viewport.SetContent(content)
 					// Reset viewport position
@@ -230,7 +279,8 @@ func (ft *FilterableTable) updateTable(msg tea.Msg) (table.Model, tea.Cmd) {
 				return ft.Table, nil
 			}
 		case key.Matches(keyMsg, ft.KeyMap.Delete):
-			if ft.DeleteHandler != nil {
+			// We have a delete handler and we are not in confirm delete mode or detail mode
+			if ft.DeleteHandler != nil && !ft.ConfirmDeleteMode && !ft.DetailMode {
 				ft.ConfirmDeleteMode = true
 				return ft.Table, nil
 			}
@@ -238,13 +288,22 @@ func (ft *FilterableTable) updateTable(msg tea.Msg) (table.Model, tea.Cmd) {
 			if ft.ConfirmDeleteMode && ft.DeleteHandler != nil {
 				if item, ok := ft.GetSelectedItem(); ok {
 					if err := ft.DeleteHandler(item); err != nil {
-						ft.Err = err
+						cmds = append(cmds, ft.setError(err))
 					} else {
-						ft.SuccessMsg = fmt.Sprintf("Successfully deleted %s", item.GetFilterValue())
+						// Remove the item from the Items slice
+						for i, existing := range ft.Items {
+							if existing == item {
+								ft.Items = append(ft.Items[:i], ft.Items[i+1:]...)
+								break
+							}
+						}
+						// Update the table rows to reflect the deletion
+						ft.updateTableRows()
+						cmds = append(cmds, ft.setSuccess(fmt.Sprintf("Successfully deleted %s", item.GetFilterValue())))
 					}
 				}
 				ft.ConfirmDeleteMode = false
-				return ft.Table, nil
+				return ft.Table, tea.Batch(cmds...)
 			}
 		case key.Matches(keyMsg, ft.KeyMap.Cancel):
 			if ft.ConfirmDeleteMode {
@@ -346,7 +405,9 @@ func (ft *FilterableTable) updateTableRows() {
 	// Ensure cursor stays within bounds
 	if len(filtered) == 0 {
 		ft.Table.SetCursor(0)
-	} else if len(filtered) <= ft.Table.Cursor() || ft.Table.Cursor() < 0 {
+	} else if ft.Table.Cursor() >= len(filtered) { // Changed condition
+		ft.Table.SetCursor(len(filtered) - 1) // Set to last item instead of first
+	} else if ft.Table.Cursor() < 0 {
 		ft.Table.SetCursor(0)
 	}
 }
@@ -395,19 +456,20 @@ func (ft *FilterableTable) View() string {
 		ft.ConfirmDeleteMode = false
 	}
 
-	if ft.Err != nil {
-		return fmt.Sprintf("\nError: %v\n", ft.Err)
-	}
-
-	if ft.SuccessMsg != "" {
-		return fmt.Sprintf("\n%s\n", ft.SuccessMsg)
-	}
-
 	s.WriteString(ft.FilterInput.View())
 	s.WriteString("\n\n")
 	s.WriteString(ft.Table.View())
 	s.WriteString("\n\n")
 	s.WriteString(ft.Help.View(ft.KeyMap))
+	s.WriteString("\n\n")
+	if ft.Err != nil {
+		s.WriteString(ErrorStyle.Render(fmt.Sprintf("Error: %v\n", ft.Err)))
+		s.WriteString("\n")
+	}
 
+	if ft.SuccessMsg != "" {
+		s.WriteString(SuccessStyle.Render(ft.SuccessMsg))
+		s.WriteString("\n")
+	}
 	return s.String()
 }
