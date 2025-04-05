@@ -3,24 +3,32 @@ package cliprivatekeys
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/adrg/xdg"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/cli-coolify/cmd/runtime"
 	"github.com/coollabsio/cli-coolify/cmd/utils"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 )
 
 // addKeyModel is the Bubble Tea model for the interactive add key form
 type addKeyModel struct {
+	nameInput  textinput.Model
+	keyInput   textinput.Model
 	focusIndex int
-	inputs     []textinput.Model
 	done       bool
 	err        error
 	coolify    *runtime.Coolify
@@ -28,28 +36,18 @@ type addKeyModel struct {
 
 func initialAddKeyModel(coolify *runtime.Coolify) addKeyModel {
 	m := addKeyModel{
-		inputs:  make([]textinput.Model, 2),
 		coolify: coolify,
 	}
 
 	// Setup name input
-	nameInput := textinput.New()
-	nameInput.Placeholder = "My SSH Key"
-	nameInput.Focus()
-	nameInput.CharLimit = 50
-	nameInput.Width = 40
-	nameInput.Prompt = "› "
-	nameInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
-	m.inputs[0] = nameInput
+	m.nameInput = tui.NewFocusedInput("My SSH Key", "› ")
+	m.nameInput.CharLimit = 50
+	m.nameInput.Width = 40
 
 	// Setup key input (multi-line)
-	keyInput := textinput.New()
-	keyInput.Placeholder = "SSH private key or path to key file"
-	keyInput.CharLimit = 4096
-	keyInput.Width = 60
-	keyInput.Prompt = "› "
-	keyInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("60"))
-	m.inputs[1] = keyInput
+	m.keyInput = tui.NewBlurredInput("SSH private key or path to key file", "› ")
+	m.keyInput.CharLimit = 4096
+	m.keyInput.Width = 60
 
 	return m
 }
@@ -66,35 +64,40 @@ func (m addKeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "tab", "shift+tab", "enter", "up", "down":
-			// Cycle focus between inputs
-			if msg.String() == "enter" && m.focusIndex == len(m.inputs)-1 {
-				// Submit the form
+			// Submit on enter when key input is focused
+			if msg.String() == "enter" && m.focusIndex == 1 {
 				m.done = true
 				return m, tea.Quit
 			}
 
-			// Cycle indexes
+			// Cycle focus between inputs
 			if msg.String() == "up" || msg.String() == "shift+tab" {
 				m.focusIndex--
 				if m.focusIndex < 0 {
-					m.focusIndex = len(m.inputs) - 1
+					m.focusIndex = 1
 				}
 			} else {
 				m.focusIndex++
-				if m.focusIndex >= len(m.inputs) {
+				if m.focusIndex > 1 {
 					m.focusIndex = 0
 				}
 			}
 
-			cmds := make([]tea.Cmd, len(m.inputs))
-			for i := range m.inputs {
-				if i == m.focusIndex {
-					cmds[i] = m.inputs[i].Focus()
-					m.inputs[i].PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
-				} else {
-					m.inputs[i].Blur()
-					m.inputs[i].PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("60"))
-				}
+			var cmds []tea.Cmd
+			if m.focusIndex == 0 {
+				m.nameInput.PromptStyle = tui.FocusedStyle
+				m.nameInput.TextStyle = tui.FocusedStyle
+				m.keyInput.PromptStyle = tui.BlurredStyle
+				m.keyInput.TextStyle = tui.BlurredStyle
+				cmds = append(cmds, m.nameInput.Focus())
+				m.keyInput.Blur()
+			} else {
+				m.keyInput.PromptStyle = tui.FocusedStyle
+				m.keyInput.TextStyle = tui.FocusedStyle
+				m.nameInput.PromptStyle = tui.BlurredStyle
+				m.nameInput.TextStyle = tui.BlurredStyle
+				cmds = append(cmds, m.keyInput.Focus())
+				m.nameInput.Blur()
 			}
 
 			return m, tea.Batch(cmds...)
@@ -102,59 +105,121 @@ func (m addKeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle character input for the active input
-	cmd := m.updateInputs(msg)
-	return m, cmd
-}
-
-func (m *addKeyModel) updateInputs(msg tea.Msg) tea.Cmd {
-	var cmds = make([]tea.Cmd, len(m.inputs))
-
-	for i := range m.inputs {
-		m.inputs[i], cmds[i] = m.inputs[i].Update(msg)
+	var cmds []tea.Cmd
+	if m.focusIndex == 0 {
+		var cmd tea.Cmd
+		m.nameInput, cmd = m.nameInput.Update(msg)
+		cmds = append(cmds, cmd)
+	} else {
+		var cmd tea.Cmd
+		m.keyInput, cmd = m.keyInput.Update(msg)
+		cmds = append(cmds, cmd)
 	}
-
-	return tea.Batch(cmds...)
+	return m, tea.Batch(cmds...)
 }
 
 func (m addKeyModel) View() string {
 	var b strings.Builder
 
 	// Title with Coolify branding
-	title := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("99")).
-		Bold(true).
-		Render("Add New SSH Private Key")
+	title := tui.FocusedStyle.Bold(true).Render("Add New SSH Private Key")
 	b.WriteString(title + "\n\n")
 
 	// Render inputs with labels
-	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("60")).
-		Width(12)
+	labelStyle := tui.BlurredStyle.Width(12)
 
-	b.WriteString(labelStyle.Render("Name:") + " " + m.inputs[0].View() + "\n\n")
-	b.WriteString(labelStyle.Render("Private Key:") + " " + m.inputs[1].View() + "\n\n")
+	b.WriteString(labelStyle.Render("Name:") + " " + m.nameInput.View() + "\n\n")
+	b.WriteString(labelStyle.Render("Private Key:") + " " + m.keyInput.View() + "\n\n")
 
 	// Instructions
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("60")).Render("(Tab/Shift+Tab to navigate, Enter to submit)"))
+	b.WriteString("\n" + tui.BlurredStyle.Render("(Tab/Shift+Tab to navigate, Enter to submit)"))
 
 	return b.String()
 }
 
+func (c *cliPrivateKeys) generateKeyPair(name, outputDir string) (string, error) {
+	// Generate RSA key pair
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate RSA key pair: %w", err)
+	}
+
+	// Convert private key to PEM format
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+	privateKeyBytes := pem.EncodeToMemory(privateKeyPEM)
+
+	// Generate public key
+	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate public key: %w", err)
+	}
+	publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
+
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Write private key file
+	privateKeyPath := filepath.Join(outputDir, fmt.Sprintf("%s", name))
+	if err := os.WriteFile(privateKeyPath, privateKeyBytes, 0600); err != nil {
+		return "", fmt.Errorf("failed to write private key file: %w", err)
+	}
+
+	// Write public key file
+	publicKeyPath := privateKeyPath + ".pub"
+	if err := os.WriteFile(publicKeyPath, publicKeyBytes, 0644); err != nil {
+		return "", fmt.Errorf("failed to write public key file: %w", err)
+	}
+
+	fmt.Printf("Generated SSH key pair:\n")
+	fmt.Printf("  Private key: %s\n", privateKeyPath)
+	fmt.Printf("  Public key:  %s\n", publicKeyPath)
+
+	return string(privateKeyBytes), nil
+}
+
 func (c *cliPrivateKeys) newAddCommand() *cobra.Command {
+	var generateKeyPair bool
+	var outPutDirectory string
 	cmd := &cobra.Command{
 		Use:   "add [name] [private_key_or_file]",
 		Short: "Add a new private key",
 		Long: `Add a new SSH private key to your Coolify instance.
 The key can be provided directly as a string or as a path to a file.
+Use --generate to create a new SSH key pair.
 
 If no arguments are provided, an interactive form will be used.`,
 		Example: utils.GetCommandExample(`
 %[1]s private-keys add "My Key" /path/to/id_rsa
 %[1]s private-keys add "My Key" "-----BEGIN RSA PRIVATE KEY-----..."
+%[1]s private-keys add "My Key" --generate  # Generate RSA key pair
 %[1]s private-keys add  # Interactive mode
 `),
-		Args: cobra.RangeArgs(0, 2),
+		SilenceUsage: true,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if generateKeyPair {
+				if len(args) != 1 {
+					return fmt.Errorf("when using --generate, provide only the key name")
+				}
+				return nil
+			}
+			return cobra.RangeArgs(0, 2)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Handle key generation
+			if generateKeyPair {
+				name := args[0]
+				privateKey, err := c.generateKeyPair(name, outPutDirectory)
+				if err != nil {
+					return err
+				}
+				return c.addPrivateKey(cmd.Context(), name, privateKey)
+			}
+
 			// Interactive mode when no arguments are provided
 			if len(args) == 0 {
 				model := initialAddKeyModel(c.coolify())
@@ -170,8 +235,8 @@ If no arguments are provided, an interactive form will be used.`,
 					return fmt.Errorf("operation canceled")
 				}
 
-				name := finalState.inputs[0].Value()
-				privateKeyInput := finalState.inputs[1].Value()
+				name := finalState.nameInput.Value()
+				privateKeyInput := finalState.keyInput.Value()
 
 				return c.addPrivateKey(cmd.Context(), name, privateKeyInput)
 			}
@@ -188,6 +253,9 @@ If no arguments are provided, an interactive form will be used.`,
 		},
 	}
 
+	flags := cmd.Flags()
+	flags.BoolVarP(&generateKeyPair, "generate", "g", false, "Generate a new key pair")
+	flags.StringVarP(&outPutDirectory, "output", "o", fmt.Sprintf("%s/.ssh", xdg.Home), "Output directory for the key pair")
 	return cmd
 }
 

@@ -18,7 +18,7 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("%s (rc: %d)", e.Message, e.StatusCode)
 }
 
-// NewRequest creates a new HTTP request with common headers and base URL configuration
+// NewRequest creates a new HTTP request with authorization headers
 func (c *Coolify) NewRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
 	url := fmt.Sprintf("%s/api/v1/%s", c.Config.FQDN, path)
 
@@ -27,9 +27,10 @@ func (c *Coolify) NewRequest(ctx context.Context, method, path string, body io.R
 		return nil, err
 	}
 
-	// Set common headers
+	// Set authorization headers
 	req.Header.Set("Authorization", "Bearer "+c.Config.Token)
 	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch {
+		// If method is sending data, set content type to json
 		req.Header.Set("Content-Type", "application/json")
 	}
 

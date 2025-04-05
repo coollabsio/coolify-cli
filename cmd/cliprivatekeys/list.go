@@ -7,6 +7,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -17,8 +18,15 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [filter]",
 		Short: "List all private keys",
-		Long:  `List all SSH private keys registered in your Coolify instance. Optionally filter by name.`,
-		Args:  cobra.MaximumNArgs(1),
+		Long:  `List all SSH private keys registered in your Coolify instance.`,
+		Example: utils.GetCommandExample(`
+%[1]s private-keys list --format json
+%[1]s private-keys list "My Key"
+%[1]s private-keys list --show-sensitive
+%[1]s private-keys list # Interactive mode
+`),
+		SilenceUsage: true,
+		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				initialFilter = args[0]
@@ -76,7 +84,8 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 			}
 
 			// Run the interactive BubbleTea model
-			p := tea.NewProgram(newListModel(keys, showSensitive, initialFilter, deleteFunc))
+			model := newListModel(keys, showSensitive, initialFilter, deleteFunc)
+			p := tea.NewProgram(&model)
 			if _, err := p.Run(); err != nil {
 				return fmt.Errorf("error running UI: %w", err)
 			}
