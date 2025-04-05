@@ -1,19 +1,120 @@
 package cliprivatekeys
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/utils"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 )
 
+type filterableListModel struct {
+	FilterableTable *tui.FilterableTable
+}
+
+func newFilterableListModel(keys []PrivateKey, filter string) *filterableListModel {
+	columns := []table.Column{
+		{Title: "UUID", Width: 30},
+		{Title: "Name", Width: 30},
+		{Title: "Created At", Width: 30},
+	}
+
+	return &filterableListModel{
+		FilterableTable: tui.NewTableFilter(wrapKeys(keys), columns, buildRow, filter).
+			WithDetailView(buildDetailView).
+			WithDetailHeader("Private Key Details"),
+	}
+}
+
+type wrappedKey struct {
+	key PrivateKey
+}
+
+func (k wrappedKey) GetFilterValue() string {
+	return k.key.Name
+}
+
+func wrapKeys(keys []PrivateKey) []tui.FilterableItem {
+	items := make([]tui.FilterableItem, len(keys))
+	for i, key := range keys {
+		items[i] = wrappedKey{key: key}
+	}
+	return items
+}
+
+func buildRow(item tui.FilterableItem) table.Row {
+	key := item.(wrappedKey)
+	return table.Row{
+		key.key.UUID,
+		key.key.Name,
+		key.key.CreatedAt,
+	}
+}
+
+func buildDetailView(item tui.FilterableItem, sensitive bool) string {
+	key := item.(wrappedKey)
+	var s strings.Builder
+	addSection := func(title, value string) {
+		s.WriteString(tui.FocusedStyle.Bold(true).Render(title + ": "))
+		s.WriteString(value + "\n\n")
+	}
+	addSection("UUID", key.key.UUID)
+	addSection("Name", key.key.Name)
+	addSection("Description", key.key.Description)
+
+	if sensitive {
+		addSection("Private Key", "\n"+key.key.PrivateKey)
+		addSection("Public Key", "\n"+key.key.PublicKey)
+	} else {
+		addSection("Private Key", "********")
+		addSection("Public Key", "********")
+	}
+
+	addSection("Git Related", fmt.Sprintf("%v", key.key.IsGitRelated))
+	addSection("Team ID", fmt.Sprintf("%d", key.key.TeamID))
+	addSection("Created At", key.key.CreatedAt)
+	addSection("Updated At", key.key.UpdatedAt)
+
+	return s.String()
+}
+
+func (m *filterableListModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m *filterableListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, m.FilterableTable.Update(msg)
+}
+
+func (m *filterableListModel) View() string {
+	return m.FilterableTable.View()
+}
+
+func (c *cliPrivateKeys) handleDelete(item tui.FilterableItem) error {
+	key := item.(wrappedKey)
+	c.coolify().Logger.Debugf("Deleting private key %s", key.key.UUID)
+	deleteReq, err := c.coolify().NewRequest(context.Background(), http.MethodDelete, fmt.Sprintf("security/keys/%s", key.key.UUID), http.NoBody)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+
+	_, err = c.coolify().DoRequest(deleteReq)
+	if err != nil {
+		return fmt.Errorf("failed to delete private key: %w", err)
+	}
+
+	return nil
+}
+
 func (c *cliPrivateKeys) newListCommand() *cobra.Command {
+	var filter string
 	var showSensitive bool
-	var initialFilter string
 
 	cmd := &cobra.Command{
 		Use:   "list [filter]",
@@ -29,7 +130,7 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
-				initialFilter = args[0]
+				filter = args[0]
 			}
 
 			req, err := c.coolify().NewRequest(cmd.Context(), http.MethodGet, "security/keys", nil)
@@ -63,40 +164,20 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 				}
 
 				// For JSON output, directly encode to stdout
-				encoder := json.NewEncoder(os.Stdout)
+				encoder := json.NewEncoder(cmd.OutOrStdout())
 				encoder.SetIndent("", "  ")
 				return encoder.Encode(keys)
 			}
 
-			// Define the delete function to be passed to the model
-			deleteFunc := func(uuid string) error {
-				deleteReq, err := c.coolify().NewRequest(cmd.Context(), http.MethodDelete, fmt.Sprintf("security/keys/%s", uuid), nil)
-				if err != nil {
-					return fmt.Errorf("failed to create delete request: %w", err)
-				}
-
-				_, err = c.coolify().DoRequest(deleteReq)
-				if err != nil {
-					return fmt.Errorf("failed to delete private key: %w", err)
-				}
-
-				return nil
-			}
-
-			// Run the interactive BubbleTea model
-			model := newListModel(keys, showSensitive, initialFilter, deleteFunc)
-			p := tea.NewProgram(&model)
-			if _, err := p.Run(); err != nil {
-				return fmt.Errorf("error running UI: %w", err)
-			}
-
-			return nil
+			model := newFilterableListModel(keys, filter)
+			model.FilterableTable.WithDeleteHandler(c.handleDelete)
+			p := tea.NewProgram(model, tea.WithAltScreen())
+			_, err = p.Run()
+			return err
 		},
 	}
 
-	// Add flags
-	flags := cmd.Flags()
-	flags.BoolVarP(&showSensitive, "show-sensitive", "s", false, "Show sensitive information like public keys")
+	cmd.Flags().BoolVarP(&showSensitive, "show-sensitive", "s", false, "Show sensitive information like public keys")
 
 	return cmd
 }
