@@ -159,7 +159,7 @@ If a name is provided, only instances matching that name will be shown.
 			}
 
 			// Run interactive UI
-			p := tea.NewProgram(newFilterableListModel(c.instances, sensitive, initialFilter, c.handleDelete))
+			p := tea.NewProgram(newFilterableListModel(c.instances, sensitive, initialFilter, c.handleDelete), tea.WithAltScreen())
 			_, err = p.Run()
 			if err != nil {
 				return fmt.Errorf("program error: %v", err)

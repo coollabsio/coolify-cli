@@ -170,7 +170,7 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 
 			model := newFilterableListModel(keys, filter)
 			model.FilterableTable.WithDeleteHandler(c.handleDelete)
-			p := tea.NewProgram(model, tea.WithAltScreen())
+			p := tea.NewProgram(model)
 			_, err = p.Run()
 			return err
 		},
