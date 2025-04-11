@@ -99,7 +99,8 @@ func newFilterableListModel(instances []coolTypes.Instance, sensitive bool, init
 		return s.String()
 	}
 
-	ft := tui.NewTableFilter(items, columns, rowBuilder, initialFilter).
+	ft := tui.NewTableFilter(items, columns, rowBuilder).
+		WithInitialFilter(initialFilter).
 		WithDetailView(detailBuilder).
 		WithDetailHeader("Instance Details").
 		WithDeleteHandler(deleteHandler)
@@ -159,7 +160,7 @@ If a name is provided, only instances matching that name will be shown.
 			}
 
 			// Run interactive UI
-			p := tea.NewProgram(newFilterableListModel(c.instances, sensitive, initialFilter, c.handleDelete), tea.WithAltScreen())
+			p := tea.NewProgram(newFilterableListModel(c.instances, sensitive, initialFilter, c.handleDelete))
 			_, err = p.Run()
 			if err != nil {
 				return fmt.Errorf("program error: %v", err)

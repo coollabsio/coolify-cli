@@ -120,7 +120,7 @@ type FilterableTable struct {
 }
 
 // New creates a new FilterableTable
-func NewTableFilter(items []FilterableItem, columns []table.Column, rowBuilder func(item FilterableItem) table.Row, initialFilter string) *FilterableTable {
+func NewTableFilter(items []FilterableItem, columns []table.Column, rowBuilder func(item FilterableItem) table.Row) *FilterableTable {
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithFocused(true),
@@ -131,7 +131,6 @@ func NewTableFilter(items []FilterableItem, columns []table.Column, rowBuilder f
 
 	// Create the filter input
 	filterInput := NewFocusedInput("Filter by name", "Filter: ")
-	filterInput.SetValue(initialFilter)
 
 	// Initialize viewport
 	vp := viewport.New(0, 0)
@@ -152,6 +151,12 @@ func NewTableFilter(items []FilterableItem, columns []table.Column, rowBuilder f
 	// Initialize table with filtered rows
 	ft.updateTableRows()
 
+	return ft
+}
+
+// WithInitialFilter sets the initial filter
+func (ft *FilterableTable) WithInitialFilter(initialFilter string) *FilterableTable {
+	ft.FilterInput.SetValue(initialFilter)
 	return ft
 }
 

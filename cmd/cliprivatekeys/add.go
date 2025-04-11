@@ -1,12 +1,10 @@
 package cliprivatekeys
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -19,6 +17,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/runtime"
 	"github.com/coollabsio/cli-coolify/cmd/utils"
+	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
 	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -273,27 +272,23 @@ func (c *cliPrivateKeys) addPrivateKey(ctx context.Context, name, privateKeyInpu
 		privateKey = privateKeyInput
 	}
 
-	// Prepare request data
-	data := map[string]string{
-		"name":        name,
-		"private_key": privateKey,
-	}
-
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
-	}
-
-	req, err := c.coolify().NewRequest(ctx, http.MethodPost, "security/keys", bytes.NewBuffer(jsonData))
+	req, err := c.coolify().Client.CreatePrivateKey(ctx, openapi.CreatePrivateKeyJSONRequestBody{
+		Name:       &name,
+		PrivateKey: privateKey,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	_, err = c.coolify().DoRequest(req)
+	parsedResponse, err := openapi.ParseCreatePrivateKeyResponse(req)
 	if err != nil {
-		return fmt.Errorf("failed to add private key: %w", err)
+		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	fmt.Printf("Private key '%s' added successfully\n", name)
+	if parsedResponse.StatusCode() != http.StatusCreated {
+		return fmt.Errorf("failed to add private key: %s", string(parsedResponse.Body))
+	}
+
+	fmt.Printf("Private key '%s' added successfully as UUID: %s\n", name, *parsedResponse.JSON201.Uuid)
 	return nil
 }

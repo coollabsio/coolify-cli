@@ -5,3 +5,5 @@ cli
 config.json
 dist
 .vagrant
+.test
+

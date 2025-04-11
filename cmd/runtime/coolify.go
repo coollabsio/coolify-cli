@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"crypto/tls"
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -36,20 +37,11 @@ type Config struct {
 type Coolify struct {
 	Version string
 	Config  Config
-	Client  *http.Client
+	Client  *openapi.Client
 	Logger  *logrus.Logger
 }
 
 func NewCoolify(fqdn, token string, logLevel string) *Coolify {
-	// Create HTTP client with default settings
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-			},
-		},
-	}
 
 	// Initialize logger with default settings
 	logger := logrus.New()
@@ -68,7 +60,6 @@ func NewCoolify(fqdn, token string, logLevel string) *Coolify {
 			Timeout:    30 * time.Second,
 			Insecure:   false,
 		},
-		Client: client,
 		Logger: logger,
 	}
 
@@ -80,40 +71,22 @@ func NewCoolify(fqdn, token string, logLevel string) *Coolify {
 	return coolify
 }
 
-// ConfigureHTTPClient updates the HTTP client with the current configuration
-func (c *Coolify) ConfigureHTTPClient() {
-	// Create transport with TLS configuration
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: c.Config.Insecure,
-		},
+func (c *Coolify) ConfigureClient() error {
+	withApiPrefix := fmt.Sprintf("%s/api/v1", c.Config.FQDN)
+	client, err := openapi.NewClient(withApiPrefix)
+	if err != nil {
+		c.LogError("Failed to create client: %v", err)
+		return err
 	}
 
-	// Create new client with configured transport and timeout
-	c.Client = &http.Client{
-		Transport: transport,
-		Timeout:   c.Config.Timeout,
-	}
-}
+	// Add token to all requests via client interceptor
+	client.RequestEditors = append(client.RequestEditors, func(ctx context.Context, req *http.Request) error {
+		req.Header.Set("Authorization", "Bearer "+c.Config.Token)
+		return nil
+	})
 
-// SetTimeout sets the timeout for HTTP requests
-func (c *Coolify) SetTimeout(timeout time.Duration) {
-	// Only log if the timeout is different from the default
-	if timeout != 30*time.Second {
-		c.LogDebug("Setting HTTP client timeout to: %s", timeout)
-	}
-	c.Config.Timeout = timeout
-	c.ConfigureHTTPClient()
-}
-
-// SetInsecure sets whether to skip TLS verification
-func (c *Coolify) SetInsecure(insecure bool) {
-	// Only log if insecure is true (different from default false)
-	if insecure {
-		c.LogDebug("Setting TLS verification skip to: %t", insecure)
-	}
-	c.Config.Insecure = insecure
-	c.ConfigureHTTPClient()
+	c.Client = client
+	return nil
 }
 
 // GetFormattedVersion returns the version with 'v' prefix for display
@@ -163,7 +136,7 @@ func (c *Coolify) Load(instanceName string) error {
 			}
 		}
 	}
-	return nil
+	return c.ConfigureClient()
 }
 
 // Save saves the configuration file

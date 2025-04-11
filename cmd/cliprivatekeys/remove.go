@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
 	"github.com/spf13/cobra"
 )
 
@@ -29,14 +30,26 @@ func (c *cliPrivateKeys) newRemoveCommand() *cobra.Command {
 				}
 			}
 
-			req, err := c.coolify().NewRequest(cmd.Context(), http.MethodDelete, fmt.Sprintf("security/keys/%s", uuid), nil)
+			req, err := c.coolify().Client.DeletePrivateKeyByUuid(cmd.Context(), uuid)
 			if err != nil {
 				return fmt.Errorf("failed to create request: %w", err)
 			}
 
-			_, err = c.coolify().DoRequest(req)
+			parsedResponse, err := openapi.ParseDeletePrivateKeyByUuidResponse(req)
 			if err != nil {
-				return fmt.Errorf("failed to remove private key: %w", err)
+				return fmt.Errorf("failed to parse response: %w", err)
+			}
+			if parsedResponse.StatusCode() != http.StatusOK {
+				errorMessage := "failed to remove private key"
+				switch parsedResponse.StatusCode() {
+				case http.StatusBadRequest:
+					errorMessage = fmt.Sprintf("%s: %s", errorMessage, *parsedResponse.JSON400.Message)
+				case http.StatusUnprocessableEntity:
+					errorMessage = fmt.Sprintf("%s: %s", errorMessage, *parsedResponse.JSON422.Message)
+				default:
+					errorMessage = fmt.Sprintf("%s: %s", errorMessage, string(parsedResponse.Body))
+				}
+				return fmt.Errorf("%s", errorMessage)
 			}
 
 			fmt.Println("Private key removed successfully")

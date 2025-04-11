@@ -8,6 +8,7 @@ import (
 	"github.com/coollabsio/cli-coolify/cmd/cliinit"
 	"github.com/coollabsio/cli-coolify/cmd/cliinstances"
 	"github.com/coollabsio/cli-coolify/cmd/cliprivatekeys"
+	"github.com/coollabsio/cli-coolify/cmd/cliservers"
 	"github.com/coollabsio/cli-coolify/cmd/cliupdate"
 	"github.com/coollabsio/cli-coolify/cmd/cliversion"
 	"github.com/coollabsio/cli-coolify/cmd/runtime"
@@ -48,9 +49,6 @@ func (cli *cliRoot) initialize() error {
 	// Log initialization message
 	coolify.LogTrace("Initializing Coolify CLI with log level: %s", cli.logLevel)
 
-	coolify.SetTimeout(cli.timeout)
-	coolify.SetInsecure(cli.insecure)
-
 	// Use the new load method on the Coolify struct
 	return coolify.Load(cli.name)
 }
@@ -78,6 +76,7 @@ func (cli *cliRoot) NewCommand() (*cobra.Command, error) {
 	cmd.AddCommand(cliversion.New(cli.runtime).NewCommand())
 	cmd.AddCommand(cliupdate.New(cli.runtime).NewCommand())
 	cmd.AddCommand(cliprivatekeys.New(cli.runtime).NewCommand())
+	cmd.AddCommand(cliservers.New(cli.runtime).NewCommand())
 
 	if len(os.Args) > 1 {
 		cobra.OnInitialize(

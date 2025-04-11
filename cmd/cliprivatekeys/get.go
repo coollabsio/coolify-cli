@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -23,29 +23,29 @@ func (c *cliPrivateKeys) newGetCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uuid := args[0]
 
-			req, err := c.coolify().NewRequest(cmd.Context(), http.MethodGet, fmt.Sprintf("security/keys/%s", uuid), nil)
+			response, err := c.coolify().Client.GetPrivateKeyByUuid(cmd.Context(), uuid)
 			if err != nil {
 				return fmt.Errorf("failed to create request: %w", err)
 			}
 
-			data, err := c.coolify().DoRequest(req)
+			parsedResponse, err := openapi.ParseGetPrivateKeyByUuidResponse(response)
 			if err != nil {
-				return fmt.Errorf("failed to fetch private key: %w", err)
+				return fmt.Errorf("failed to parse response: %w", err)
+			}
+			if parsedResponse.StatusCode() != http.StatusOK {
+				return fmt.Errorf("failed to fetch private key: %s", string(parsedResponse.Body))
 			}
 
 			format, _ := cmd.Flags().GetString("format")
-			var key PrivateKey
-			if err := json.Unmarshal(data, &key); err != nil {
-				return fmt.Errorf("failed to parse response: %w", err)
-			}
+			key := *parsedResponse.JSON200
 
 			if format == "json" {
 				// Redact sensitive data if --show-sensitive is not set
 				if !showSensitive {
 					// Create a copy with redacted sensitive fields
 					redactedKey := key
-					redactedKey.PrivateKey = "********"
-					redactedKey.PublicKey = "********"
+					redacted := "********"
+					redactedKey.PrivateKey = &redacted
 					key = redactedKey
 				}
 
@@ -59,27 +59,19 @@ func (c *cliPrivateKeys) newGetCommand() *cobra.Command {
 			t := table.NewWriter()
 			t.SetOutputMirror(os.Stdout)
 
-			// Define styles
-			focusedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
-			blurredStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("60"))
-
 			// Set title
-			titleStyle := focusedStyle.Copy().Bold(true)
-			fmt.Println(titleStyle.Render(fmt.Sprintf("Private Key: %s", key.Name)))
+			titleStyle := tui.FocusedStyle.Bold(true)
+			fmt.Println(titleStyle.Render(fmt.Sprintf("Private Key: %s", *key.Name)))
 
 			// Add rows
-			t.AppendRow(table.Row{"UUID", key.UUID})
-			t.AppendRow(table.Row{"Name", key.Name})
+			t.AppendRow(table.Row{"UUID", *key.Uuid})
+			t.AppendRow(table.Row{"Name", *key.Name})
 
 			// Handle sensitive info
 			if showSensitive {
-				t.AppendRow(table.Row{"Public Key", key.PublicKey})
-				// Format private key for display
-				formattedKey := strings.ReplaceAll(key.PrivateKey, "\n", "\\n")
-				t.AppendRow(table.Row{"Private Key", formattedKey})
+				t.AppendRow(table.Row{"Private Key", *key.PrivateKey})
 			} else {
-				sensitiveOverlay := blurredStyle.Render("(hidden - use --show-sensitive to display)")
-				t.AppendRow(table.Row{"Public Key", sensitiveOverlay})
+				sensitiveOverlay := tui.BlurredStyle.Render("(hidden - use --show-sensitive to display)")
 				t.AppendRow(table.Row{"Private Key", sensitiveOverlay})
 			}
 

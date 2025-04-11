@@ -5,20 +5,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PrivateKey represents a private key in the Coolify API
-type PrivateKey struct {
-	ID           int    `json:"id"`
-	UUID         string `json:"uuid"`
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	PublicKey    string `json:"public_key"`
-	PrivateKey   string `json:"private_key"`
-	IsGitRelated bool   `json:"is_git_related"`
-	TeamID       int    `json:"team_id"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
-}
-
 type cliPrivateKeys struct {
 	coolify runtime.Getter
 }
