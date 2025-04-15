@@ -3,8 +3,6 @@ package cliinstances
 import (
 	"errors"
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -12,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 )
 
 // addKeyMap defines keybindings for the add instance form
@@ -89,58 +88,6 @@ type sendInstanceMsg struct {
 	instance coolTypes.Instance
 }
 
-// validateName validates the instance name
-func validateName(s string) error {
-	if s == "" {
-		return errors.New("name is required")
-	}
-	return nil
-}
-
-// validateFQDN validates the instance FQDN
-func validateFQDN(s string) error {
-	if s == "" {
-		return errors.New("FQDN is required")
-	}
-
-	// Validate FQDN format
-	if strings.Contains(s, "://") {
-		// Check if it's a valid HTTP(S) URL
-		u, err := url.Parse(s)
-		if err != nil {
-			return fmt.Errorf("invalid URL format: %s", err)
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("URL scheme must be http or https")
-		}
-		if u.Host == "" {
-			return fmt.Errorf("URL must contain a host")
-		}
-	} else {
-		// Check if it's a valid IP:port format
-		host, port, err := net.SplitHostPort(s)
-		if err != nil {
-			return fmt.Errorf("invalid IP:port format: %s", err)
-		}
-		if net.ParseIP(host) == nil {
-			return fmt.Errorf("invalid IP address: %s", host)
-		}
-		if port == "" {
-			return fmt.Errorf("port is required for IP address format")
-		}
-	}
-
-	return nil
-}
-
-// validateToken validates the instance token
-func validateToken(s string) error {
-	if s == "" {
-		return errors.New("token is required")
-	}
-	return nil
-}
-
 func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addModel {
 	// Create text inputs
 	inputs := make([]textinput.Model, 3)
@@ -156,11 +103,11 @@ func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addMod
 		// Set up validation for each input type
 		switch label {
 		case "Name":
-			input.Validate = validateName
+			input.Validate = tui.ValidateNotEmpty
 		case "FQDN":
-			input.Validate = validateFQDN
+			input.Validate = tui.ValidateFQDN
 		case "Token":
-			input.Validate = validateToken
+			input.Validate = tui.ValidateNotEmpty
 		}
 
 		// Focus first input by default
@@ -214,9 +161,9 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				m.instance = coolTypes.Instance{
-					Name:    m.inputs[0].Value(),
-					Fqdn:    m.inputs[1].Value(),
-					Token:   m.inputs[2].Value(),
+					Name:    strings.TrimSpace(m.inputs[0].Value()),
+					Fqdn:    strings.TrimSpace(m.inputs[1].Value()),
+					Token:   strings.TrimSpace(m.inputs[2].Value()),
 					Default: m.isDefault,
 				}
 				// Return a command to send the instance
@@ -294,15 +241,13 @@ func (m addModel) validateOnSubmit() error {
 	// Trigger validation for all fields
 	for i, input := range m.inputs {
 		// If the field hasn't been edited and is empty, it hasn't triggered validation yet
-		if input.Value() == "" {
-			switch i {
-			case 0:
-				return validateName(input.Value())
-			case 1:
-				return validateFQDN(input.Value())
-			case 2:
-				return validateToken(input.Value())
-			}
+		switch i {
+		case 0:
+			return tui.ValidateNotEmpty(input.Value())
+		case 1:
+			return tui.ValidateFQDN(input.Value())
+		case 2:
+			return tui.ValidateNotEmpty(input.Value())
 		}
 	}
 	return nil

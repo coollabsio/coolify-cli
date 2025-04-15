@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -65,11 +66,11 @@ func (c *cliServers) runInteractiveAdd(validate bool) error {
 	}
 
 	// Get values from the form
-	name := finalModel.inputs[0].Value()
-	ip := finalModel.inputs[1].Value()
-	port := finalModel.inputs[2].Value()
-	user := finalModel.inputs[3].Value()
-	privateKeyUUID := finalModel.inputs[4].Value()
+	name := strings.TrimSpace(finalModel.inputs[0].Value())
+	ip := strings.TrimSpace(finalModel.inputs[1].Value())
+	port := strings.TrimSpace(finalModel.inputs[2].Value())
+	user := strings.TrimSpace(finalModel.inputs[3].Value())
+	privateKeyUUID := strings.TrimSpace(finalModel.inputs[4].Value())
 
 	// Convert port to int with default 22
 	portNum := 22
@@ -93,10 +94,7 @@ func initialAddModel() addModel {
 	// Initialize text inputs
 	labels := []string{"Name", "IP Address", "Port (default: 22)", "User (default: root)", "Private Key UUID"}
 	for i := range inputs {
-		input := textinput.New()
-		input.Placeholder = labels[i]
-		input.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("60"))
-		input.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("99"))
+		input := tui.NewBlurredInput(labels[i], "")
 		inputs[i] = input
 	}
 

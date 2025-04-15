@@ -14,34 +14,40 @@ function generate_password() {
     local lower="abcdefghijklmnopqrstuvwxyz"
     local upper="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     local digits="0123456789"
-    local special="!@#$%^&*()_+-="
-    local all_chars="${lower}${upper}${digits}${special}"
+    local special="!@#%^&*_-"
     
-    # Ensure at least one character from each set
+    # Function to get a random character from a string using /dev/urandom
+    function get_random_char() {
+        local chars=$1
+        local size=${#chars}
+        local index=$(od -An -N2 -i /dev/urandom | tr -d ' ' | awk "{print \$1 % ${size}}")
+        echo "${chars:${index}:1}"
+    }
+    
+    # Initialize password with required characters
     local password=""
-    password+="${lower:$((RANDOM % ${#lower})):1}"
-    password+="${upper:$((RANDOM % ${#upper})):1}"
-    password+="${digits:$((RANDOM % ${#digits})):1}"
-    password+="${special:$((RANDOM % ${#special})):1}"
+    password+="$(get_random_char "${lower}")"   # Ensure one lowercase
+    password+="$(get_random_char "${upper}")"   # Ensure one uppercase
+    password+="$(get_random_char "${digits}")"  # Ensure one digit
+    password+="$(get_random_char "${special}")" # Ensure one special char
     
-    # Fill the rest with random characters
+    # Add remaining characters
+    local all_chars="${lower}${upper}${digits}${special}"
     for ((i=0; i<8; i++)); do
-        password+="${all_chars:$((RANDOM % ${#all_chars})):1}"
+        password+="$(get_random_char "${all_chars}")"
     done
     
-    # Shuffle the password using a Fisher-Yates shuffle
-    local result=""
+    # Shuffle the password using cryptographically secure randomness
+    local shuffled=""
     local temp="$password"
-    local len=${#temp}
     
-    for ((i=len-1; i>0; i--)); do
-        local j=$((RANDOM % (i+1)))
-        local temp_i="${temp:$i:1}"
-        local temp_j="${temp:$j:1}"
-        temp="${temp:0:$j}${temp_i}${temp:$((j+1)):$((i-j-1))}${temp_j}${temp:$((i+1))}"
+    while [ ${#temp} -gt 0 ]; do
+        local pos=$(od -An -N2 -i /dev/urandom | tr -d ' ' | awk "{print \$1 % ${#temp}}")
+        shuffled+="${temp:$pos:1}"
+        temp="${temp:0:$pos}${temp:$((pos+1))}"
     done
     
-    echo "$temp"
+    echo "$shuffled"
 }
 
 # Update package lists and upgrade system
@@ -60,7 +66,7 @@ apt-get install -y \
 
 ## Install Coolify
 echo "Installing Coolify..."
-## Generated a random password
+## Generate a random password
 PASSWORD=$(generate_password)
 EMAIL="hi@coollabs.io"
 curl -fsSL https://cdn.coollabs.io/coolify/install.sh > install.sh

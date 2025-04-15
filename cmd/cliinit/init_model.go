@@ -2,9 +2,6 @@ package cliinit
 
 import (
 	"errors"
-	"fmt"
-	"net"
-	"net/url"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -13,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 )
 
 var (
@@ -104,7 +102,8 @@ type initModel struct {
 
 // validateCloudToken validates the cloud token
 func validateCloudToken(s string) error {
-	if s == "" {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
 		return errors.New("token is required when using Coolify Cloud")
 	}
 	return nil
@@ -112,51 +111,17 @@ func validateCloudToken(s string) error {
 
 // validateInstanceName validates the instance name
 func validateInstanceName(s string) error {
-	if s == "" {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
 		return errors.New("name is required for self-hosted instance")
 	}
 	return nil
 }
 
-// validateInstanceFQDN validates the instance FQDN
-func validateInstanceFQDN(s string) error {
-	if s == "" {
-		return errors.New("FQDN is required for self-hosted instance")
-	}
-
-	// Validate FQDN format
-	if strings.Contains(s, "://") {
-		// Check if it's a valid HTTP(S) URL
-		u, err := url.Parse(s)
-		if err != nil {
-			return fmt.Errorf("invalid URL format: %s", err)
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("URL scheme must be http or https")
-		}
-		if u.Host == "" {
-			return fmt.Errorf("URL must contain a host")
-		}
-	} else {
-		// Check if it's a valid IP:port format
-		host, port, err := net.SplitHostPort(s)
-		if err != nil {
-			return fmt.Errorf("invalid IP:port format: %s", err)
-		}
-		if net.ParseIP(host) == nil {
-			return fmt.Errorf("invalid IP address: %s", host)
-		}
-		if port == "" {
-			return fmt.Errorf("port is required for IP address format")
-		}
-	}
-
-	return nil
-}
-
 // validateInstanceToken validates the instance token
 func validateInstanceToken(s string) error {
-	if s == "" {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
 		return errors.New("token is required for self-hosted instance")
 	}
 	return nil
@@ -166,30 +131,30 @@ func newInitModel(result chan<- []coolTypes.Instance) initModel {
 	cloudToken := textinput.New()
 	cloudToken.Placeholder = "Enter your Coolify Cloud token"
 	cloudToken.Prompt = "Cloud Token: "
-	cloudToken.PromptStyle = FocusedStyle
-	cloudToken.TextStyle = FocusedStyle
-	cloudToken.Validate = validateCloudToken
+	cloudToken.PromptStyle = tui.FocusedStyle
+	cloudToken.TextStyle = tui.FocusedStyle
+	cloudToken.Validate = tui.ValidateNotEmpty
 
 	selfHostName := textinput.New()
 	selfHostName.Placeholder = "Enter name for self-hosted instance"
 	selfHostName.Prompt = "Name: "
-	selfHostName.PromptStyle = FocusedStyle
-	selfHostName.TextStyle = FocusedStyle
-	selfHostName.Validate = validateInstanceName
+	selfHostName.PromptStyle = tui.FocusedStyle
+	selfHostName.TextStyle = tui.FocusedStyle
+	selfHostName.Validate = tui.ValidateNotEmpty
 
 	selfHostFqdn := textinput.New()
 	selfHostFqdn.Placeholder = "Enter FQDN for self-hosted instance"
 	selfHostFqdn.Prompt = "FQDN: "
-	selfHostFqdn.PromptStyle = FocusedStyle
-	selfHostFqdn.TextStyle = FocusedStyle
-	selfHostFqdn.Validate = validateInstanceFQDN
+	selfHostFqdn.PromptStyle = tui.FocusedStyle
+	selfHostFqdn.TextStyle = tui.FocusedStyle
+	selfHostFqdn.Validate = tui.ValidateFQDN
 
 	selfHostToken := textinput.New()
 	selfHostToken.Placeholder = "Enter token for self-hosted instance"
 	selfHostToken.Prompt = "Token: "
-	selfHostToken.PromptStyle = FocusedStyle
-	selfHostToken.TextStyle = FocusedStyle
-	selfHostToken.Validate = validateInstanceToken
+	selfHostToken.PromptStyle = tui.FocusedStyle
+	selfHostToken.TextStyle = tui.FocusedStyle
+	selfHostToken.Validate = tui.ValidateNotEmpty
 
 	return initModel{
 		instances:     make([]coolTypes.Instance, 0),
@@ -222,13 +187,15 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help.ShowAll = !m.help.ShowAll
 			return m, nil
 		case key.Matches(msg, m.keys.Space):
-			// Space toggles checkbox
-			if m.step == 0 {
+			// Space toggles checkbox when on step 0 or 2
+			switch m.step {
+			case 0:
 				m.useCloud = !m.useCloud
-			} else if m.step == 2 {
+				return m, nil
+			case 2:
 				m.useSelfHost = !m.useSelfHost
+				return m, nil
 			}
-			return m, nil
 		case key.Matches(msg, m.keys.Enter):
 			if m.step == 0 {
 				// Enter handles progression
@@ -279,6 +246,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, tea.Quit
 				}
 			} else if m.step == 3 {
+				cloudToken := strings.TrimSpace(m.cloudToken.Value())
 				if m.useSelfHost {
 					// Check for validation errors
 					if m.selfHostName.Err != nil || m.selfHostFqdn.Err != nil || m.selfHostToken.Err != nil {
@@ -286,16 +254,19 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 
+					selfHostName := strings.TrimSpace(m.selfHostName.Value())
+					selfHostFqdn := strings.TrimSpace(m.selfHostFqdn.Value())
+					selfHostToken := strings.TrimSpace(m.selfHostToken.Value())
 					// Manual validation in case fields haven't been edited
-					if m.selfHostName.Value() == "" {
+					if selfHostName == "" {
 						m.err = errors.New("name is required for self-hosted instance")
 						return m, nil
 					}
-					if m.selfHostFqdn.Value() == "" {
+					if selfHostFqdn == "" {
 						m.err = errors.New("FQDN is required for self-hosted instance")
 						return m, nil
 					}
-					if m.selfHostToken.Value() == "" {
+					if selfHostToken == "" {
 						m.err = errors.New("token is required for self-hosted instance")
 						return m, nil
 					}
@@ -306,14 +277,14 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Name:    "cloud",
 							Default: true,
 							Fqdn:    "https://app.coolify.io",
-							Token:   m.cloudToken.Value(),
+							Token:   cloudToken,
 						})
 					}
 					m.instances = append(m.instances, coolTypes.Instance{
-						Name:    m.selfHostName.Value(),
+						Name:    selfHostName,
 						Default: !m.useCloud,
-						Fqdn:    m.selfHostFqdn.Value(),
-						Token:   m.selfHostToken.Value(),
+						Fqdn:    selfHostFqdn,
+						Token:   selfHostToken,
 					})
 					// Send instances back to command
 					if m.result != nil {
@@ -327,7 +298,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							Name:    "cloud",
 							Default: true,
 							Fqdn:    "https://app.coolify.io",
-							Token:   m.cloudToken.Value(),
+							Token:   cloudToken,
 						})
 					}
 					// Send instances back to command
@@ -415,9 +386,9 @@ func (m initModel) View() string {
 
 	// Step 1: Cloud question
 	if m.step == 0 {
-		cloudStyle := BlurredStyle
+		cloudStyle := tui.BlurredStyle
 		if m.focus == 0 {
-			cloudStyle = FocusedStyle
+			cloudStyle = tui.FocusedStyle
 		}
 		s.WriteString(cloudStyle.Render("Do you use "))
 		s.WriteString(goldStyle.Render("Coolify Cloud?"))
@@ -428,6 +399,7 @@ func (m initModel) View() string {
 			s.WriteString(unchecked)
 		}
 		s.WriteString("\n")
+		s.WriteString(tui.BlurredStyle.Render("Hint: use spacebar to toggle checkbox\n"))
 	}
 
 	// Step 2: Cloud token input
@@ -436,16 +408,16 @@ func (m initModel) View() string {
 		if m.cloudToken.Err != nil {
 			// Display validation error next to input
 			s.WriteString(" ")
-			s.WriteString(ErrorStyle.Render(m.cloudToken.Err.Error()))
+			s.WriteString(tui.ErrorStyle.Render(m.cloudToken.Err.Error()))
 		}
 		s.WriteString("\n")
 	}
 
 	// Step 3: Self-hosted question
 	if m.step == 2 {
-		selfHostStyle := BlurredStyle
+		selfHostStyle := tui.BlurredStyle
 		if m.focus == 2 {
-			selfHostStyle = FocusedStyle
+			selfHostStyle = tui.FocusedStyle
 		}
 		s.WriteString(selfHostStyle.Render("Add self-hosted instance"))
 		s.WriteString(" ")
@@ -455,6 +427,7 @@ func (m initModel) View() string {
 			s.WriteString(unchecked)
 		}
 		s.WriteString("\n")
+		s.WriteString(tui.BlurredStyle.Render("Hint: use spacebar to toggle checkbox\n"))
 	}
 
 	// Step 4: Self-hosted inputs
@@ -464,7 +437,7 @@ func (m initModel) View() string {
 		if m.selfHostName.Err != nil {
 			// Display validation error next to input
 			s.WriteString(" ")
-			s.WriteString(ErrorStyle.Render(m.selfHostName.Err.Error()))
+			s.WriteString(tui.ErrorStyle.Render(m.selfHostName.Err.Error()))
 		}
 		s.WriteString("\n\n")
 
@@ -473,7 +446,7 @@ func (m initModel) View() string {
 		if m.selfHostFqdn.Err != nil {
 			// Display validation error next to input
 			s.WriteString(" ")
-			s.WriteString(ErrorStyle.Render(m.selfHostFqdn.Err.Error()))
+			s.WriteString(tui.ErrorStyle.Render(m.selfHostFqdn.Err.Error()))
 		}
 		s.WriteString("\n\n")
 
@@ -482,7 +455,7 @@ func (m initModel) View() string {
 		if m.selfHostToken.Err != nil {
 			// Display validation error next to input
 			s.WriteString(" ")
-			s.WriteString(ErrorStyle.Render(m.selfHostToken.Err.Error()))
+			s.WriteString(tui.ErrorStyle.Render(m.selfHostToken.Err.Error()))
 		}
 		s.WriteString("\n")
 	}
@@ -494,7 +467,7 @@ func (m initModel) View() string {
 	// Error message
 	if m.err != nil {
 		s.WriteString("\n\n")
-		s.WriteString(ErrorStyle.Render(m.err.Error()))
+		s.WriteString(tui.ErrorStyle.Render(m.err.Error()))
 	}
 
 	return s.String()
