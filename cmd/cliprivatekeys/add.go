@@ -302,10 +302,11 @@ If no arguments are provided, an interactive form will be used.`,
 	}
 
 	flags := cmd.Flags()
-	flags.BoolVarP(&generateKeyPair, "generate", "g", false, "Generate a new key pair")
-	flags.StringVarP(&algorithm, "algorithm", "a", "rsa", "The algorithm to use for the key pair")
-	flags.StringVarP(&outPutDirectory, "output", "o", "", "Optional output directory for the key pair")
-	flags.BoolVarP(&force, "force", "f", false, "Force the generation of the key pair if the name exists on the file system within the output directory")
+	flags.SortFlags = false
+	flags.BoolVarP(&generateKeyPair, "generate", "g", false, "generate a new key pair")
+	flags.StringVarP(&algorithm, "algorithm", "a", "rsa", "algorithm to use for the key pair")
+	flags.StringVarP(&outPutDirectory, "output", "o", "", "optional output directory for the key pair")
+	flags.BoolVarP(&force, "force", "f", false, "force the generation of the key pair if the name exists on the file system within the output directory")
 	return cmd
 }
 
