@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/adrg/xdg"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/runtime"
@@ -183,7 +182,7 @@ func generateEd25519KeyPair() ([]byte, []byte, error) {
 	return privateKeyBytes, publicKeyBytes, nil
 }
 
-func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string) (string, error) {
+func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string, force bool) (string, error) {
 	var privateKey, publicKey []byte
 	var err error
 	switch alorithim {
@@ -198,27 +197,34 @@ func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string) (str
 	if err != nil {
 		return "", err
 	}
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
-		return "", fmt.Errorf("failed to create output directory: %w", err)
+
+	if outputDir != "" {
+		if err := os.MkdirAll(outputDir, 0700); err != nil {
+			return "", fmt.Errorf("failed to create output directory: %w", err)
+		}
+
+		// Write private key file
+		privateKeyPath := filepath.Join(outputDir, name)
+		if !force {
+			if _, err := os.Stat(privateKeyPath); err == nil {
+				return "", fmt.Errorf("private key file already exists: %s", privateKeyPath)
+			}
+		}
+
+		if err := os.WriteFile(privateKeyPath, privateKey, 0600); err != nil {
+			return "", fmt.Errorf("failed to write private key file: %w", err)
+		}
+
+		// Write public key file
+		publicKeyPath := privateKeyPath + ".pub"
+		if err := os.WriteFile(publicKeyPath, publicKey, 0644); err != nil {
+			return "", fmt.Errorf("failed to write public key file: %w", err)
+		}
+
+		fmt.Printf("Generated SSH key pair:\n")
+		fmt.Printf("  Private key: %s\n", privateKeyPath)
+		fmt.Printf("  Public key:  %s\n", publicKeyPath)
 	}
-
-	// Write private key file
-	privateKeyPath := filepath.Join(outputDir, name)
-	if err := os.WriteFile(privateKeyPath, []byte(privateKey), 0600); err != nil {
-		return "", fmt.Errorf("failed to write private key file: %w", err)
-	}
-
-	// Write public key file
-	publicKeyPath := privateKeyPath + ".pub"
-	if err := os.WriteFile(publicKeyPath, []byte(publicKey), 0644); err != nil {
-		return "", fmt.Errorf("failed to write public key file: %w", err)
-	}
-
-	fmt.Printf("Generated SSH key pair:\n")
-	fmt.Printf("  Private key: %s\n", privateKeyPath)
-	fmt.Printf("  Public key:  %s\n", publicKeyPath)
-
 	return string(privateKey), nil
 }
 
@@ -226,6 +232,7 @@ func (c *cliPrivateKeys) newAddCommand() *cobra.Command {
 	var generateKeyPair bool
 	var outPutDirectory string
 	var algorithm string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "add [name] [private_key_or_file]",
 		Short: "Add a new private key",
@@ -237,7 +244,7 @@ If no arguments are provided, an interactive form will be used.`,
 		Example: utils.GetCommandExample(`
 %[1]s private-keys add "My Key" /path/to/id_rsa
 %[1]s private-keys add "My Key" "-----BEGIN RSA PRIVATE KEY-----..."
-%[1]s private-keys add "My Key" --generate  # Generate RSA key pair
+%[1]s private-keys add "My Key" --generate  # Generate key pair
 %[1]s private-keys add  # Interactive mode
 `),
 		SilenceUsage: true,
@@ -254,7 +261,7 @@ If no arguments are provided, an interactive form will be used.`,
 			// Handle key generation
 			if generateKeyPair {
 				name := args[0]
-				privateKey, err := c.generateKeyPair(name, outPutDirectory, algorithm)
+				privateKey, err := c.generateKeyPair(name, outPutDirectory, algorithm, force)
 				if err != nil {
 					return err
 				}
@@ -297,7 +304,8 @@ If no arguments are provided, an interactive form will be used.`,
 	flags := cmd.Flags()
 	flags.BoolVarP(&generateKeyPair, "generate", "g", false, "Generate a new key pair")
 	flags.StringVarP(&algorithm, "algorithm", "a", "rsa", "The algorithm to use for the key pair")
-	flags.StringVarP(&outPutDirectory, "output", "o", fmt.Sprintf("%s/.ssh", xdg.Home), "Output directory for the key pair")
+	flags.StringVarP(&outPutDirectory, "output", "o", "", "Optional output directory for the key pair")
+	flags.BoolVarP(&force, "force", "f", false, "Force the generation of the key pair if the name exists on the file system within the output directory")
 	return cmd
 }
 
