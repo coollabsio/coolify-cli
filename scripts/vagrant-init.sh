@@ -82,3 +82,8 @@ echo "You can SSH into the VM using: vagrant ssh"
 echo "Credentials:"
 echo "Email: $EMAIL"
 echo "Password: $PASSWORD"
+
+## output crednetials inside the box
+echo "Email: $EMAIL" >> /home/vagrant/credentials.txt
+echo "Password: $PASSWORD" >> /home/vagrant/credentials.txt
+

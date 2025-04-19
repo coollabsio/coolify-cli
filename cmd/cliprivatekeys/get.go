@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/coollabsio/cli-coolify/cmd/coolTypes"
 	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
 	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -44,8 +45,8 @@ func (c *cliPrivateKeys) newGetCommand() *cobra.Command {
 				if !showSensitive {
 					// Create a copy with redacted sensitive fields
 					redactedKey := key
-					redacted := "********"
-					redactedKey.PrivateKey = &redacted
+					redactedKey.PrivateKey = &coolTypes.Redacted
+					redactedKey.PublicKey = &coolTypes.Redacted
 					key = redactedKey
 				}
 

@@ -2,6 +2,7 @@ package cliprivatekeys
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -136,11 +137,11 @@ func (m addKeyModel) View() string {
 	return b.String()
 }
 
-func (c *cliPrivateKeys) generateKeyPair(name, outputDir string) (string, error) {
+func generateRSAKeyPair() ([]byte, []byte, error) {
 	// Generate RSA key pair
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate RSA key pair: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate RSA key pair: %w", err)
 	}
 
 	// Convert private key to PEM format
@@ -153,24 +154,64 @@ func (c *cliPrivateKeys) generateKeyPair(name, outputDir string) (string, error)
 	// Generate public key
 	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate public key: %w", err)
+		return nil, nil, fmt.Errorf("failed to generate public key: %w", err)
 	}
 	publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
 
+	return privateKeyBytes, publicKeyBytes, nil
+}
+
+func generateEd25519KeyPair() ([]byte, []byte, error) {
+	// Generate Ed25519 key pair
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate Ed25519 key pair: %w", err)
+	}
+	privateKeyPem, err := ssh.MarshalPrivateKey(privateKey, "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+	privateKeyBytes := pem.EncodeToMemory(privateKeyPem)
+
+	// Generate public key
+	sshPublicKey, err := ssh.NewPublicKey(publicKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate public key: %w", err)
+	}
+	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
+
+	return privateKeyBytes, publicKeyBytes, nil
+}
+
+func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string) (string, error) {
+	var privateKey, publicKey []byte
+	var err error
+	switch alorithim {
+	case "rsa":
+		privateKey, publicKey, err = generateRSAKeyPair()
+	case "ed25519":
+		privateKey, publicKey, err = generateEd25519KeyPair()
+	default:
+		return "", fmt.Errorf("invalid alorithim: %s", alorithim)
+	}
+
+	if err != nil {
+		return "", err
+	}
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	// Write private key file
-	privateKeyPath := filepath.Join(outputDir, fmt.Sprintf("%s", name))
-	if err := os.WriteFile(privateKeyPath, privateKeyBytes, 0600); err != nil {
+	privateKeyPath := filepath.Join(outputDir, name)
+	if err := os.WriteFile(privateKeyPath, []byte(privateKey), 0600); err != nil {
 		return "", fmt.Errorf("failed to write private key file: %w", err)
 	}
 
 	// Write public key file
 	publicKeyPath := privateKeyPath + ".pub"
-	if err := os.WriteFile(publicKeyPath, publicKeyBytes, 0644); err != nil {
+	if err := os.WriteFile(publicKeyPath, []byte(publicKey), 0644); err != nil {
 		return "", fmt.Errorf("failed to write public key file: %w", err)
 	}
 
@@ -178,12 +219,13 @@ func (c *cliPrivateKeys) generateKeyPair(name, outputDir string) (string, error)
 	fmt.Printf("  Private key: %s\n", privateKeyPath)
 	fmt.Printf("  Public key:  %s\n", publicKeyPath)
 
-	return string(privateKeyBytes), nil
+	return string(privateKey), nil
 }
 
 func (c *cliPrivateKeys) newAddCommand() *cobra.Command {
 	var generateKeyPair bool
 	var outPutDirectory string
+	var algorithm string
 	cmd := &cobra.Command{
 		Use:   "add [name] [private_key_or_file]",
 		Short: "Add a new private key",
@@ -212,7 +254,7 @@ If no arguments are provided, an interactive form will be used.`,
 			// Handle key generation
 			if generateKeyPair {
 				name := args[0]
-				privateKey, err := c.generateKeyPair(name, outPutDirectory)
+				privateKey, err := c.generateKeyPair(name, outPutDirectory, algorithm)
 				if err != nil {
 					return err
 				}
@@ -254,6 +296,7 @@ If no arguments are provided, an interactive form will be used.`,
 
 	flags := cmd.Flags()
 	flags.BoolVarP(&generateKeyPair, "generate", "g", false, "Generate a new key pair")
+	flags.StringVarP(&algorithm, "algorithm", "a", "rsa", "The algorithm to use for the key pair")
 	flags.StringVarP(&outPutDirectory, "output", "o", fmt.Sprintf("%s/.ssh", xdg.Home), "Output directory for the key pair")
 	return cmd
 }

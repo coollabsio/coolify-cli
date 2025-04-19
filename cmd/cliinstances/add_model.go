@@ -97,8 +97,8 @@ func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addMod
 		input := textinput.New()
 		input.Placeholder = fmt.Sprintf("Enter instance %s", label)
 		input.Prompt = fmt.Sprintf("%s: ", label)
-		input.PromptStyle = FocusedStyle
-		input.TextStyle = FocusedStyle
+		input.PromptStyle = tui.FocusedStyle
+		input.TextStyle = tui.FocusedStyle
 
 		// Set up validation for each input type
 		switch label {
@@ -269,22 +269,22 @@ func (m addModel) View() string {
 		if input.Err != nil {
 			// Display the validation error next to the input
 			s.WriteString(" ")
-			s.WriteString(ErrorStyle.Render(input.Err.Error()))
+			s.WriteString(tui.ErrorStyle.Render(input.Err.Error()))
 		}
 		s.WriteString("\n")
 	}
 
 	// Submit and Cancel buttons
-	submitStyle := BlurredStyle
+	submitStyle := tui.BlurredStyle
 	if m.focus == len(m.inputs) {
-		submitStyle = FocusedStyle
+		submitStyle = tui.FocusedStyle
 	}
 	s.WriteString(submitStyle.Render("Submit"))
 	s.WriteString(" ")
 
-	cancelStyle := BlurredStyle
+	cancelStyle := tui.BlurredStyle
 	if m.focus == len(m.inputs)+1 {
-		cancelStyle = FocusedStyle
+		cancelStyle = tui.FocusedStyle
 	}
 	s.WriteString(cancelStyle.Render("Cancel"))
 
@@ -295,7 +295,7 @@ func (m addModel) View() string {
 	// General form error message (if any)
 	if m.err != nil {
 		s.WriteString("\n\n")
-		s.WriteString(ErrorStyle.Render(m.err.Error()))
+		s.WriteString(tui.ErrorStyle.Render(m.err.Error()))
 	}
 
 	return s.String()

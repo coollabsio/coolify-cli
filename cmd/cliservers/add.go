@@ -31,6 +31,7 @@ func (c *cliServers) newAddCommand() *cobra.Command {
 		Long: `
 Add a new server to your Coolify instance.
 If no arguments are provided, an interactive form will be shown.`,
+		SilenceUsage: true,
 		Example: utils.GetCommandExample(`
 %[1]s servers add "My Server" 192.168.1.100 abcd1234-uuid
 %[1]s servers add "Production" 10.0.0.1 efgh5678-uuid --validate

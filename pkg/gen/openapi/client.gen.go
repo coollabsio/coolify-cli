@@ -548,10 +548,12 @@ type EnvironmentVariable struct {
 type PrivateKey struct {
 	CreatedAt    *string `json:"created_at,omitempty"`
 	Description  *string `json:"description,omitempty"`
+	Fingerprint  *string `json:"fingerprint,omitempty"`
 	Id           *int    `json:"id,omitempty"`
 	IsGitRelated *bool   `json:"is_git_related,omitempty"`
 	Name         *string `json:"name,omitempty"`
 	PrivateKey   *string `json:"private_key,omitempty"`
+	PublicKey    *string `json:"public_key,omitempty"`
 	TeamId       *int    `json:"team_id,omitempty"`
 	UpdatedAt    *string `json:"updated_at,omitempty"`
 	Uuid         *string `json:"uuid,omitempty"`

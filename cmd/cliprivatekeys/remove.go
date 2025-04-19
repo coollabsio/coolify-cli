@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -12,11 +13,12 @@ func (c *cliPrivateKeys) newRemoveCommand() *cobra.Command {
 	var forceRemove bool
 
 	cmd := &cobra.Command{
-		Use:     "remove [uuid]",
-		Short:   "Remove a private key",
-		Long:    `Remove an SSH private key from your Coolify instance.`,
-		Aliases: []string{"delete", "rm"},
-		Args:    cobra.ExactArgs(1),
+		Use:          "remove [uuid]",
+		Short:        "Remove a private key",
+		Long:         `Remove an private key from your Coolify instance.`,
+		SilenceUsage: true,
+		Aliases:      []string{"delete", "rm"},
+		Args:         cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uuid := args[0]
 
@@ -52,14 +54,14 @@ func (c *cliPrivateKeys) newRemoveCommand() *cobra.Command {
 				return fmt.Errorf("%s", errorMessage)
 			}
 
-			fmt.Println("Private key removed successfully")
+			fmt.Println(tui.SuccessStyle.Render("Private key removed successfully"))
 			return nil
 		},
 	}
 
 	// Add flags
 	flags := cmd.Flags()
-	flags.BoolVarP(&forceRemove, "force", "f", false, "Remove without confirmation prompt")
+	flags.BoolVarP(&forceRemove, "force", "f", false, "Attempt to remove without confirmation prompt")
 
 	return cmd
 }

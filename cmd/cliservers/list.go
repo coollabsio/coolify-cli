@@ -106,20 +106,27 @@ func initialListModel(servers *[]openapi.Server, sensitive bool, initialFilter s
 		var builder strings.Builder
 		addSection := func(title, value interface{}) {
 			builder.WriteString(tui.FocusedStyle.Bold(true).Render(fmt.Sprintf("%s: ", title)))
-			if value == nil {
-				builder.WriteString("N/A\n\n")
-				return
-			}
 			switch v := value.(type) {
 			case *string:
-				builder.WriteString(*v + "\n\n")
+				builder.WriteString(*v)
 			case *int:
-				builder.WriteString(fmt.Sprintf("%d\n\n", *v))
-			case openapi.ServerProxyType:
-				builder.WriteString(string(v) + "\n\n")
-			default:
-				builder.WriteString("N/A\n\n")
+				builder.WriteString(fmt.Sprintf("%d", *v))
+			case *openapi.ServerProxyType:
+				if v != nil {
+					builder.WriteString(string(*v))
+				} else {
+					builder.WriteString("N/A")
+				}
+			case string:
+				builder.WriteString(v)
+			case *bool:
+				if v != nil {
+					builder.WriteString(fmt.Sprintf("%t", *v))
+				} else {
+					builder.WriteString("N/A")
+				}
 			}
+			builder.WriteString("\n\n")
 		}
 
 		addSection("UUID", s.Uuid)
@@ -128,7 +135,46 @@ func initialListModel(servers *[]openapi.Server, sensitive bool, initialFilter s
 		addSection("User", s.User)
 		addSection("Port", s.Port)
 		addSection("Proxy Type", s.ProxyType)
-		builder.WriteString(fmt.Sprintf("Settings: %+v\n\n", s.Settings))
+		addSection("Settings", "")
+		addSection("  Created At", s.Settings.CreatedAt)
+		addSection("  Updated At", s.Settings.UpdatedAt)
+		addSection("  Server ID", s.Settings.ServerId)
+		addSection("  Concurrent Builds", s.Settings.ConcurrentBuilds)
+		addSection("  Dynamic Timeout", s.Settings.DynamicTimeout)
+		addSection("  Docker", "")
+		addSection("    Delete Unused Networks", s.Settings.DeleteUnusedNetworks)
+		addSection("    Delete Unused Volumes", s.Settings.DeleteUnusedVolumes)
+		addSection("    Cleanup Frequency", s.Settings.DockerCleanupFrequency)
+		addSection("    Cleanup Threshold", s.Settings.DockerCleanupThreshold)
+		addSection("  Force Disabled", s.Settings.ForceDisabled)
+		addSection("  Force Server Cleanup", s.Settings.ForceServerCleanup)
+		addSection("  Is Build Server", s.Settings.IsBuildServer)
+		addSection("  Is Cloudflare Tunnel", s.Settings.IsCloudflareTunnel)
+		addSection("  Is Jump Server", s.Settings.IsJumpServer)
+		if s.Settings.IsLogdrainAxiomEnabled != nil && *s.Settings.IsLogdrainAxiomEnabled {
+			addSection("  Axiom", "")
+			addSection("    API Key", s.Settings.LogdrainAxiomApiKey)
+			addSection("    Dataset Name", s.Settings.LogdrainAxiomDatasetName)
+		}
+		if s.Settings.IsLogdrainCustomEnabled != nil && *s.Settings.IsLogdrainCustomEnabled {
+			addSection("  Custom Drain", "")
+			addSection("    Config", s.Settings.LogdrainCustomConfig)
+			addSection("    Config Parser", s.Settings.LogdrainCustomConfigParser)
+		}
+		if s.Settings.IsLogdrainHighlightEnabled != nil && *s.Settings.IsLogdrainHighlightEnabled {
+			addSection("  Highlight", "")
+			addSection("    Project ID", s.Settings.LogdrainHighlightProjectId)
+		}
+		if s.Settings.IsLogdrainNewrelicEnabled != nil && *s.Settings.IsLogdrainNewrelicEnabled {
+			addSection("  Newrelic", "")
+			addSection("    Base URI", s.Settings.LogdrainNewrelicBaseUri)
+			addSection("    License Key", s.Settings.LogdrainNewrelicLicenseKey)
+		}
+		addSection("  Metrics", "")
+		addSection("    History Days", s.Settings.SentinelMetricsHistoryDays)
+		addSection("    Refresh Rate", s.Settings.SentinelMetricsRefreshRateSeconds)
+		addSection("    Token", s.Settings.SentinelToken)
+
 		return builder.String()
 	}
 

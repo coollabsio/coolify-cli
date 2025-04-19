@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -96,8 +97,7 @@ func (m getModel) View() string {
 	var s strings.Builder
 
 	// Create styles
-	titleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("99")).
+	titleStyle := tui.FocusedStyle.
 		Bold(true).
 		MarginBottom(1)
 

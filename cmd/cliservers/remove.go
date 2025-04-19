@@ -6,6 +6,7 @@ import (
 
 	"github.com/coollabsio/cli-coolify/cmd/utils"
 	"github.com/coollabsio/cli-coolify/pkg/gen/openapi"
+	"github.com/coollabsio/cli-coolify/pkg/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +20,8 @@ func (c *cliServers) newRemoveCommand() *cobra.Command {
 Remove a server from your Coolify instance.
 This action cannot be undone.`,
 		Example: utils.GetCommandExample(`
-%[1]s servers remove 123e4567-e89b-12d3-a456-426614174000
-%[1]s servers remove 123e4567-e89b-12d3-a456-426614174000 --force`),
+%[1]s servers remove [uuid]
+%[1]s servers remove [uuid] --force`),
 		Aliases: []string{"delete", "rm"},
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +52,7 @@ This action cannot be undone.`,
 					return fmt.Errorf("failed to remove server: %s", string(parsedResponse.Body))
 				}
 			}
-			fmt.Println(parsedResponse.JSON200.Message)
+			fmt.Println(tui.SuccessStyle.Render(*parsedResponse.JSON200.Message))
 			return nil
 		},
 	}

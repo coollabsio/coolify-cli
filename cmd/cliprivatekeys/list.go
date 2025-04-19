@@ -80,11 +80,14 @@ func buildDetailView(item tui.FilterableItem, sensitive bool) string {
 	addSection("UUID", key.Uuid)
 	addSection("Name", key.Name)
 	addSection("Description", key.Description)
+	addSection("Fingerprint", key.Fingerprint)
 
 	if sensitive {
 		addSection("Private Key", key.PrivateKey)
+		addSection("Public Key", key.PublicKey)
 	} else {
 		addSection("Private Key", &coolTypes.Redacted)
+		addSection("Public Key", &coolTypes.Redacted)
 	}
 
 	addSection("Git Related", key.IsGitRelated)
@@ -172,6 +175,7 @@ func (c *cliPrivateKeys) newListCommand() *cobra.Command {
 					for i, key := range *parsedResponse.JSON200 {
 						redactedKeys[i] = key
 						redactedKeys[i].PrivateKey = &coolTypes.Redacted
+						redactedKeys[i].PublicKey = &coolTypes.Redacted
 					}
 					keys = redactedKeys
 				}
