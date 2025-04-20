@@ -122,11 +122,14 @@ func (c *cliPrivateKeys) handleDelete(item tui.FilterableItem) error {
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if parsedResponse.StatusCode() != http.StatusOK {
+	switch parsedResponse.StatusCode() {
+	case http.StatusUnprocessableEntity:
+		return fmt.Errorf("failed to delete private key: %s", *parsedResponse.JSON422.Message)
+	case http.StatusOK:
+		return nil
+	default:
 		return fmt.Errorf("failed to delete private key: %s", string(parsedResponse.Body))
 	}
-
-	return nil
 }
 
 func (c *cliPrivateKeys) newListCommand() *cobra.Command {

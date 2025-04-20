@@ -41,7 +41,7 @@ type Coolify struct {
 	Logger  *logrus.Logger
 }
 
-func NewCoolify(fqdn, token string, logLevel string) *Coolify {
+func NewCoolify(fqdn, token, logLevel string) *Coolify {
 
 	// Initialize logger with default settings
 	logger := logrus.New()
@@ -146,7 +146,10 @@ func (c *Coolify) Save() error {
 
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		c.LogDebug("Creating configuration directory: %s", baseDir)
-		os.MkdirAll(baseDir, 0o755)
+		if err := os.MkdirAll(baseDir, 0o755); err != nil {
+			c.LogError("Failed to create configuration directory: %v", err)
+			return err
+		}
 	}
 
 	var err error

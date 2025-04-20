@@ -79,7 +79,7 @@ func (c *cliInstances) runInteractiveMode(cmd *cobra.Command, force, isDefault b
 	for i, existing := range c.instances {
 		if existing.Name == instance.Name {
 			if !force {
-				return errors.New("Instance with the same name already exists. Use the force flag to overwrite or instances set to modify individual attributes.")
+				return errors.New("instance with the same name already exists. Use the force flag to overwrite or instances set to modify individual attributes")
 			}
 			c.instances = slices.Delete(c.instances, i, i+1)
 			break
@@ -102,7 +102,7 @@ func (c *cliInstances) runNonInteractiveMode(args []string, force, isNewDefault 
 	for i, instance := range c.instances {
 		if instance.Name == args[0] {
 			if !force {
-				return errors.New("Instance with the same name already exists. Use the force flag to overwrite or instances set to modify individual attributes.")
+				return errors.New("instance with the same name already exists. Use the force flag to overwrite or instances set to modify individual attributes")
 			}
 			c.instances = slices.Delete(c.instances, i, i+1)
 			break

@@ -20,12 +20,6 @@ var (
 )
 
 type cliRoot struct {
-	logTrace     bool
-	logDebug     bool
-	logInfo      bool
-	logWarn      bool
-	logErr       bool
-	outputColor  string
 	outputFormat string
 	fqdn         string
 	token        string

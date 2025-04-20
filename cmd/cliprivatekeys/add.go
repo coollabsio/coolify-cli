@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/coollabsio/cli-coolify/cmd/runtime"
@@ -23,6 +25,57 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// addKeyMap defines keybindings for the add private key form
+type addKeyMap struct {
+	Up    key.Binding
+	Down  key.Binding
+	Tab   key.Binding
+	Enter key.Binding
+	Help  key.Binding
+	Quit  key.Binding
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view
+func (k addKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view
+func (k addKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Tab}, // first column
+		{k.Enter, k.Help},     // second column
+		{k.Quit},              // third column
+	}
+}
+
+var addKeys = addKeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up"),
+		key.WithHelp("↑", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down"),
+		key.WithHelp("↓", "move down"),
+	),
+	Tab: key.NewBinding(
+		key.WithKeys("tab", "shift+tab"),
+		key.WithHelp("tab", "next field"),
+	),
+	Enter: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "submit/select"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	),
+}
+
 // addKeyModel is the Bubble Tea model for the interactive add key form
 type addKeyModel struct {
 	nameInput  textinput.Model
@@ -31,11 +84,15 @@ type addKeyModel struct {
 	done       bool
 	err        error
 	coolify    *runtime.Coolify
+	keys       addKeyMap
+	help       help.Model
 }
 
 func initialAddKeyModel(coolify *runtime.Coolify) addKeyModel {
 	m := addKeyModel{
 		coolify: coolify,
+		keys:    addKeys,
+		help:    help.New(),
 	}
 
 	// Setup name input
@@ -56,65 +113,95 @@ func (m addKeyModel) Init() tea.Cmd {
 }
 
 func (m addKeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(msg, m.keys.Quit) {
 			return m, tea.Quit
+		}
 
-		case "tab", "shift+tab", "enter", "up", "down":
+		if key.Matches(msg, m.keys.Help) {
+			m.help.ShowAll = !m.help.ShowAll
+			return m, nil
+		}
+
+		if key.Matches(msg, m.keys.Enter) {
 			// Submit on enter when key input is focused
-			if msg.String() == "enter" && m.focusIndex == 1 {
+			if m.focusIndex == 1 {
 				m.done = true
 				return m, tea.Quit
 			}
+			// Otherwise move to next input
+			m.focusIndex++
+			if m.focusIndex > 1 {
+				m.focusIndex = 0
+			}
+			return m, m.updateFocus()
+		}
 
+		if key.Matches(msg, m.keys.Tab) {
 			// Cycle focus between inputs
-			if msg.String() == "up" || msg.String() == "shift+tab" {
+			if msg.String() == "shift+tab" {
 				m.focusIndex--
-				if m.focusIndex < 0 {
-					m.focusIndex = 1
-				}
 			} else {
 				m.focusIndex++
-				if m.focusIndex > 1 {
-					m.focusIndex = 0
-				}
 			}
 
-			var cmds []tea.Cmd
-			if m.focusIndex == 0 {
-				m.nameInput.PromptStyle = tui.FocusedStyle
-				m.nameInput.TextStyle = tui.FocusedStyle
-				m.keyInput.PromptStyle = tui.BlurredStyle
-				m.keyInput.TextStyle = tui.BlurredStyle
-				cmds = append(cmds, m.nameInput.Focus())
-				m.keyInput.Blur()
-			} else {
-				m.keyInput.PromptStyle = tui.FocusedStyle
-				m.keyInput.TextStyle = tui.FocusedStyle
-				m.nameInput.PromptStyle = tui.BlurredStyle
-				m.nameInput.TextStyle = tui.BlurredStyle
-				cmds = append(cmds, m.keyInput.Focus())
-				m.nameInput.Blur()
+			if m.focusIndex > 1 {
+				m.focusIndex = 0
+			} else if m.focusIndex < 0 {
+				m.focusIndex = 1
 			}
+			return m, m.updateFocus()
+		}
 
-			return m, tea.Batch(cmds...)
+		if key.Matches(msg, m.keys.Up) {
+			m.focusIndex--
+			if m.focusIndex < 0 {
+				m.focusIndex = 1
+			}
+			return m, m.updateFocus()
+		}
+
+		if key.Matches(msg, m.keys.Down) {
+			m.focusIndex++
+			if m.focusIndex > 1 {
+				m.focusIndex = 0
+			}
+			return m, m.updateFocus()
 		}
 	}
 
 	// Handle character input for the active input
-	var cmds []tea.Cmd
 	if m.focusIndex == 0 {
 		var cmd tea.Cmd
 		m.nameInput, cmd = m.nameInput.Update(msg)
-		cmds = append(cmds, cmd)
+		return m, cmd
 	} else {
 		var cmd tea.Cmd
 		m.keyInput, cmd = m.keyInput.Update(msg)
-		cmds = append(cmds, cmd)
+		return m, cmd
 	}
-	return m, tea.Batch(cmds...)
+}
+
+func (m addKeyModel) updateFocus() tea.Cmd {
+	var cmds []tea.Cmd
+
+	if m.focusIndex == 0 {
+		m.nameInput.PromptStyle = tui.FocusedStyle
+		m.nameInput.TextStyle = tui.FocusedStyle
+		m.keyInput.PromptStyle = tui.BlurredStyle
+		m.keyInput.TextStyle = tui.BlurredStyle
+		cmds = append(cmds, m.nameInput.Focus())
+		m.keyInput.Blur()
+	} else {
+		m.keyInput.PromptStyle = tui.FocusedStyle
+		m.keyInput.TextStyle = tui.FocusedStyle
+		m.nameInput.PromptStyle = tui.BlurredStyle
+		m.nameInput.TextStyle = tui.BlurredStyle
+		cmds = append(cmds, m.keyInput.Focus())
+		m.nameInput.Blur()
+	}
+
+	return tea.Batch(cmds...)
 }
 
 func (m addKeyModel) View() string {
@@ -130,13 +217,19 @@ func (m addKeyModel) View() string {
 	b.WriteString(labelStyle.Render("Name:") + " " + m.nameInput.View() + "\n\n")
 	b.WriteString(labelStyle.Render("Private Key:") + " " + m.keyInput.View() + "\n\n")
 
-	// Instructions
-	b.WriteString("\n" + tui.BlurredStyle.Render("(Tab/Shift+Tab to navigate, Enter to submit)"))
+	// Add help view
+	if m.help.ShowAll {
+		b.WriteString("\n\n")
+		b.WriteString(m.help.View(m.keys))
+	} else {
+		b.WriteString("\n\n")
+		b.WriteString(m.help.ShortHelpView(m.keys.ShortHelp()))
+	}
 
 	return b.String()
 }
 
-func generateRSAKeyPair() ([]byte, []byte, error) {
+func generateRSAKeyPair() (privateBytes, publicBytes []byte, err error) {
 	// Generate RSA key pair
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -148,19 +241,19 @@ func generateRSAKeyPair() ([]byte, []byte, error) {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 	}
-	privateKeyBytes := pem.EncodeToMemory(privateKeyPEM)
+	privateBytes = pem.EncodeToMemory(privateKeyPEM)
 
 	// Generate public key
 	publicKey, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate public key: %w", err)
 	}
-	publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
+	publicBytes = ssh.MarshalAuthorizedKey(publicKey)
 
-	return privateKeyBytes, publicKeyBytes, nil
+	return privateBytes, publicBytes, nil
 }
 
-func generateEd25519KeyPair() ([]byte, []byte, error) {
+func generateEd25519KeyPair() (privateBytes, publicBytes []byte, err error) {
 	// Generate Ed25519 key pair
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -170,16 +263,16 @@ func generateEd25519KeyPair() ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal private key: %w", err)
 	}
-	privateKeyBytes := pem.EncodeToMemory(privateKeyPem)
+	privateBytes = pem.EncodeToMemory(privateKeyPem)
 
 	// Generate public key
 	sshPublicKey, err := ssh.NewPublicKey(publicKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate public key: %w", err)
 	}
-	publicKeyBytes := ssh.MarshalAuthorizedKey(sshPublicKey)
+	publicBytes = ssh.MarshalAuthorizedKey(sshPublicKey)
 
-	return privateKeyBytes, publicKeyBytes, nil
+	return privateBytes, publicBytes, nil
 }
 
 func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string, force bool) (string, error) {
@@ -199,7 +292,7 @@ func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string, forc
 	}
 
 	if outputDir != "" {
-		if err := os.MkdirAll(outputDir, 0700); err != nil {
+		if err := os.MkdirAll(outputDir, 0o700); err != nil {
 			return "", fmt.Errorf("failed to create output directory: %w", err)
 		}
 
@@ -211,13 +304,13 @@ func (c *cliPrivateKeys) generateKeyPair(name, outputDir, alorithim string, forc
 			}
 		}
 
-		if err := os.WriteFile(privateKeyPath, privateKey, 0600); err != nil {
+		if err := os.WriteFile(privateKeyPath, privateKey, 0o600); err != nil {
 			return "", fmt.Errorf("failed to write private key file: %w", err)
 		}
 
 		// Write public key file
 		publicKeyPath := privateKeyPath + ".pub"
-		if err := os.WriteFile(publicKeyPath, publicKey, 0644); err != nil {
+		if err := os.WriteFile(publicKeyPath, publicKey, 0o644); err != nil {
 			return "", fmt.Errorf("failed to write public key file: %w", err)
 		}
 

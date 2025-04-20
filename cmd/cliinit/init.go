@@ -53,7 +53,7 @@ Initialize Coolify CLI by generating a configuration file in the default directo
 		Args:         cobra.NoArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if c.coolify().Config.JsonExists && !force {
-				return errors.New("Configuration file already exists. Please use instances command to make further modifications or force flag to regenerate a new configuration file.")
+				return errors.New("configuration file already exists. Please use instances command to make further modifications or force flag to regenerate a new configuration file")
 			}
 			return nil
 		},

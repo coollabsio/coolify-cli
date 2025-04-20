@@ -15,7 +15,6 @@ import (
 )
 
 // Message types for success/error notifications
-type tickMsg struct{}
 type clearMessageMsg struct{}
 
 // Duration for how long to show messages
@@ -134,7 +133,10 @@ func NewTableFilter(items []FilterableItem, columns []table.Column, rowBuilder f
 
 	// Initialize viewport
 	vp := viewport.New(0, 0)
-	vp.Style = lipgloss.NewStyle().Padding(1, 2)
+	vp.Style = lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("62")).
+		Padding(0, 2)
 
 	ft := &FilterableTable{
 		Table:         t,
@@ -211,8 +213,7 @@ func (ft *FilterableTable) setSuccess(msg string) tea.Cmd {
 func (ft *FilterableTable) Update(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
 
-	switch msg.(type) {
-	case clearMessageMsg:
+	if _, ok := msg.(clearMessageMsg); ok {
 		ft.Err = nil
 		ft.SuccessMsg = ""
 		return nil
@@ -258,20 +259,12 @@ func (ft *FilterableTable) updateTable(msg tea.Msg) (table.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		// If in detail mode, handle viewport navigation
-		if ft.DetailMode {
-			switch {
-			case key.Matches(keyMsg, ft.KeyMap.Up):
-				ft.Viewport.LineUp(1)
-				return ft.Table, nil
-			case key.Matches(keyMsg, ft.KeyMap.Down):
-				ft.Viewport.LineDown(1)
-				return ft.Table, nil
-			}
-		}
 
 		switch {
 		case key.Matches(keyMsg, ft.KeyMap.Detail):
+			if ft.ConfirmDeleteMode || ft.DetailMode {
+				return ft.Table, nil
+			}
 			if ft.DetailBuilder != nil {
 				// Update viewport content with current item's details
 				if item, ok := ft.GetSelectedItem(); ok {
@@ -408,11 +401,12 @@ func (ft *FilterableTable) updateTableRows() {
 	ft.Table.SetRows(rows)
 
 	// Ensure cursor stays within bounds
-	if len(filtered) == 0 {
+	switch length := len(filtered); {
+	case length == 0:
 		ft.Table.SetCursor(0)
-	} else if ft.Table.Cursor() >= len(filtered) { // Changed condition
-		ft.Table.SetCursor(len(filtered) - 1) // Set to last item instead of first
-	} else if ft.Table.Cursor() < 0 {
+	case ft.Table.Cursor() >= length:
+		ft.Table.SetCursor(length - 1)
+	case ft.Table.Cursor() < 0:
 		ft.Table.SetCursor(0)
 	}
 }
@@ -431,10 +425,6 @@ func (ft *FilterableTable) View() string {
 		}
 		s.WriteString(ft.Viewport.View())
 
-		footerStyle := lipgloss.NewStyle().
-			PaddingTop(1).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderTop(true)
 		footer := lipgloss.JoinHorizontal(
 			lipgloss.Center,
 			BlurredStyle.Render("↑/↓: scroll • ESC: back"),
@@ -442,7 +432,7 @@ func (ft *FilterableTable) View() string {
 			BlurredStyle.Render(fmt.Sprintf("%.f%%", ft.Viewport.ScrollPercent()*100)),
 		)
 
-		s.WriteString("\n" + footerStyle.Render(footer))
+		s.WriteString("\n" + footer)
 		s.WriteString("\n\n")
 		s.WriteString(ft.Help.View(ft.KeyMap))
 		return s.String()

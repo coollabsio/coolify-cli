@@ -33,7 +33,10 @@ set a property on a instance from CLI configuration file.
 		Args:         cobra.ExactArgs(1),
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if instances := viper.Get("instances"); instances != nil {
-				viper.UnmarshalKey("instances", &c.instances)
+				err := viper.UnmarshalKey("instances", &c.instances)
+				if err != nil {
+					return err
+				}
 			}
 			// Validate all set commands have instance name as the first argument and is found in the configuration file.
 			for _, instance := range c.instances {
@@ -41,7 +44,7 @@ set a property on a instance from CLI configuration file.
 					return nil
 				}
 			}
-			return errors.New("Instance name is not found in the configuration file.")
+			return errors.New("instance name is not found in the configuration file")
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			// Save the configuration file after setting the property.

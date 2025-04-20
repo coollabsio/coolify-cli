@@ -30,7 +30,10 @@ This action cannot be undone.`,
 			if !force {
 				fmt.Printf("Are you sure you want to remove the server with UUID '%s'? [y/N] ", toRemove)
 				var confirm string
-				fmt.Scanln(&confirm)
+				_, err := fmt.Scanln(&confirm)
+				if err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
 				if confirm != "y" && confirm != "Y" {
 					fmt.Println("Operation cancelled")
 					return nil

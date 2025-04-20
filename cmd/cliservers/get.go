@@ -83,10 +83,8 @@ func initialGetModel(server *openapi.Server) getModel {
 func (m getModel) Init() tea.Cmd { return nil }
 
 func (m getModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		if msg.String() == "ctrl+c" || msg.String() == "esc" {
 			return m, tea.Quit
 		}
 	}

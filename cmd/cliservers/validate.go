@@ -88,9 +88,7 @@ func (m validateModel) Init() tea.Cmd {
 func (m validateModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			m.ctx.Done()
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 

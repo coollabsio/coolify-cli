@@ -7,16 +7,16 @@ import (
 )
 
 var (
-	ValueEmptyError      = errors.New("value cannot be empty")
-	FQDNInvalidError     = errors.New("FQDN must contain a scheme (http:// or https://)")
-	FQDNHostMissingError = errors.New("FQDN must contain a host")
+	ErrValueEmpty      = errors.New("value cannot be empty")
+	ErrFqdnInvalid     = errors.New("fqdn must contain a scheme (http:// or https://)")
+	ErrFqdnHostMissing = errors.New("fqdn must contain a host")
 )
 
 // ValidateNotEmpty validates that a string is not empty even if it has whitespace
 func ValidateNotEmpty(s string) error {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
-		return ValueEmptyError
+		return ErrValueEmpty
 	}
 	return nil
 }
@@ -25,11 +25,11 @@ func ValidateNotEmpty(s string) error {
 func ValidateFQDN(s string) error {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
-		return ValueEmptyError
+		return ErrValueEmpty
 	}
 
 	if !strings.Contains(trimmed, "://") {
-		return FQDNInvalidError
+		return ErrFqdnInvalid
 	}
 
 	u, err := url.Parse(trimmed)
@@ -37,7 +37,7 @@ func ValidateFQDN(s string) error {
 		return err
 	}
 	if u.Host == "" {
-		return FQDNHostMissingError
+		return ErrFqdnHostMissing
 	}
 	return nil
 }

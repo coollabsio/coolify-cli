@@ -83,11 +83,6 @@ type addModel struct {
 	help      help.Model
 }
 
-// Add a new command type for sending the instance
-type sendInstanceMsg struct {
-	instance coolTypes.Instance
-}
-
 func newAddModel(result chan<- coolTypes.Instance, force, isDefault bool) addModel {
 	// Create text inputs
 	inputs := make([]textinput.Model, 3)

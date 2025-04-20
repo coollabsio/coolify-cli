@@ -29,13 +29,13 @@ remove a instance from CLI configuration file.
 			for i, instance := range c.instances {
 				if instance.Name == args[0] {
 					if !force && instance.Default {
-						return errors.New("Instance is set as default. Please set another instance as default before removing this instance or provide the force flag.")
+						return errors.New("instance is set as default. Please set another instance as default before removing this instance or provide the force flag")
 					}
 					indexToRemove = i
 					return nil
 				}
 			}
-			return errors.New("Instance name is not found in the configuration file.")
+			return errors.New("instance name is not found in the configuration file")
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c.instances = slices.Delete(c.instances, indexToRemove, indexToRemove+1)

@@ -100,33 +100,6 @@ type initModel struct {
 	help          help.Model
 }
 
-// validateCloudToken validates the cloud token
-func validateCloudToken(s string) error {
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return errors.New("token is required when using Coolify Cloud")
-	}
-	return nil
-}
-
-// validateInstanceName validates the instance name
-func validateInstanceName(s string) error {
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return errors.New("name is required for self-hosted instance")
-	}
-	return nil
-}
-
-// validateInstanceToken validates the instance token
-func validateInstanceToken(s string) error {
-	trimmed := strings.TrimSpace(s)
-	if trimmed == "" {
-		return errors.New("token is required for self-hosted instance")
-	}
-	return nil
-}
-
 func newInitModel(result chan<- []coolTypes.Instance) initModel {
 	cloudToken := textinput.New()
 	cloudToken.Placeholder = "Enter your Coolify Cloud token"
@@ -197,7 +170,8 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case key.Matches(msg, m.keys.Enter):
-			if m.step == 0 {
+			switch m.step {
+			case 0:
 				// Enter handles progression
 				if m.useCloud {
 					m.step++
@@ -207,7 +181,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.step += 2
 					m.focus = 2
 				}
-			} else if m.step == 1 {
+			case 1:
 				if m.useCloud {
 					// Check for validation errors
 					if m.cloudToken.Err != nil {
@@ -223,7 +197,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focus = 2
 					m.cloudToken.Blur()
 				}
-			} else if m.step == 2 {
+			case 2:
 				// Enter handles progression
 				if m.useSelfHost {
 					m.step++
@@ -245,7 +219,7 @@ func (m initModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					return m, tea.Quit
 				}
-			} else if m.step == 3 {
+			case 3:
 				cloudToken := strings.TrimSpace(m.cloudToken.Value())
 				if m.useSelfHost {
 					// Check for validation errors

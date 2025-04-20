@@ -25,7 +25,10 @@ func (c *cliPrivateKeys) newRemoveCommand() *cobra.Command {
 			if !forceRemove {
 				fmt.Printf("Are you sure you want to remove the private key with UUID '%s'? [y/N] ", uuid)
 				var confirm string
-				fmt.Scanln(&confirm)
+				_, err := fmt.Scanln(&confirm)
+				if err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
 				if confirm != "y" && confirm != "Y" {
 					fmt.Println("Operation canceled")
 					return nil

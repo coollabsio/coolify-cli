@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -15,11 +17,64 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// addKeyMap defines keybindings for the add server form
+type addKeyMap struct {
+	Up    key.Binding
+	Down  key.Binding
+	Tab   key.Binding
+	Enter key.Binding
+	Help  key.Binding
+	Quit  key.Binding
+}
+
+// ShortHelp returns keybindings to be shown in the mini help view
+func (k addKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Help, k.Quit}
+}
+
+// FullHelp returns keybindings for the expanded help view
+func (k addKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Tab}, // first column
+		{k.Enter, k.Help},     // second column
+		{k.Quit},              // third column
+	}
+}
+
+var addKeys = addKeyMap{
+	Up: key.NewBinding(
+		key.WithKeys("up"),
+		key.WithHelp("↑", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("down"),
+		key.WithHelp("↓", "move down"),
+	),
+	Tab: key.NewBinding(
+		key.WithKeys("tab", "shift+tab"),
+		key.WithHelp("tab", "next field"),
+	),
+	Enter: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "submit/select"),
+	),
+	Help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
+	),
+	Quit: key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	),
+}
+
 type addModel struct {
 	inputs     []textinput.Model
 	focusIndex int
 	err        error
 	done       bool
+	keys       addKeyMap
+	help       help.Model
 }
 
 func (c *cliServers) newAddCommand() *cobra.Command {
@@ -103,6 +158,8 @@ func initialAddModel() addModel {
 	return addModel{
 		inputs: inputs,
 		err:    nil,
+		keys:   addKeys,
+		help:   help.New(),
 	}
 }
 
@@ -113,22 +170,33 @@ func (m addModel) Init() tea.Cmd {
 func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(msg, m.keys.Quit) {
 			m.done = false
 			return m, tea.Quit
-		case "tab", "shift+tab", "enter", "up", "down":
-			// Cycle between inputs
-			s := msg.String()
+		}
 
-			if s == "enter" && m.focusIndex == len(m.inputs)-1 {
+		if key.Matches(msg, m.keys.Help) {
+			m.help.ShowAll = !m.help.ShowAll
+		}
+
+		if key.Matches(msg, m.keys.Enter) {
+			// Submit on enter when last input is focused
+			if m.focusIndex == len(m.inputs)-1 {
 				m.done = true
 				return m, tea.Quit
 			}
+			// Otherwise move to next input
+			m.focusIndex++
+			if m.focusIndex >= len(m.inputs) {
+				m.focusIndex = 0
+			}
+			m.updateFocus()
+		}
 
-			if s == "up" || s == "shift+tab" {
+		if key.Matches(msg, m.keys.Tab) {
+			// Cycle focus between inputs
+			if msg.String() == "shift+tab" {
 				m.focusIndex--
 			} else {
 				m.focusIndex++
@@ -139,23 +207,41 @@ func (m addModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.focusIndex < 0 {
 				m.focusIndex = len(m.inputs) - 1
 			}
+			m.updateFocus()
+		}
 
-			for i := 0; i < len(m.inputs); i++ {
-				if i == m.focusIndex {
-					cmds = append(cmds, m.inputs[i].Focus())
-				} else {
-					m.inputs[i].Blur()
-				}
+		if key.Matches(msg, m.keys.Up) {
+			m.focusIndex--
+			if m.focusIndex < 0 {
+				m.focusIndex = len(m.inputs) - 1
 			}
+			m.updateFocus()
+		}
 
-			return m, tea.Batch(cmds...)
+		if key.Matches(msg, m.keys.Down) {
+			m.focusIndex++
+			if m.focusIndex >= len(m.inputs) {
+				m.focusIndex = 0
+			}
+			m.updateFocus()
 		}
 	}
 
 	// Handle character input
 	cmd := m.updateInputs(msg)
+	cmds = append(cmds, cmd)
 
-	return m, cmd
+	return m, tea.Batch(cmds...)
+}
+
+func (m *addModel) updateFocus() {
+	for i := 0; i < len(m.inputs); i++ {
+		if i == m.focusIndex {
+			m.inputs[i].Focus()
+		} else {
+			m.inputs[i].Blur()
+		}
+	}
 }
 
 func (m *addModel) updateInputs(msg tea.Msg) tea.Cmd {
@@ -188,7 +274,15 @@ func (m addModel) View() string {
 	}
 
 	b.WriteString(button)
-	b.WriteString("\n\nPress esc to cancel • tab/shift+tab to navigate\n")
+
+	// Add help view
+	if m.help.ShowAll {
+		b.WriteString("\n\n")
+		b.WriteString(m.help.View(m.keys))
+	} else {
+		b.WriteString("\n\n")
+		b.WriteString(m.help.ShortHelpView(m.keys.ShortHelp()))
+	}
 
 	return b.String()
 }
