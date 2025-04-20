@@ -2,12 +2,11 @@ package cliupdate
 
 import (
 	"fmt"
-	"os"
 	"runtime"
+	"strings"
 
 	coolifyRuntime "github.com/coollabsio/cli-coolify/cmd/runtime"
-	selfupdate "github.com/creativeprojects/go-selfupdate"
-	compareVersion "github.com/hashicorp/go-version"
+	"github.com/coollabsio/cli-coolify/pkg/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -22,66 +21,64 @@ func New(c coolifyRuntime.Getter) *cliUpdate {
 }
 
 func (c *cliUpdate) NewCommand() *cobra.Command {
+	var preRelease bool
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Coolify CLI",
 		Long: `
 Update the Coolify CLI to the latest version from GitHub releases.
+
+By default, the command will update to the latest stable version.
+Use the --pre-release flag to update to the latest pre-release version.
 `,
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get the latest release from GitHub
-			latest, found, err := selfupdate.DetectLatest(
-				cmd.Context(),
-				selfupdate.ParseSlug("coollabsio/cli-coolify"),
-			)
+			// we should check if the current version is a pre-release
+			currentVersion := c.coolify().Version
+			isPreRelease := strings.Contains(currentVersion, "-")
+			if isPreRelease && !preRelease {
+				c.coolify().Logger.Warnf("You are on a pre-release version of the CLI. Use the --pre-release flag to update to the latest pre-release version.")
+			}
+
+			// Create our custom updater
+			update := updater.New("coollabsio", "cli-coolify", c.coolify().Version)
+
+			// Check for updates
+			c.coolify().Logger.Infof("Checking for updates...")
+
+			// Check if an update is available without performing the update
+			latest, hasUpdate, err := update.CheckForUpdate(cmd.Context(), preRelease)
 			if err != nil {
-				return fmt.Errorf("error detecting version: %v", err)
-			}
-			if !found {
-				return fmt.Errorf("latest version for %s/%s not found", runtime.GOOS, runtime.GOARCH)
+				return fmt.Errorf("error checking for updates: %v", err)
 			}
 
-			// Compare versions
-			currentVersion, err := compareVersion.NewVersion(c.coolify().Version)
+			if !hasUpdate {
+				c.coolify().Logger.Infof("You are already on the latest version: %s\n", c.coolify().GetFormattedVersion())
+				return nil
+			}
+
+			c.coolify().Logger.Infof("Found new version: v%s (current: %s)\n", latest.Version, c.coolify().GetFormattedVersion())
+
+			// Format OS/Arch for display
+			platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+			c.coolify().Logger.Infof("Downloading update for %s...", platform)
+
+			// Perform the update
+			newVersion, err := update.Update(cmd.Context(), preRelease)
 			if err != nil {
-				return fmt.Errorf("could not parse current version: %v", err)
+				return fmt.Errorf("update failed: %v", err)
 			}
 
-			latestVersion, err := compareVersion.NewVersion(latest.Version())
-			if err != nil {
-				return fmt.Errorf("could not parse latest version: %v", err)
-			}
-
-			// Update if needed
-			if currentVersion.LessThan(latestVersion) {
-				exe, err := os.Executable()
-				if err != nil {
-					return fmt.Errorf("could not locate executable path: %v", err)
-				}
-
-				cmd.Printf("Updating to version v%s\n", latest.Version())
-
-				// The selfupdate library needs to know the name of the binary inside the tar.gz
-				// This is set to "coolify" in our goreleaser configuration
-				if err := selfupdate.UpdateTo(
-					cmd.Context(),
-					latest.AssetURL,
-					"coolify", // The actual binary name inside the archive
-					exe,
-				); err != nil {
-					return fmt.Errorf("error updating binary: %v", err)
-				}
-
-				cmd.Printf("Successfully updated to version v%s\n", latest.Version())
-			} else {
-				cmd.Printf("You are already on the latest version: %s\n", c.coolify().GetFormattedVersion())
-			}
+			c.coolify().Logger.Infof("Successfully updated to version v%s\n", newVersion)
+			c.coolify().Logger.Infof("Please restart the CLI to use the new version.\n")
 
 			return nil
 		},
 	}
+
+	flags := cmd.Flags()
+	flags.BoolVar(&preRelease, "pre-release", false, "Update to pre-release version")
 
 	return cmd
 }
