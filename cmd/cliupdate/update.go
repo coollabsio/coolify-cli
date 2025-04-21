@@ -37,10 +37,6 @@ Use the --pre-release flag to update to the latest pre-release version.
 			// we should check if the current version is a pre-release
 			currentVersion := c.coolify().Version
 			isPreRelease := strings.Contains(currentVersion, "-")
-			if isPreRelease && !preRelease {
-				c.coolify().Logger.Warnf("You are on a pre-release version of the CLI. Use the --pre-release flag to update to the latest pre-release version.")
-			}
-
 			// Create our custom updater
 			update := updater.New("coollabsio", "cli-coolify", c.coolify().Version)
 
@@ -48,9 +44,14 @@ Use the --pre-release flag to update to the latest pre-release version.
 			c.coolify().Logger.Infof("Checking for updates...")
 
 			// Check if an update is available without performing the update
-			latest, hasUpdate, err := update.CheckForUpdate(cmd.Context(), preRelease)
+			release, hasUpdate, err := update.Check(cmd.Context(), preRelease)
 			if err != nil {
 				return fmt.Errorf("error checking for updates: %v", err)
+			}
+
+			if isPreRelease && !preRelease && !hasUpdate {
+				c.coolify().Logger.Warnf("You are on a pre-release version of the CLI. Use the --pre-release flag to update to the latest pre-release version.")
+				return nil
 			}
 
 			if !hasUpdate {
@@ -58,20 +59,19 @@ Use the --pre-release flag to update to the latest pre-release version.
 				return nil
 			}
 
-			c.coolify().Logger.Infof("Found new version: v%s (current: %s)\n", latest.Version, c.coolify().GetFormattedVersion())
+			c.coolify().Logger.Infof("Found new version: v%s (current: %s)\n", release.Version, c.coolify().GetFormattedVersion())
 
 			// Format OS/Arch for display
 			platform := fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 			c.coolify().Logger.Infof("Downloading update for %s...", platform)
 
 			// Perform the update
-			newVersion, err := update.Update(cmd.Context(), preRelease)
+			newVersion, err := update.To(cmd.Context(), release)
 			if err != nil {
 				return fmt.Errorf("update failed: %v", err)
 			}
 
 			c.coolify().Logger.Infof("Successfully updated to version v%s\n", newVersion)
-			c.coolify().Logger.Infof("Please restart the CLI to use the new version.\n")
 
 			return nil
 		},

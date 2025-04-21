@@ -27,25 +27,15 @@ func New(owner, repo, currentVersion string) *Updater {
 	}
 }
 
-// CheckForUpdate checks if there's a newer version available without performing an update
-func (u *Updater) CheckForUpdate(ctx context.Context, includePrerelease bool) (*ReleaseInfo, bool, error) {
+// Check checks if there's a newer version available without performing an update
+func (u *Updater) Check(ctx context.Context, includePrerelease bool) (*ReleaseInfo, bool, error) {
 	return u.githubUpdater.CheckForUpdate(ctx, includePrerelease)
 }
 
-// Update updates the CLI to the latest version
-func (u *Updater) Update(ctx context.Context, includePrerelease bool) (string, error) {
-	// Get the latest release info
-	latest, hasUpdate, err := u.githubUpdater.CheckForUpdate(ctx, includePrerelease)
-	if err != nil {
-		return "", fmt.Errorf("error checking for updates: %w", err)
-	}
-
-	if !hasUpdate {
-		return latest.Version, nil // Already up to date
-	}
-
+// To updates the CLI to release version passed in
+func (u *Updater) To(ctx context.Context, release *ReleaseInfo) (string, error) {
 	// Download the asset
-	assetReader, err := u.githubUpdater.DownloadAsset(ctx, latest.AssetURL)
+	assetReader, err := u.githubUpdater.DownloadAsset(ctx, release.AssetURL)
 	if err != nil {
 		return "", fmt.Errorf("error downloading asset: %w", err)
 	}
@@ -62,13 +52,13 @@ func (u *Updater) Update(ctx context.Context, includePrerelease bool) (string, e
 	}
 
 	// Verify checksum if available
-	if latest.ChecksumURL != "" {
-		checksums, err := u.githubUpdater.DownloadChecksums(ctx, latest.ChecksumURL)
+	if release.ChecksumURL != "" {
+		checksums, err := u.githubUpdater.DownloadChecksums(ctx, release.ChecksumURL)
 		if err != nil {
 			return "", fmt.Errorf("error downloading checksums: %w", err)
 		}
 
-		expectedChecksum, ok := checksums[latest.AssetName]
+		expectedChecksum, ok := checksums[release.AssetName]
 		if ok {
 			// Verify the checksum
 			err = VerifyChecksumBytes(assetData, expectedChecksum)
@@ -103,5 +93,5 @@ func (u *Updater) Update(ctx context.Context, includePrerelease bool) (string, e
 		return "", fmt.Errorf("error replacing binary: %w", err)
 	}
 
-	return latest.Version, nil
+	return release.Version, nil
 }

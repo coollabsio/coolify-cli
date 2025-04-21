@@ -15,9 +15,12 @@ builds:
     env:
       - CGO_ENABLED=0
 archives:
-  - format: tar.gz
+  - formats: ['tar.gz']
     name_template: >-
       coolify_{{ .Version }}_
       {{- .Os }}_{{ .Arch }}
 checksum:
   name_template: 'coolify_{{ .Version }}_checksums.txt'
+release:
+  prerelease: auto
+  make_latest: "{{ not .Prerelease }}"

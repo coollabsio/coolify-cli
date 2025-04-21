@@ -94,49 +94,36 @@ func replaceUnixExecutable(newBinaryPath, executablePath string) error {
 
 // replaceWindowsExecutable replaces the executable on Windows
 func replaceWindowsExecutable(newBinaryPath, executablePath string) error {
-	// Windows can't replace a running executable, so we need to use a rename script
-	// that runs after the current process exits
+	// Define paths
+	dir := filepath.Dir(executablePath)
+	base := filepath.Base(executablePath)
+	oldPath := filepath.Join(dir, "."+base+".old")
 
-	// Create a temporary batch file that will move the new binary
-	batchFile, err := os.CreateTemp("", "coolify-update-*.bat")
-	if err != nil {
-		return fmt.Errorf("error creating batch file: %w", err)
-	}
-	defer func() {
-		if closeErr := batchFile.Close(); closeErr != nil {
-			fmt.Fprintf(os.Stderr, "Error closing batch file: %v\n", closeErr)
-		}
-	}()
+	// Step 1: Rename the target to .target.old
+	// If an old backup exists from a previous update, try to remove it first
+	_ = os.Remove(oldPath) // Ignore errors if file doesn't exist
 
-	batchPath := batchFile.Name()
-
-	// Write a batch script that:
-	// 1. Waits for the current process to exit
-	// 2. Copies the new binary over the old one
-	// 3. Deletes itself
-	script := fmt.Sprintf(`
-@echo off
-:wait
-ping -n 2 127.0.0.1 > nul
-tasklist /fi "PID eq %d" | find "%d" > nul
-if not errorlevel 1 goto wait
-copy /y "%s" "%s"
-del "%s"
-`, os.Getpid(), os.Getpid(), newBinaryPath, executablePath, batchPath)
-
-	if _, err := batchFile.WriteString(script); err != nil {
-		if rmErr := os.Remove(batchPath); rmErr != nil {
-			return fmt.Errorf("error writing batch file: %w (cleanup failed: %v)", err, rmErr)
-		}
-		return fmt.Errorf("error writing batch file: %w", err)
+	if err := os.Rename(executablePath, oldPath); err != nil {
+		return fmt.Errorf("error renaming executable to backup: %w", err)
 	}
 
-	// Start the batch file
-	if err := startProcess(batchPath, []string{}); err != nil {
-		if rmErr := os.Remove(batchPath); rmErr != nil {
-			return fmt.Errorf("error starting batch file: %w (cleanup failed: %v)", err, rmErr)
+	// Step 2: Rename the new binary (.target.new) to target
+	if err := os.Rename(newBinaryPath, executablePath); err != nil {
+		// Step 4: If rename fails, attempt to roll back
+		rollbackErr := os.Rename(oldPath, executablePath)
+		if rollbackErr != nil {
+			return fmt.Errorf("failed to replace executable (%w) and rollback also failed (%v)", err, rollbackErr)
 		}
-		return fmt.Errorf("error starting batch file: %w", err)
+		return fmt.Errorf("error replacing executable (rollback successful): %w", err)
+	}
+
+	// Step 3: On Windows, we can't easily delete the old file,
+	// so instead we just make it a hidden file
+	// The actual implementation is in hidewindows_windows.go for Windows
+	// and hidewindows_other.go for non-Windows platforms
+	if err := hideWindowsFile(oldPath); err != nil {
+		// Non-fatal error - log but don't fail the update
+		fmt.Fprintf(os.Stderr, "Warning: Failed to hide old executable: %v\n", err)
 	}
 
 	return nil
