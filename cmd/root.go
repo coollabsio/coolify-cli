@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -349,4 +350,17 @@ func initConfig() {
 	if data != CliVersion {
 		log.Printf("New version of Coolify CLI is available: %s\n", data)
 	}
+}
+
+func prettyJson(obj interface{}) (string, error) {
+	var prettyJSON bytes.Buffer
+	marshal, err := json.Marshal(obj)
+	if err != nil {
+		return "", err
+	}
+	err = json.Indent(&prettyJSON, marshal, "", "\t")
+	if err != nil {
+		return "", err
+	}
+	return prettyJSON.String(), nil
 }

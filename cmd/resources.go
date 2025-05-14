@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"log"
-
+	"github.com/coollabsio/coolify-cli/pkg/client"
+	"github.com/coollabsio/coolify-cli/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -18,34 +16,28 @@ var listResourcesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all resources",
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO - pull this apart once we are refactored to the client
 		CheckDefaultThings(nil)
-		data, err := Fetch("resources")
+		c := client.New(config.GetBaseUrl(), config.GetToken())
+
+		resources, err := c.ListResources()
 		if err != nil {
-			log.Println(err)
-			return
+			fmt.Println(cmd.ErrOrStderr(), err)
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
+
+		// Format as JSON. TODO: Is this needed or should people prefer cURL/other at this stage?
+		if JsonMode || PrettyMode {
+			json, err := prettyJson(resources)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(cmd.ErrOrStderr(), err)
 				return
 			}
-			fmt.Println(string(prettyJSON.String()))
+			fmt.Println(json)
 			return
 		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []Resource
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+
 		fmt.Fprintln(w, "Uuid\tName\tType\tStatus")
-		for _, resource := range jsondata {
+		for _, resource := range resources {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", resource.Uuid, resource.Name, resource.Type, resource.Status)
 		}
 		w.Flush()

@@ -6,21 +6,15 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/coollabsio/coolify-cli/pkg/client"
 	"github.com/spf13/cobra"
 )
 
 var WithResources bool
 
-type Resource struct {
-	ID     int    `json:"id"`
-	Uuid   string `json:"uuid"`
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-}
-
 type Resources struct {
-	Resources []Resource `json:"resources"`
+	// Transitional with refactor
+	Resources []client.Resource `json:"resources"`
 }
 
 type Server struct {
