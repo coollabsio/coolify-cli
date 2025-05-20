@@ -256,7 +256,7 @@ func CheckLatestVersionOfCli() (string, error) {
 	sort.Sort(compareVersion.Collection(versions))
 	latestVersion := versions[len(versions)-1].String()
 	if latestVersion != CliVersion {
-		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify --update'.\n\n")
+		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify update'.\n\n")
 	}
 	return latestVersion, nil
 
