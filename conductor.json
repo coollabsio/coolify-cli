@@ -1,7 +1,7 @@
 {
     "scripts": {
         "setup": "./conductor-setup.sh",
-        "run": "go test ./... -v"
+        "run": "~/go/bin/air"
     },
     "runScriptMode": "nonconcurrent"
 }
