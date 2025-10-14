@@ -2,3 +2,10 @@ coolify-cli
 coolify
 cli
 config.json
+
+# Generated documentation (can be regenerated)
+man/
+docs/cli/
+
+# Test coverage
+coverage.out

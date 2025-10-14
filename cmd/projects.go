@@ -1,36 +1,26 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
-	"strings"
 
+	"github.com/coollabsio/coolify-cli/internal/models"
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
 	"github.com/spf13/cobra"
 )
 
-type Application struct {
-	ID          int    `json:"id"`
-	Uuid        string `json:"uuid"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-}
-type Environment struct {
-	ID           int           `json:"id"`
-	Uuid         string        `json:"uuid"`
-	Name         string        `json:"name"`
-	CreatedAt    string        `json:"created_at"`
-	UpdatedAt    string        `json:"updated_at"`
-	Description  *string       `json:"description"`
-	Applications []Application `json:"applications"`
+// EnvironmentRow represents an environment for display
+type EnvironmentRow struct {
+	UUID            string `json:"environment_uuid"`
+	EnvironmentName string `json:"environment_name"`
 }
 
-type Project struct {
-	Uuid         string        `json:"uuid"`
-	Name         string        `json:"name"`
-	Environments []Environment `json:"environments"`
+// ProjectListRow represents a project for list display (without environments)
+type ProjectListRow struct {
+	UUID        string `json:"uuid"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 var projectsCmd = &cobra.Command{
@@ -41,40 +31,56 @@ var projectsCmd = &cobra.Command{
 var listProjectsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all projects",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "projects"
-		data, err := Fetch(baseUrl)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			log.Println(err)
-			return
-		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []Project
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
 
-		fmt.Fprintln(w, "Uuid\tName")
-		for _, resource := range jsondata {
-			fmt.Fprintf(w, "%s\t%s\n", resource.Uuid, resource.Name)
+		projectSvc := service.NewProjectService(client)
+		projects, err := projectSvc.List(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list projects: %w", err)
 		}
-		w.Flush()
+
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+		// For JSON/pretty formats, return the full project structure
+		if format != output.FormatTable {
+			formatter, err := output.NewFormatter(format, output.Options{
+				ShowSensitive: showSensitive,
+			})
+			if err != nil {
+				return err
+			}
+			return formatter.Format(projects)
+		}
+
+		// For table format, convert to simplified rows without environments
+		var rows []ProjectListRow
+		for _, p := range projects {
+			desc := ""
+			if p.Description != nil {
+				desc = *p.Description
+			}
+			rows = append(rows, ProjectListRow{
+				UUID:        p.UUID,
+				Name:        p.Name,
+				Description: desc,
+			})
+		}
+
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
+		if err != nil {
+			return err
+		}
+
+		return formatter.Format(rows)
 	},
 }
 
@@ -82,130 +88,71 @@ var oneProjectCmd = &cobra.Command{
 	Use:   "get [uuid]",
 	Short: "Get a project by uuid",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 		uuid := args[0]
-		environment, _ := cmd.Flags().GetString("environment")
-		if environment != "" {
-			url := "projects/" + uuid + "/" + environment
-			data, err := Fetch(url)
+
+		client, err := getAPIClient(cmd)
+		if err != nil {
+			return fmt.Errorf("failed to get API client: %w", err)
+		}
+
+		projectSvc := service.NewProjectService(client)
+		project, err := projectSvc.Get(ctx, uuid)
+		if err != nil {
+			return fmt.Errorf("failed to get project: %w", err)
+		}
+
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+		// For JSON/pretty formats, return the full project structure
+		if format != output.FormatTable {
+			formatter, err := output.NewFormatter(format, output.Options{
+				ShowSensitive: showSensitive,
+			})
 			if err != nil {
-				log.Println(err)
-				return
+				return err
 			}
-			if PrettyMode {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-				if err != nil {
-					fmt.Println(err)
-					return
-				}
-				fmt.Println(string(prettyJSON.String()))
-				return
-			}
-			if JsonMode {
-				fmt.Println(data)
-				return
-			}
-			var jsondata Environment
-			err = json.Unmarshal([]byte(data), &jsondata)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			fmt.Fprintln(w, "Uuid\tName\tStatus")
-			for _, resource := range jsondata.Applications {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", resource.Uuid, resource.Name, resource.Status)
-			}
-			w.Flush()
-			return
+			return formatter.Format(project)
 		}
-		data, err := Fetch("projects/" + uuid)
+
+		// For table format, expand environments into separate rows
+		rows := expandProjectEnvironments(project)
+
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
 		if err != nil {
-			log.Println(err)
-			return
+			return err
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata Project
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		fmt.Fprintln(w, "Uuid\tName\tEnvironments")
-		envNames := make([]string, len(jsondata.Environments))
-		for i, env := range jsondata.Environments {
-			envNames[i] = env.Name + " (" + env.Uuid + ")"
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", jsondata.Uuid, jsondata.Name, strings.Join(envNames, ", "))
-		w.Flush()
-	},
-}
-var addProjectCmd = &cobra.Command{
-	Use:   "add [name]",
-	Short: "Add a project",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "projects"
-		name := args[0]
-		data := map[string]string{
-			"name": name,
-		}
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		response, err := Post(baseUrl, bytes.NewBuffer(jsonData))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		msg := map[string]string{}
-		json.Unmarshal([]byte(response), &msg)
-		fmt.Println("Project added successfully with uuid " + msg["uuid"])
+
+		return formatter.Format(rows)
 	},
 }
 
-var removeProjectCmd = &cobra.Command{
-	Use:   "remove [uuid]",
-	Short: "Remove a project",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "projects/"
-		uuid := args[0]
-		response, err := Delete(baseUrl + uuid)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		msg := map[string]string{}
-		json.Unmarshal([]byte(response), &msg)
-		fmt.Println(msg["message"])
-	},
+// expandProjectEnvironments creates environment rows for display
+func expandProjectEnvironments(project *models.Project) []EnvironmentRow {
+	var rows []EnvironmentRow
+
+	// If no environments, return empty list
+	if len(project.Environments) == 0 {
+		return rows
+	}
+
+	// Create one row per environment with just UUID and Name
+	for _, env := range project.Environments {
+		rows = append(rows, EnvironmentRow{
+			UUID:            env.UUID,
+			EnvironmentName: env.Name,
+		})
+	}
+
+	return rows
 }
 
 func init() {
 	rootCmd.AddCommand(projectsCmd)
 	projectsCmd.AddCommand(listProjectsCmd)
-	oneProjectCmd.Flags().StringP("environment", "e", "", "Environment")
 	projectsCmd.AddCommand(oneProjectCmd)
-
-	projectsCmd.AddCommand(addProjectCmd)
-	projectsCmd.AddCommand(removeProjectCmd)
 }

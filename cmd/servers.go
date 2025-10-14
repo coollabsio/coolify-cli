@@ -1,40 +1,16 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
 
+	"github.com/coollabsio/coolify-cli/internal/models"
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
 	"github.com/spf13/cobra"
 )
 
 var WithResources bool
-
-type Resource struct {
-	ID     int    `json:"id"`
-	Uuid   string `json:"uuid"`
-	Name   string `json:"name"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
-}
-
-type Resources struct {
-	Resources []Resource `json:"resources"`
-}
-
-type Server struct {
-	ID       int    `json:"id"`
-	UUID     string `json:"uuid"`
-	Name     string `json:"name"`
-	IP       string `json:"ip"`
-	User     string `json:"user"`
-	Port     int    `json:"port"`
-	Settings struct {
-		Reachable bool `json:"is_reachable"`
-		Usable    bool `json:"is_usable"`
-	} `json:"settings"`
-}
 
 var serversCmd = &cobra.Command{
 	Use:   "servers",
@@ -44,191 +20,217 @@ var serversCmd = &cobra.Command{
 var listServersCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all servers",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 
-		baseUrl := "servers"
-		data, err := Fetch(baseUrl)
+		// Get API client
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			log.Println(err)
-			return
-		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []Server
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
 
-		fmt.Fprintln(w, "Uuid\tName\tIP Address\tUser\tPort\tReachable\tUsable")
-		for _, resource := range jsondata {
-			if ShowSensitive {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%t\t%t\n", resource.UUID, resource.Name, resource.IP, resource.User, resource.Port, resource.Settings.Reachable, resource.Settings.Usable)
-			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%t\n", resource.UUID, resource.Name, SensitiveInformationOverlay, SensitiveInformationOverlay, SensitiveInformationOverlay, resource.Settings.Reachable, resource.Settings.Usable)
-			}
+		// Check API version
+		version, err := client.GetVersion(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get API version: %w", err)
 		}
-		w.Flush()
-		fmt.Println("\nNote: Use -s to show sensitive information.")
+		Version = version
+
+		// Use service layer
+		serverSvc := service.NewServerService(client)
+		servers, err := serverSvc.List(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list servers: %w", err)
+		}
+
+		// Use output formatter
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
+		if err != nil {
+			return err
+		}
+
+		if err := formatter.Format(servers); err != nil {
+			return err
+		}
+
+		if !showSensitive && format == output.FormatTable {
+			fmt.Println("\nNote: Use -s to show sensitive information.")
+		}
+
+		return nil
 	},
 }
+
 var oneServerCmd = &cobra.Command{
 	Use:   "get [uuid]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Get server details by uuid",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "servers/"
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 
-		uuid := args[0]
-		var url = baseUrl + uuid
-		if WithResources {
-			url = baseUrl + uuid + "?resources=true"
-		}
-
-		data, err := Fetch(url)
+		// Get API client
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		if WithResources {
-			var jsondata Resources
-			err = json.Unmarshal([]byte(data), &jsondata)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Fprintln(w, "Uuid\tName\tType\tStatus")
-			for _, resource := range jsondata.Resources {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", resource.Uuid, resource.Name, resource.Type, resource.Status)
-			}
-			w.Flush()
-		} else {
-			var jsondata Server
-			err = json.Unmarshal([]byte(data), &jsondata)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Fprintln(w, "Uuid\tName\tIP Address\tUser\tPort\tReachable\tUsable")
-			if ShowSensitive {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%t\t%t\n", jsondata.UUID, jsondata.Name, jsondata.IP, jsondata.User, jsondata.Port, jsondata.Settings.Reachable, jsondata.Settings.Usable)
 
-			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%t\t%t\n", jsondata.UUID, jsondata.Name, SensitiveInformationOverlay, SensitiveInformationOverlay, SensitiveInformationOverlay, jsondata.Settings.Reachable, jsondata.Settings.Usable)
+		// Use service layer
+		serverSvc := service.NewServerService(client)
+		uuid := args[0]
+
+		// Get format flags
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+		var data interface{}
+		if WithResources {
+			resources, err := serverSvc.GetResources(ctx, uuid)
+			if err != nil {
+				return fmt.Errorf("failed to get server resources: %w", err)
 			}
-			w.Flush()
+			data = resources.Resources
+		} else {
+			server, err := serverSvc.Get(ctx, uuid)
+			if err != nil {
+				return fmt.Errorf("failed to get server: %w", err)
+			}
+			data = server
+		}
+
+		// Use output formatter
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
+		if err != nil {
+			return err
+		}
+
+		if err := formatter.Format(data); err != nil {
+			return err
+		}
+
+		if !showSensitive && format == output.FormatTable && !WithResources {
 			fmt.Println("\nNote: Use -s to show sensitive information.")
 		}
 
+		return nil
 	},
 }
 
 var removeServerCmd = &cobra.Command{
 	Use:   "remove [uuid]",
+	Args:  cobra.ExactArgs(1),
 	Short: "Remove a server",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "servers/"
-		uuid := args[0]
-		response, err := Delete(baseUrl + uuid)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		// Get API client
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		msg := map[string]string{}
-		json.Unmarshal([]byte(response), &msg)
-		fmt.Println(msg["message"])
+
+		// Use service layer
+		serverSvc := service.NewServerService(client)
+		uuid := args[0]
+
+		if err := serverSvc.Delete(ctx, uuid); err != nil {
+			return fmt.Errorf("failed to delete server: %w", err)
+		}
+
+		fmt.Printf("Server %s deleted successfully\n", uuid)
+		return nil
 	},
 }
 
 var addServerCmd = &cobra.Command{
 	Use:   "add [name] [ip] [private_key_uuid]",
+	Args:  cobra.ExactArgs(3),
 	Short: "Add a server",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "servers"
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		// Get API client
+		client, err := getAPIClient(cmd)
+		if err != nil {
+			return fmt.Errorf("failed to get API client: %w", err)
+		}
+
+		// Parse arguments and flags
 		name := args[0]
 		ip := args[1]
 		privateKeyUuid := args[2]
 		port, _ := cmd.Flags().GetInt("port")
 		user, _ := cmd.Flags().GetString("user")
 		validate, _ := cmd.Flags().GetBool("validate")
-		jsonData, err := json.Marshal(map[string]interface{}{
-			"name":             name,
-			"ip":               ip,
-			"port":             port,
-			"user":             user,
-			"private_key_uuid": privateKeyUuid,
-			"instant_validate": validate,
-		})
-		if err != nil {
-			fmt.Println(err)
-			return
+
+		// Create request
+		req := models.ServerCreateRequest{
+			Name:            name,
+			IP:              ip,
+			Port:            port,
+			User:            user,
+			PrivateKeyUUID:  privateKeyUuid,
+			InstantValidate: validate,
 		}
-		response, err := Post(baseUrl, bytes.NewBuffer(jsonData))
+
+		// Use service layer
+		serverSvc := service.NewServerService(client)
+		response, err := serverSvc.Create(ctx, req)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to create server: %w", err)
 		}
-		msg := map[string]string{}
-		json.Unmarshal([]byte(response), &msg)
+
 		if validate {
-			fmt.Println("Server added successfully with uuid " + msg["uuid"])
+			fmt.Printf("Server added successfully with uuid %s\n", response.UUID)
 		} else {
-			fmt.Println("Server added successfully with uuid " + msg["uuid"] + ". Server is not validated. Use 'servers validate " + msg["uuid"] + "' to validate the server.")
+			fmt.Printf("Server added successfully with uuid %s. Server is not validated. Use 'servers validate %s' to validate the server.\n", response.UUID, response.UUID)
 		}
+
+		return nil
 	},
 }
 
 var validateServerCmd = &cobra.Command{
 	Use:   "validate [uuid]",
+	Args:  cobra.ExactArgs(1),
 	Short: "Validate a server",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "servers/"
-		uuid := args[0]
-		var url = baseUrl + uuid + "/validate"
-		response, err := Fetch(url)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		// Get API client
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		msg := map[string]string{}
-		json.Unmarshal([]byte(response), &msg)
-		fmt.Println(msg["message"])
+
+		// Use service layer
+		serverSvc := service.NewServerService(client)
+		uuid := args[0]
+
+		response, err := serverSvc.Validate(ctx, uuid)
+		if err != nil {
+			return fmt.Errorf("failed to validate server: %w", err)
+		}
+
+		if response.Message != "" {
+			fmt.Println(response.Message)
+		} else {
+			fmt.Printf("Server %s validated successfully\n", uuid)
+		}
+
+		return nil
 	},
 }
 
 func init() {
+	// Note: format and show-sensitive flags are inherited from rootCmd.PersistentFlags()
+
 	oneServerCmd.Flags().BoolVarP(&WithResources, "resources", "", false, "With resources")
 	rootCmd.AddCommand(serversCmd)
 	serversCmd.AddCommand(listServersCmd)

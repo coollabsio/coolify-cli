@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -17,13 +18,23 @@ var instancesCmd = &cobra.Command{
 var instanceVersionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Get instance version.",
-	Run: func(cmd *cobra.Command, args []string) {
-		data, err := Fetch("version")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		// Get API client
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		fmt.Println(data)
+
+		// Get version using API client
+		version, err := client.GetVersion(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get version: %w", err)
+		}
+
+		fmt.Println(version)
+		return nil
 	},
 }
 var listInstancesCmd = &cobra.Command{
