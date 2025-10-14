@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
 
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
 	"github.com/spf13/cobra"
 )
 
@@ -17,38 +17,31 @@ var resourcesCmd = &cobra.Command{
 var listResourcesCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all resources",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		data, err := Fetch("resources")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			log.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []Resource
-		err = json.Unmarshal([]byte(data), &jsondata)
+
+		resourceSvc := service.NewResourceService(client)
+		resources, err := resourceSvc.List(ctx)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to list resources: %w", err)
 		}
-		fmt.Fprintln(w, "Uuid\tName\tType\tStatus")
-		for _, resource := range jsondata {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t\n", resource.Uuid, resource.Name, resource.Type, resource.Status)
+
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
+		if err != nil {
+			return err
 		}
-		w.Flush()
+
+		return formatter.Format(resources)
 	},
 }
 

@@ -1,18 +1,13 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
 
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
 	"github.com/spf13/cobra"
 )
-
-type Domain struct {
-	IP      string   `json:"ip"`
-	Domains []string `json:"domains"`
-}
 
 var domainsCmd = &cobra.Command{
 	Use:   "domains",
@@ -22,47 +17,31 @@ var domainsCmd = &cobra.Command{
 var listDomainsCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all domains",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		data, err := Fetch("domains")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
+
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			log.Println(err)
-			return
-		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []Domain
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
 
-		fmt.Fprintln(w, "IP Address\tDomains")
-		for _, resource := range jsondata {
-			for _, domain := range resource.Domains {
-				fmt.Fprintf(w, "%s\t%s\n", resource.IP, domain)
-			}
-
+		domainSvc := service.NewDomainService(client)
+		domains, err := domainSvc.List(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list domains: %w", err)
 		}
-		w.Flush()
+
+		format, _ := cmd.Flags().GetString("format")
+		formatter, err := output.NewFormatter(format, output.Options{})
+		if err != nil {
+			return err
+		}
+
+		return formatter.Format(domains)
 	},
 }
 
 func init() {
-	// rootCmd.AddCommand(domainsCmd)
-	// domainsCmd.AddCommand(listDomainsCmd)
-
+	rootCmd.AddCommand(domainsCmd)
+	domainsCmd.AddCommand(listDomainsCmd)
 }

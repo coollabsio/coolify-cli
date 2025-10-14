@@ -11,37 +11,42 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/adrg/xdg"
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/config"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var CliVersion = "0.0.1"
-var LastUpdateCheckTime time.Time
-var CheckInverval = 10 * time.Minute
+// CliVersion is the CLI version
+var CliVersion = "1.0.0"
 
-var ConfigDir = xdg.ConfigHome
+// CheckInterval for version checking
+var CheckInterval = 10 * time.Minute
 
-var Version string
-var Name string
-var Fqdn string
-var Token string
-var Instance http.Client
+// SensitiveInformationOverlay is the string used to hide sensitive data
 var SensitiveInformationOverlay = "********"
 
-// Flags
-var Debug bool
-var ShowSensitive bool
-var Force bool
-var Format string
+// Legacy global variables - kept for backward compatibility during migration
+// TODO: Remove these once all commands are refactored
+var (
+	Version string
+	Name    string
+	Fqdn    string
+	Token   string
+	InstanceName string
+	Debug   bool
+	ShowSensitive bool
+	Force   bool
+	Format  string
+	JsonMode bool
+	PrettyMode bool
+	SetDefaultInstance bool
+	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
+	Instance http.Client
+)
 
-var JsonMode bool
-var PrettyMode bool
-var SetDefaultInstance bool
-
-var w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
-
+// Tag represents a git tag for version checking
 type Tag struct {
 	Ref string `json:"ref"`
 }
@@ -50,167 +55,78 @@ var rootCmd = &cobra.Command{
 	Use:   "coolify",
 	Short: "Coolify CLI",
 	Long:  `A CLI tool to interact with Coolify API.`,
+	SilenceUsage: true, // Don't show usage on errors
+	SilenceErrors: false, // Still print errors
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return nil
 	},
 }
 
-func CheckFormat(format string) {
-	if format == "json" {
-		JsonMode = true
-		return
-	}
-	if format == "pretty" {
-		PrettyMode = true
-		return
-	}
-	if format == "table" {
-		return
-	}
-	fmt.Println("Invalid format", format)
-	os.Exit(0)
-}
+// getAPIClient creates an API client from command flags or config
+func getAPIClient(cmd *cobra.Command) (*api.Client, error) {
+	// Try to get from flags first (check both local and persistent flags)
+	fqdn, _ := cmd.Flags().GetString("host")
+	token, _ := cmd.Flags().GetString("token")
+	instanceName, _ := cmd.Flags().GetString("instance")
+	debug, _ := cmd.Flags().GetBool("debug")
 
-func CheckDefaultThings(version *string) {
-	FetchVersion()
-	CheckFormat(Format)
-	if version == nil {
-		CheckMinimumVersion(Version)
-	} else {
-		CheckMinimumVersion(*version)
-	}
-}
-
-func CheckMinimumVersion(version string) {
-	requiredVersion, err := compareVersion.NewVersion(version)
-	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-	}
-	currentVersion, err := compareVersion.NewVersion(Version)
-	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-	}
-	if currentVersion.LessThan(requiredVersion) {
-		log.Printf("Minimum required Coolify API version is: %s\n", version)
-		log.Print("Please upgrade your Coolify instance for this command.\n")
-		os.Exit(0)
-	}
-}
-func FetchVersion() (string, error) {
-	data, err := Fetch("version")
-	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-		return "", err
-	}
-	Version = data
-	return data, nil
-}
-
-func Fetch(url string) (string, error) {
-	url = Fqdn + "/api/v1/" + url
-	if Debug {
-		log.Println("Fetching data from", url)
-	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Authorization", "Bearer "+Token)
-	resp, err := Instance.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("%d - Failed to fetch data from %s. Error: %s", resp.StatusCode, url, string(body))
-	}
-
-	return string(body), nil
-}
-func Post(url string, input io.Reader) (string, error) {
-	url = Fqdn + "/api/v1/" + url
-	if Debug {
-		log.Println("Posting data to", url)
-	}
-	req, err := http.NewRequest("POST", url, input)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Authorization", "Bearer "+Token)
-	req.Header.Add("Content-Type", "application/json")
-	resp, err := Instance.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode >= 400 {
-		message := string(body)
-		if message == "" {
-			message = "Unknown error"
-		} else {
-			msg := map[string]string{}
-			json.Unmarshal(body, &msg)
-			message = msg["message"]
+	// If not from flags, load from config
+	if fqdn == "" || token == "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
 		}
-		return "", fmt.Errorf("%s (rc: %d)", message, resp.StatusCode)
-	}
 
-	return string(body), nil
-}
-
-func Delete(url string) (string, error) {
-	url = Fqdn + "/api/v1/" + url
-	if Debug {
-		log.Println("Deleting data from", url)
-	}
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Authorization", "Bearer "+Token)
-	resp, err := Instance.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != 200 {
-		message := string(body)
-		if message == "" {
-			message = "Unknown error"
+		var instance *config.Instance
+		// Use instance if specified, otherwise use default
+		if instanceName != "" {
+			instance, err = cfg.GetInstance(instanceName)
+			if err != nil {
+				return nil, fmt.Errorf("instance '%s' not found: %w", instanceName, err)
+			}
 		} else {
-			msg := map[string]string{}
-			json.Unmarshal(body, &msg)
-			message = msg["message"]
+			instance, err = cfg.GetDefault()
+			if err != nil {
+				return nil, fmt.Errorf("no default instance configured: %w", err)
+			}
 		}
-		return "", fmt.Errorf("%s (rc: %d)", message, resp.StatusCode)
+
+		if fqdn == "" {
+			fqdn = instance.FQDN
+		}
+		if token == "" {
+			token = instance.Token
+		}
 	}
-	return string(body), nil
+
+	// Create client
+	client := api.NewClient(fqdn, token, api.WithDebug(debug))
+
+	// Set legacy global variables for backward compatibility
+	Fqdn = fqdn
+	Token = token
+	Debug = debug
+
+	return client, nil
 }
 
+// CheckLatestVersionOfCli checks for CLI updates
 func CheckLatestVersionOfCli() (string, error) {
-	getLastUpdateCheckTime()
-	if LastUpdateCheckTime.Add(CheckInverval).After(time.Now()) {
-		if Debug {
-			log.Println("Skipping update check. Last check was less than 10 minutes ago.")
+	lastCheck := viper.GetString("lastupdatechecktime")
+	if lastCheck != "" {
+		lastCheckTime, err := time.Parse(time.RFC3339, lastCheck)
+		if err == nil && lastCheckTime.Add(CheckInterval).After(time.Now()) {
+			if Debug {
+				log.Println("Skipping update check. Last check was less than 10 minutes ago.")
+			}
+			return CliVersion, nil
 		}
-		return CliVersion, nil
 	}
-	setLastUpdateCheckTime()
+
+	// Update check time
+	viper.Set("lastupdatechecktime", time.Now().Format(time.RFC3339))
+	viper.WriteConfig()
+
 	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -256,11 +172,12 @@ func CheckLatestVersionOfCli() (string, error) {
 	sort.Sort(compareVersion.Collection(versions))
 	latestVersion := versions[len(versions)-1].String()
 	if latestVersion != CliVersion {
-		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify --update'.\n\n")
+		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify update'.\n\n")
 	}
 	return latestVersion, nil
-
 }
+
+// Execute runs the root command
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -273,80 +190,61 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
 	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "", "Coolify instance hostname")
+	rootCmd.PersistentFlags().StringVarP(&InstanceName, "instance", "", "", "Use specific instance by name")
 
 	rootCmd.PersistentFlags().StringVarP(&Format, "format", "", "table", "Format output (table|json|pretty)")
 	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	rootCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false, "Force")
 	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "", false, "Debug mode")
 }
-func setLastUpdateCheckTime() {
-	timeNow := time.Now()
-	viper.Set("lastupdatechecktime", timeNow)
-	viper.WriteConfig()
-	LastUpdateCheckTime = timeNow
-}
-func getLastUpdateCheckTime() {
-	lastUpdateCheckTimeString := viper.Get("lastupdatechecktime").(string)
-	lastUpdateCheckTime, err := time.Parse(time.RFC3339, lastUpdateCheckTimeString)
-	if err != nil {
-		log.Fatalf("Error parsing time: %v", err)
-	}
-	LastUpdateCheckTime = lastUpdateCheckTime
 
-}
 func initConfig() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
-	viper.AddConfigPath(ConfigDir + "/coolify")
-	if _, err := os.Stat(ConfigDir + "/coolify"); os.IsNotExist(err) {
-		os.MkdirAll(ConfigDir+"/coolify", 0755)
+	viper.AddConfigPath(config.Path()[:len(config.Path())-len("/config.json")])
+
+	// Ensure config directory exists
+	configDir := config.Path()[:len(config.Path())-len("/config.json")]
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		os.MkdirAll(configDir, 0755)
 	}
+
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Println("Config file not found. Creating a new one at", ConfigDir+"/coolify/config.json")
-			viper.Set("lastUpdateCheckTime", time.Now())
-			viper.Set("instances", []interface{}{map[string]interface{}{
-				"name":    "cloud",
-				"default": true,
-				"fqdn":    "https://app.coolify.io",
-				"token":   "",
-			},
-			})
-			viper.Set("instances", append(viper.Get("instances").([]interface{}), map[string]interface{}{
-				"name":  "localhost",
-				"fqdn":  "http://localhost:8000",
-				"token": "",
-			}))
-			viper.SafeWriteConfig()
-			return
-			// Config file not found; ignore error if desired
+			log.Println("Config file not found. Creating a new one at", config.Path())
+			if err := config.CreateDefault(); err != nil {
+				log.Printf("Failed to create default config: %v\n", err)
+				return
+			}
+			// Reload config after creating default
+			if err := viper.ReadInConfig(); err != nil {
+				log.Printf("Failed to read newly created config: %v\n", err)
+				return
+			}
 		} else {
-			fmt.Println("Error reading config file, ", err)
+			fmt.Println("Error reading config file:", err)
 			return
-			// Config file was found but another error was produced
 		}
 	}
 
 	if Debug {
 		log.Println("Using config file:", viper.ConfigFileUsed())
 	}
-	instancesMap := viper.Get("instances").([]interface{})
-	for _, instance := range instancesMap {
-		instanceMap := instance.(map[string]interface{})
-		if instanceMap["default"] == true {
-			if Fqdn == "" {
-				Fqdn = instanceMap["fqdn"].(string)
-			}
-			if Token == "" {
-				Token = instanceMap["token"].(string)
-			}
+
+	// Note: We don't pre-populate Fqdn/Token here anymore
+	// They are loaded on-demand by getAPIClient() based on --instance or default instance
+	// This allows --instance flag to work correctly
+
+	// Check for updates
+	latestVersion, err := CheckLatestVersionOfCli()
+	if err != nil {
+		if Debug {
+			log.Println("Failed to check for updates:", err)
 		}
 	}
-	data, err := CheckLatestVersionOfCli()
-	if err != nil {
-		log.Println(err)
-	}
-	if data != CliVersion {
-		log.Printf("New version of Coolify CLI is available: %s\n", data)
+	if latestVersion != CliVersion {
+		if Debug {
+			log.Printf("New version of Coolify CLI is available: %s\n", latestVersion)
+		}
 	}
 }

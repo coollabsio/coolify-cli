@@ -1,27 +1,15 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
 	"os"
-	"strings"
 
+	"github.com/coollabsio/coolify-cli/internal/models"
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
 	"github.com/spf13/cobra"
 )
-
-type PrivateKeys struct {
-	PrivateKeys []PrivateKey `json:"private_keys"`
-}
-
-type PrivateKey struct {
-	ID         int    `json:"id"`
-	UUID       string `json:"uuid"`
-	Name       string `json:"name"`
-	PublicKey  string `json:"public_key"`
-	PrivateKey string `json:"private_key"`
-}
 
 var privateKeysCmd = &cobra.Command{
 	Use:   "private-keys",
@@ -31,162 +19,112 @@ var privateKeysCmd = &cobra.Command{
 var listPrivateKeysCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all private keys",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 
-		baseUrl := "security/keys"
-		data, err := Fetch(baseUrl)
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			log.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata []PrivateKey
-		err = json.Unmarshal([]byte(data), &jsondata)
+
+		keySvc := service.NewPrivateKeyService(client)
+		keys, err := keySvc.List(ctx)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to list private keys: %w", err)
 		}
 
-		fmt.Fprintln(w, "Uuid\tName")
-		for _, resource := range jsondata {
-			if ShowSensitive {
-				fmt.Fprintf(w, "%s\t%s\n", resource.UUID, resource.Name)
-			} else {
-				fmt.Fprintf(w, "%s\t%s\n", resource.UUID, resource.Name)
-			}
-		}
-		w.Flush()
-		fmt.Println("\nNote: Use -s to show sensitive information.")
-	},
-}
-var onePrivateKeyCmd = &cobra.Command{
-	Use:   "get [uuid]",
-	Args:  cobra.ExactArgs(1),
-	Short: "Get private key details by uuid",
-	Run: func(cmd *cobra.Command, args []string) {
-		CheckDefaultThings(nil)
-		baseUrl := "security/keys/"
+		format, _ := cmd.Flags().GetString("format")
+		showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
 
-		uuid := args[0]
-		var url = baseUrl + uuid
-
-		data, err := Fetch(url)
+		formatter, err := output.NewFormatter(format, output.Options{
+			ShowSensitive: showSensitive,
+		})
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
-		if PrettyMode {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(data), "", "\t")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Println(string(prettyJSON.String()))
-			return
-		}
-		if JsonMode {
-			fmt.Println(data)
-			return
-		}
-		var jsondata PrivateKey
-		err = json.Unmarshal([]byte(data), &jsondata)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Fprintln(w, "Uuid\tName\tPublicKey\tPrivateKey")
-		if ShowSensitive {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", jsondata.UUID, jsondata.Name, jsondata.PublicKey, strings.ReplaceAll(jsondata.PrivateKey, "\n", "\\n"))
 
-		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", jsondata.UUID, jsondata.Name, SensitiveInformationOverlay, SensitiveInformationOverlay)
+		if err := formatter.Format(keys); err != nil {
+			return err
 		}
-		w.Flush()
-		fmt.Println("\nNote: Use -s to show sensitive information.")
 
+		if !showSensitive && format == output.FormatTable {
+			fmt.Println("\nNote: Use -s to show sensitive information.")
+		}
+
+		return nil
 	},
 }
 
 var addPrivateKeyCmd = &cobra.Command{
-	Use:     "add",
-	Example: `add <name> <private_key_or_file>`,
+	Use:     "add <name> <private_key_or_file>",
+	Example: `add mykey ~/.ssh/id_rsa`,
 	Args:    cobra.ExactArgs(2),
 	Short:   "Add a private key",
-	Run: func(cmd *cobra.Command, args []string) {
-		version := "4.0.0-beta.383"
-		CheckDefaultThings(&version)
-		baseUrl := "security/keys"
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 		name := args[0]
 		privateKeyInput := args[1]
+
+		client, err := getAPIClient(cmd)
+		if err != nil {
+			return fmt.Errorf("failed to get API client: %w", err)
+		}
 
 		var privateKey string
 		// Check if input is a file path
 		if _, err := os.Stat(privateKeyInput); err == nil {
 			keyBytes, err := os.ReadFile(privateKeyInput)
 			if err != nil {
-				fmt.Printf("Error reading private key file: %v\n", err)
-				return
+				return fmt.Errorf("error reading private key file: %w", err)
 			}
 			privateKey = string(keyBytes)
 		} else {
 			privateKey = privateKeyInput
 		}
 
-		data := map[string]string{
-			"name":        name,
-			"private_key": privateKey,
+		keySvc := service.NewPrivateKeyService(client)
+		req := models.PrivateKeyCreateRequest{
+			Name:       name,
+			PrivateKey: privateKey,
 		}
-		jsonData, err := json.Marshal(data)
+
+		key, err := keySvc.Create(ctx, req)
 		if err != nil {
-			fmt.Printf("Error creating request: %v\n", err)
-			return
+			return fmt.Errorf("failed to add private key: %w", err)
 		}
-		_, err = Post(baseUrl, bytes.NewBuffer(jsonData))
-		if err != nil {
-			fmt.Printf("Error adding private key: %v\n", err)
-			return
-		}
-		fmt.Printf("Private key '%s' added successfully\n", name)
+
+		fmt.Printf("Private key '%s' added successfully (UUID: %s)\n", key.Name, key.UUID)
+		return nil
 	},
 }
 
 var removePrivateKeyCmd = &cobra.Command{
-	Use:   "remove [uuid]",
+	Use:   "remove <uuid>",
 	Args:  cobra.ExactArgs(1),
 	Short: "Remove a private key",
-	Run: func(cmd *cobra.Command, args []string) {
-		version := "4.0.0-beta.383"
-		CheckDefaultThings(&version)
-		baseUrl := "security/keys/"
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := context.Background()
 		uuid := args[0]
-		_, err := Delete(baseUrl + uuid)
+
+		client, err := getAPIClient(cmd)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return fmt.Errorf("failed to get API client: %w", err)
 		}
+
+		keySvc := service.NewPrivateKeyService(client)
+		err = keySvc.Delete(ctx, uuid)
+		if err != nil {
+			return fmt.Errorf("failed to remove private key: %w", err)
+		}
+
 		fmt.Println("Private key removed successfully")
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(privateKeysCmd)
 	privateKeysCmd.AddCommand(listPrivateKeysCmd)
-	privateKeysCmd.AddCommand(onePrivateKeyCmd)
 	privateKeysCmd.AddCommand(addPrivateKeyCmd)
 	privateKeysCmd.AddCommand(removePrivateKeyCmd)
 }
