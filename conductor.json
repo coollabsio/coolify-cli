@@ -1,0 +1,7 @@
+{
+    "scripts": {
+        "setup": "./conductor-setup.sh",
+        "run": "go test ./... -v"
+    },
+    "runScriptMode": "nonconcurrent"
+}
