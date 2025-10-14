@@ -33,6 +33,18 @@ fi
 
 echo "✅ Dependencies downloaded"
 
+# Install air if not already installed
+if ! command -v air &> /dev/null; then
+    echo "📦 Installing air (Go file watcher)..."
+    if ! go install github.com/air-verse/air@latest; then
+        echo "⚠️  Warning: Failed to install air, but continuing..."
+    else
+        echo "✅ air installed successfully"
+    fi
+else
+    echo "✅ air already installed"
+fi
+
 # Build the binary
 echo "🔨 Building coolify binary..."
 if ! go build -o coolify .; then
@@ -42,3 +54,4 @@ fi
 
 echo "✅ Binary built successfully: ./coolify"
 echo "🎉 Workspace setup complete!"
+echo "🔥 Use the run script for hot reload during development"

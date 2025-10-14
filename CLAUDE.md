@@ -83,26 +83,30 @@ go install
 
 ### Run tests
 ```bash
-# Run all tests
-go test ./...
+# Run all tests (tests are in internal/ directory)
+go test ./internal/...
 
 # Run with coverage
-go test -cover ./...
+go test ./internal/... -cover
 
 # Run with verbose output
-go test -v ./...
+go test ./internal/... -v
+
+# Run specific package
+go test ./internal/api/... -v
+go test ./internal/service/... -v
 
 # Run specific test
-go test -v ./cmd -run TestServersListCmd
+go test ./internal/api -run TestClient_Get_Success -v
 ```
 
 ### Before committing
 ```bash
 # 1. Run tests
-go test ./...
+go test ./internal/...
 
 # 2. Check coverage
-go test -cover ./...
+go test ./internal/... -cover
 
 # 3. Run linter (if available)
 golangci-lint run
@@ -181,7 +185,8 @@ func TestServersListCmd(t *testing.T) {
 - Test error handling (4xx, 5xx status codes)
 - Test retry logic
 - Test timeout behavior
-- Use httptest.Server for mock HTTP responses
+- **IMPORTANT**: Use `httptest.NewServer()` for mock HTTP responses (NOT real APIs)
+- All API tests must use local mock servers, never call real Coolify cloud or external APIs
 
 #### 3. Service Tests (`internal/service/*_test.go`)
 - Test business logic
@@ -204,21 +209,25 @@ func TestServersListCmd(t *testing.T) {
 ### Running Tests
 
 ```bash
-# Run all tests
-go test ./...
+# Run all tests (tests are in internal/ directory)
+go test ./internal/...
 
 # Run with coverage
-go test -cover ./...
+go test ./internal/... -cover
 
 # Generate coverage report
-go test -coverprofile=coverage.out ./...
+go test ./internal/... -coverprofile=coverage.out
 go tool cover -html=coverage.out
 
+# Run with verbose output
+go test ./internal/... -v
+
 # Run only unit tests (skip integration)
-go test -short ./...
+go test ./internal/... -short
 
 # Run specific package
-go test ./internal/api/...
+go test ./internal/api/... -v
+go test ./internal/service/... -v
 ```
 
 ### Test Guidelines
@@ -273,14 +282,14 @@ func TestServersList(t *testing.T) {
 
 **CHECKLIST** (must complete ALL items):
 - [ ] Create command implementation in `cmd/`
-- [ ] Create corresponding test file `cmd/*_test.go`
+- [ ] Create corresponding test file in `internal/service/*_test.go` or `internal/api/*_test.go`
 - [ ] Test all flags and arguments
 - [ ] Test all output formats (table, json, pretty)
 - [ ] Test error cases (missing args, API errors, invalid input)
 - [ ] Add integration test if command has complex workflow
 - [ ] Update README.md with command documentation
-- [ ] Run `go test ./...` and ensure all tests pass
-- [ ] Verify coverage: `go test -cover ./...`
+- [ ] Run `go test ./internal/...` and ensure all tests pass
+- [ ] Verify coverage: `go test ./internal/... -cover`
 
 ### CI/CD Integration
 
