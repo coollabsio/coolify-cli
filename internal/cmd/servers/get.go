@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/coollabsio/cli-coolify/internal/client"
 	"github.com/coollabsio/cli-coolify/internal/tui"
@@ -58,10 +57,8 @@ Optionally show its resources and sensitive information.`,
 			}
 
 			// Create and run Bubble Tea program for interactive display
-			p := tea.NewProgram(initialGetModel(serverData))
-			if _, err := p.Run(); err != nil {
-				return fmt.Errorf("error running detail view: %w", err)
-			}
+			model := initialGetModel(serverData)
+			fmt.Println(model.View())
 
 			return nil
 		},
@@ -77,18 +74,6 @@ func initialGetModel(server *client.Server) getModel {
 	return getModel{
 		server: server,
 	}
-}
-
-// Implement Bubble Tea Model interface
-func (m getModel) Init() tea.Cmd { return nil }
-
-func (m getModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		if msg.String() == "ctrl+c" || msg.String() == "esc" {
-			return m, tea.Quit
-		}
-	}
-	return m, nil
 }
 
 func (m getModel) View() string {
