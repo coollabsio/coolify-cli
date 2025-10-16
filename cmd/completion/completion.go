@@ -8,28 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// const (
-// 	completionShortDescription = "Output shell completion code for the specified shell (bash or zsh)"
-// 	completionLongDescription  = completionShortDescription + `
-
-// Note: this requires the bash-completion framework, which is not installed by default on Mac. This can be installed by using homebrew:
-
-// 	$ brew install bash-completion
-
-// Once installed, bash completion must be evaluated. This can be done by adding the following line to the .bash profile:
-
-// 	$ source $(brew --prefix)/etc/bash_completion
-
-// Note for zsh users: [1] zsh completions are only supported in versions of zsh >= 5.2
-
-// Examples:
-// 	# Load the hcloud completion code for bash into the current shell
-// 	source <(hcloud completion bash)
-
-// 	# Load the hcloud completion code for zsh into the current shell
-// 	source <(hcloud completion zsh)`
-// )
-
 func NewCompletionsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "completion <shell>",
@@ -40,7 +18,7 @@ func NewCompletionsCommand() *cobra.Command {
 
 To load completions into the current shell execute:
 
-    source <(hcloud completion bash)
+    source <(coolify completion bash)
 
 In order to make the completions permanent, append the line above to
 your .bashrc.
@@ -54,18 +32,18 @@ to enable them. Add the following line to your ~/.zshrc file:
 
 To load completions for each session execute the following commands:
 
-    mkdir -p ~/.config/hcloud/completion/zsh
-    hcloud completion zsh > ~/.config/hcloud/completion/zsh/_hcloud
+    mkdir -p ~/.config/coolify/completion/zsh
+    coolify completion zsh > ~/.config/coolify/completion/zsh/_coolify
 
 Finally add the following line to your ~/.zshrc file, *before* you
 call the compinit function:
 
-    fpath+=(~/.config/hcloud/completion/zsh)
+    fpath+=(~/.config/coolify/completion/zsh)
 
 In the end your ~/.zshrc file should contain the following two lines
 in the order given here.
 
-    fpath+=(~/.config/hcloud/completion/zsh)
+    fpath+=(~/.config/coolify/completion/zsh)
     #  ... anything else that needs to be done before compinit
     autoload -Uz compinit; compinit
     # ...
@@ -76,22 +54,22 @@ You will need to start a new shell for this setup to take effect.
 
 To load completions into the current shell execute:
 
-    hcloud completion fish | source
+    coolify completion fish | source
 
 In order to make the completions permanent execute once:
 
-     hcloud completion fish > ~/.config/fish/completions/hcloud.fish
+     coolify completion fish > ~/.config/fish/completions/coolify.fish
 
 ### PowerShell:
 
 To load completions into the current shell execute:
 
-  PS> hcloud completion powershell | Out-String | Invoke-Expression
+  PS> coolify completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, run 
 and source this file from your PowerShell profile.
 
-  PS> hcloud completion powershell > hcloud.ps1
+  PS> coolify completion powershell > coolify.ps1
 `,
 		Args:                  cli.ExactArgs(1, "<shell>"),
 		ValidArgs:             []string{"bash", "fish", "zsh", "powershell"},
