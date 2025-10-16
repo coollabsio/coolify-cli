@@ -174,7 +174,7 @@ var deleteContextCmd = &cobra.Command{
 				return
 			}
 		}
-		fmt.Printf("%s not found. \n", Name)
+		fmt.Printf("Context '%s' not found.\n", Name)
 	},
 }
 var setTokenCmd = &cobra.Command{
@@ -194,7 +194,7 @@ var setTokenCmd = &cobra.Command{
 			}
 		}
 		if found == nil {
-			fmt.Printf("%s instance is not found. \n", Name)
+			fmt.Printf("Context '%s' not found.\n", Name)
 			return
 		}
 		instances := viper.Get("instances").([]interface{})
@@ -227,7 +227,7 @@ var useContextCmd = &cobra.Command{
 			}
 		}
 		if found == nil {
-			fmt.Printf("%s not found. \n", Name)
+			fmt.Printf("Context '%s' not found.\n", Name)
 			return
 		}
 		for _, instance := range instances {
@@ -298,7 +298,7 @@ var getContextCmd = &cobra.Command{
 				return
 			}
 		}
-		fmt.Printf("%s not found. \n", Name)
+		fmt.Printf("Context '%s' not found.\n", Name)
 	},
 }
 
@@ -336,7 +336,7 @@ var updateContextCmd = &cobra.Command{
 		}
 
 		if !found {
-			fmt.Printf("%s not found.\n", oldName)
+			fmt.Printf("Context '%s' not found.\n", oldName)
 			return
 		}
 

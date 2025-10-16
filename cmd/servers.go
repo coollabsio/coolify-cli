@@ -151,8 +151,8 @@ var removeServerCmd = &cobra.Command{
 }
 
 var addServerCmd = &cobra.Command{
-	Use:   "add [name] [ip] [private_key_uuid]",
-	Args:  exactArgs(3, "<uuid1> <uuid2> <uuid3>"),
+	Use:   "add <server_name> <ip_address> <private_key_uuid>",
+	Args:  exactArgs(3, "<server_name> <ip_address> <private_key_uuid>"),
 	Short: "Add a server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
