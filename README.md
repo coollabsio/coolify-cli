@@ -10,25 +10,25 @@ It will install the CLI in `/usr/local/bin/coolify` and the configuration file i
 
 > If you are a windows or mac user, please test the installation script and let us know if it works for you.
 
-## Configuration
+## Getting Started
 1. Get a `<token>` from your Coolify dashboard (Cloud or self-hosted) at `/security/api-tokens`
 
 ### Cloud
 
-2. Add the token with `coolify instances set token cloud <token>`
+2. Add the token with `coolify context set-token cloud <token>`
 
 ### Self-hosted
 
-2. Add the token with `coolify instances add -d <name> <fqdn> <token>`
-   
-> Replace `<name>` with the name you want to give to the instance.
+2. Add the token with `coolify context add -d <context_name> <url> <token>`
+
+> Replace `<context_name>` with the name you want to give to the context.
 >
-> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
+> Replace `<url>` with the fully qualified domain name of your Coolify instance.
 
 Now you can use the CLI with the token you just added.
 
-## Change default instance
-You can change the default instance with `coolify instances set default <name>`
+## Change default context
+You can change the default context with `coolify context set-default <name>`
 ## Currently Supported Commands
 
 ### Update
@@ -42,6 +42,7 @@ You can change the default instance with `coolify instances set default <name>`
 - `coolify context delete <context_name>` - Delete a context
 - `coolify context get <context_name>` - Get details of a specific context
 - `coolify context set-token <context_name> <token>` - Update the API token for a context
+- `coolify context set-default <context_name>` - Set a context as the default
 - `coolify context update <context_name>` - Update a context's properties
   - `--name <new_name>` - Change the context name
   - `--url <new_url>` - Change the context URL
