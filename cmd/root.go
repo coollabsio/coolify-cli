@@ -101,6 +101,7 @@ func init() {
 	rootCmd.AddCommand(teams.NewTeamsCommand())
 	rootCmd.AddCommand(update.NewUpdateCommand())
 	rootCmd.AddCommand(cliversion.NewVersionCommand())
+	rootCmd.AddCommand(NewDocsCommand())
 }
 
 func initConfig() {

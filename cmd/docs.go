@@ -56,7 +56,9 @@ The man pages will be written to the specified directory (default: ./man).`,
 }
 
 var markdownCmd = &cobra.Command{
-	Use:   "markdown",
+	Use:     "markdown",
+	Aliases: []string{"md"},
+
 	Short: "Generate markdown documentation",
 	Long: `Generate markdown documentation for all Coolify CLI commands.
 
@@ -83,11 +85,12 @@ The markdown files will be written to the specified directory (default: ./docs).
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(docsCmd)
+func NewDocsCommand() *cobra.Command {
 	docsCmd.AddCommand(manCmd)
 	docsCmd.AddCommand(markdownCmd)
 
 	manCmd.Flags().StringP("output-dir", "o", "./man", "Output directory for man pages")
 	markdownCmd.Flags().StringP("output-dir", "o", "./docs", "Output directory for markdown files")
+
+	return docsCmd
 }
