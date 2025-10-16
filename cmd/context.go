@@ -134,10 +134,12 @@ var addContextCmd = &cobra.Command{
 				delete(instanceMap, "default")
 			}
 			instances[len(instances)-1].(map[string]interface{})["default"] = true
+			fmt.Printf("Context '%s' added and set as default.\n", Name)
+		} else {
+			fmt.Printf("Context '%s' added successfully.\n", Name)
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listContextsCmd.Run(cmd, args)
 	},
 }
 var deleteContextCmd = &cobra.Command{
@@ -155,15 +157,19 @@ var deleteContextCmd = &cobra.Command{
 				instances = append(instances[:i], instances[i+1:]...)
 				viper.Set("instances", instances)
 				viper.WriteConfig()
-				fmt.Printf("%s removed. \n", Name)
+
 				if instanceMap["default"] == true {
-					fmt.Println("Note: The default instance has been removed.")
 					if len(instances) > 0 {
 						instances[0].(map[string]interface{})["default"] = true
 						viper.Set("instances", instances)
 						viper.WriteConfig()
-						fmt.Printf("%s set as default. \n", instances[0].(map[string]interface{})["fqdn"])
+						newDefaultName := instances[0].(map[string]interface{})["name"]
+						fmt.Printf("Context '%s' deleted. '%s' is now the default context.\n", Name, newDefaultName)
+					} else {
+						fmt.Printf("Context '%s' deleted. No contexts remaining.\n", Name)
 					}
+				} else {
+					fmt.Printf("Context '%s' deleted.\n", Name)
 				}
 				return
 			}
@@ -200,7 +206,7 @@ var setTokenCmd = &cobra.Command{
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listContextsCmd.Run(cmd, args)
+		fmt.Printf("Token updated for context '%s'.\n", Name)
 	},
 }
 var useContextCmd = &cobra.Command{
@@ -234,7 +240,7 @@ var useContextCmd = &cobra.Command{
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listContextsCmd.Run(cmd, args)
+		fmt.Printf("Switched to context '%s'.\n", Name)
 	},
 }
 var getContextCmd = &cobra.Command{
@@ -344,19 +350,16 @@ var updateContextCmd = &cobra.Command{
 				}
 			}
 			contextToUpdate["name"] = newName
-			fmt.Printf("Renamed context from '%s' to '%s'\n", oldName, newName)
 		}
 
 		// Update URL if provided
 		if newURL != "" {
 			contextToUpdate["fqdn"] = newURL
-			fmt.Printf("Updated URL to: %s\n", newURL)
 		}
 
 		// Update token if provided
 		if newToken != "" {
 			contextToUpdate["token"] = newToken
-			fmt.Println("Updated token")
 		}
 
 		// Save changes
@@ -367,8 +370,12 @@ var updateContextCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Println("\nContext updated successfully.")
-		listContextsCmd.Run(cmd, args)
+		// Use the new name if renamed, otherwise use old name
+		finalName := oldName
+		if newName != "" {
+			finalName = newName
+		}
+		fmt.Printf("Context '%s' updated successfully.\n", finalName)
 	},
 }
 
