@@ -35,7 +35,7 @@ The man pages will be written to the specified directory (default: ./man).`,
 		header := &doc.GenManHeader{
 			Title:   "COOLIFY",
 			Section: "1",
-			Source:  "Coolify CLI " + Version,
+			Source:  "Coolify CLI",
 		}
 
 		if err := doc.GenManTree(rootCmd, header, outputDir); err != nil {
