@@ -52,6 +52,7 @@ You can change the default instance with `coolify instances set default <name>`
   - `--validate` - Validate server immediately after adding
 - `coolify servers remove <uuid>` - Remove a server
 - `coolify servers validate <uuid>` - Validate a server connection
+- `coolify servers domains <uuid>` - Get server domains by UUID
 
 ### Projects
 - `coolify projects list` - List all projects
@@ -186,9 +187,6 @@ You can change the default instance with `coolify instances set default <name>`
 - `coolify team get <id>` - Get team details
 - `coolify team current` - Get current team
 - `coolify team members list [team_id]` - List team members
-
-### Domains
-- `coolify domains list` - List all domains
 
 ### Private Keys
 - `coolify privatekeys list` - List all private keys

@@ -11,7 +11,6 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/context"
 	"github.com/coollabsio/coolify-cli/cmd/database"
 	"github.com/coollabsio/coolify-cli/cmd/deployment"
-	"github.com/coollabsio/coolify-cli/cmd/domains"
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
 	"github.com/coollabsio/coolify-cli/cmd/project"
@@ -91,7 +90,6 @@ func init() {
 	rootCmd.AddCommand(completion.NewCompletionsCommand())
 	rootCmd.AddCommand(database.NewDatabaseCommand())
 	rootCmd.AddCommand(deployment.NewDeploymentCommand())
-	rootCmd.AddCommand(domains.NewDomainsCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())
 	rootCmd.AddCommand(project.NewProjectCommand())

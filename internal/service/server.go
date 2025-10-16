@@ -38,6 +38,13 @@ func (s *ServerService) GetResources(ctx context.Context, uuid string) (*models.
 	return &resources, err
 }
 
+// GetDomains returns domains for a server
+func (s *ServerService) GetDomains(ctx context.Context, uuid string) ([]models.Domain, error) {
+	var domains []models.Domain
+	err := s.client.Get(ctx, "servers/"+uuid+"/domains", &domains)
+	return domains, err
+}
+
 // Create creates a new server
 func (s *ServerService) Create(ctx context.Context, req models.ServerCreateRequest) (*models.Response, error) {
 	var response models.Response
