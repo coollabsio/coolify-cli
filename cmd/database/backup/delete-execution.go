@@ -14,7 +14,7 @@ import (
 
 // NewDeleteExecutionCommand lists all databases
 func NewDeleteExecutionCommand() *cobra.Command {
-	return &cobra.Command{
+	deleteBackupExecutionCmd := &cobra.Command{
 		Use:   "delete-execution <database_uuid> <backup_uuid> <execution_uuid>",
 		Short: "Delete backup execution",
 		Long:  `Delete a specific backup execution and optionally from S3. First UUID is the database, second is the backup configuration, third is the specific execution.`,
@@ -57,4 +57,7 @@ func NewDeleteExecutionCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	deleteBackupExecutionCmd.Flags().Bool("delete-s3", false, "Delete backup file from S3")
+	return deleteBackupExecutionCmd
 }
