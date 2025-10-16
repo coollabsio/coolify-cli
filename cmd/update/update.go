@@ -49,6 +49,8 @@ func NewUpdateCommand() *cobra.Command {
 					return
 				}
 				log.Printf("Successfully updated to version %s", latest.Version())
+			} else {
+				log.Printf("No new update available. You are already running the latest version: %s", currentVersion.String())
 			}
 
 		},

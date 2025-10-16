@@ -13,9 +13,9 @@ import (
 // NewNameCommand deploys a resource by name
 func NewNameCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "name <name>",
+		Use:   "name <resource_name>",
 		Short: "Deploy by resource name",
-		Args:  cli.ExactArgs(1, "<name>"),
+		Args:  cli.ExactArgs(1, "<resource_name>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			name := args[0]

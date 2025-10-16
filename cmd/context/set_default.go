@@ -11,9 +11,9 @@ import (
 // NewSetTokenCommand creates the set-token command
 func NewSetDefaultCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "set-default <name>",
+		Use:     "set-default <context_name>",
 		Example: `context set-default myserver`,
-		Args:    cli.ExactArgs(1, "<name>"),
+		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Set a context as the default",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]

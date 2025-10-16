@@ -14,9 +14,9 @@ import (
 // NewCreateCommand creates the create command
 func NewCreateCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "add <name> <private_key_or_file>",
+		Use:     "add <key_name> <private_key_or_file>",
 		Example: `add mykey ~/.ssh/id_rsa`,
-		Args:    cli.ExactArgs(2, "<uuid1> <uuid2>"),
+		Args:    cli.ExactArgs(2, "<key_name> <private_key_or_file>"),
 		Short:   "Add a private key",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()

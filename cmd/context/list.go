@@ -26,7 +26,7 @@ func NewListCommand() *cobra.Command {
 			// Convert interface{} to config.Instance structs
 			var instances []config.Instance
 			for _, item := range instancesInterface {
-				itemMap := item.(map[string]interface{})
+				itemMap := item.(map[string]any)
 
 				instance := config.Instance{
 					Name:    getString(itemMap, "name"),

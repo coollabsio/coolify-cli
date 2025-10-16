@@ -34,13 +34,20 @@ You can change the default instance with `coolify instances set default <name>`
 ### Update
 - `coolify update` - Update the CLI to the latest version
 
-### Instances
-- `coolify instances list` - List all instances
-- `coolify instances add` - Create a new instance configuration
-- `coolify instances remove` - Remove an instance configuration
-- `coolify instances get` - Get an instance configuration
-- `coolify instances set <default>|<token>` - Set an instance as default or set a token for an instance
-- `coolify instances version` - Get the version of the Coolify API for an instance
+### Context Management
+- `coolify context list` - List all configured contexts
+- `coolify context add <context_name> <url> <token>` - Add a new context
+  - `--default` - Set as default context
+  - `--force` - Force overwrite if context already exists
+- `coolify context delete <context_name>` - Delete a context
+- `coolify context get <context_name>` - Get details of a specific context
+- `coolify context set-token <context_name> <token>` - Update the API token for a context
+- `coolify context update <context_name>` - Update a context's properties
+  - `--name <new_name>` - Change the context name
+  - `--url <new_url>` - Change the context URL
+  - `--token <new_token>` - Change the context token
+- `coolify context use <context_name>` - Switch to a different context (set as default)
+- `coolify context version` - Get the Coolify API version of the current context
 
 ### Servers
 - `coolify servers list` - List all servers

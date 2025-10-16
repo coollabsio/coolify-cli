@@ -24,7 +24,7 @@ The codebase follows Cobra's command pattern with a root command and subcommands
 - Entry point: `main.go` calls `cmd.Execute()`
 - Root command: `cmd/root.go` - contains core utilities (HTTP client, authentication, version checking, config management)
 - Subcommands: Each command is in its own file in `cmd/`:
-  - `instances.go` - manage Coolify instances (add, remove, list, set default/token)
+  - `context.go` - manage Coolify context (add, remove, list, set default/token)
   - `servers.go` - list and get server information
   - `projects.go` - list projects with environments and applications
   - `resources.go` - list resources

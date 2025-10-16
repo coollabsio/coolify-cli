@@ -17,6 +17,7 @@ func NewContextCommand() *cobra.Command {
 	cmd.AddCommand(NewAddCommand())
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewUseCommand())
+	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewSetTokenCommand())
 	cmd.AddCommand(NewSetDefaultCommand())

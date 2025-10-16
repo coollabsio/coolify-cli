@@ -11,38 +11,35 @@ import (
 // NewSetTokenCommand creates the set-token command
 func NewSetTokenCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "set-token <name> <token>",
+		Use:     "set-token <context_name> <token>",
 		Example: `context set-token myserver your-new-api-token`,
-		Args:    cli.ExactArgs(2, "<name> <token>"),
+		Args:    cli.ExactArgs(2, "<context_name> <token>"),
 		Short:   "Update the API token for a context",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 			token := args[1]
-
-			instances := viper.Get("instances").([]interface{})
-
-			// Check if instance exists
-			var found bool
-			for _, instance := range instances {
+			var found interface{}
+			for _, instance := range viper.Get("instances").([]interface{}) {
 				instanceMap := instance.(map[string]interface{})
 				if instanceMap["name"] == name {
-					found = true
-					instanceMap["token"] = token
+					found = instanceMap
 					break
 				}
 			}
-
-			if !found {
-				return fmt.Errorf("%s instance is not found", name)
+			if found == nil {
+				fmt.Printf("%s instance is not found. \n", name)
+				return
 			}
-
+			instances := viper.Get("instances").([]interface{})
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["name"] == name {
+					instanceMap["token"] = token
+				}
+			}
 			viper.Set("instances", instances)
-			if err := viper.WriteConfig(); err != nil {
-				return fmt.Errorf("failed to write config: %w", err)
-			}
-
-			// Show the list after updating
-			return NewListCommand().RunE(cmd, args)
+			viper.WriteConfig()
+			fmt.Printf("Token updated for context '%s'.\n", name)
 		},
 	}
 }

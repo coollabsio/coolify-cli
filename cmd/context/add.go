@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
+	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -11,11 +12,11 @@ import (
 // NewAddCommand creates the add command
 func NewAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "add <name> <url> <token>",
+		Use:     "add <context_name> <url> <token>",
 		Example: `context add myserver https://coolify.example.com your-api-token`,
-		Args:    cli.ExactArgs(3, "<name> <url> <token>"),
+		Args:    cli.ExactArgs(3, "<context_name> <url> <token>"),
 		Short:   "Add a new context",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 			host := args[1]
 			token := args[2]
@@ -23,19 +24,19 @@ func NewAddCommand() *cobra.Command {
 			force, _ := cmd.Flags().GetBool("force")
 			setDefault, _ := cmd.Flags().GetBool("default")
 
-			instances := viper.Get("instances").([]interface{})
+			instances := viper.Get("instances").([]any)
 
 			// Check if instance already exists
 			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
+				instanceMap := instance.(map[string]any)
 				if instanceMap["name"] == name {
 					if force {
 						instanceMap["token"] = token
 						if setDefault {
 							// Remove default from all instances
 							for _, inst := range instances {
-								instMap := inst.(map[string]interface{})
-								delete(instMap, "default")
+								instMap := inst.(map[string]any)
+								instMap["default"] = false
 							}
 							instanceMap["default"] = true
 							fmt.Printf("%s already exists. Force overwriting. Setting it as default.\n", name)
@@ -44,40 +45,40 @@ func NewAddCommand() *cobra.Command {
 						}
 						viper.Set("instances", instances)
 						viper.WriteConfig()
-						return nil
+						return
 					}
 					fmt.Printf("%s already exists.\n", name)
 					fmt.Println("\nNote: Use --force to force overwrite.")
-					return nil
+					return
 				}
 			}
 
 			// Add new instance
-			newInstance := map[string]interface{}{
-				"name":  name,
-				"fqdn":  host,
-				"token": token,
+			newInstance := config.Instance{
+				Name:    name,
+				FQDN:    host,
+				Token:   token,
+				Default: false,
 			}
-
-			instances = append(instances, newInstance)
 
 			if setDefault {
 				// Remove default from all instances
 				for _, inst := range instances {
-					instMap := inst.(map[string]interface{})
-					delete(instMap, "default")
+					instMap := inst.(map[string]any)
+					instMap["default"] = false
 				}
-				// Set new instance as default
-				newInstance["default"] = true
+				newInstance.Default = true
+				fmt.Printf("Context '%s' added and set as default.\n", newInstance.Name)
+			} else {
+				fmt.Printf("Context '%s' added successfully.\n", newInstance.Name)
 			}
+
+			instances = append(instances, newInstance)
 
 			viper.Set("instances", instances)
 			if err := viper.WriteConfig(); err != nil {
-				return fmt.Errorf("failed to write config: %w", err)
+				fmt.Printf("failed to write config: %v\n", err)
 			}
-
-			// Show the list after adding
-			return NewListCommand().RunE(cmd, args)
 		},
 	}
 

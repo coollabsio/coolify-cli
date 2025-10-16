@@ -1,11 +1,9 @@
 package context
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-
 	"github.com/coollabsio/coolify-cli/internal/cli"
+	"github.com/coollabsio/coolify-cli/internal/config"
+	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -13,68 +11,53 @@ import (
 // NewGetCommand creates the get command
 func NewGetCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "get <name>",
+		Use:     "get <context_name>",
 		Example: `context get myserver`,
-		Args:    cli.ExactArgs(1, "<name>"),
+		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Get details of a specific context",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			instances := viper.Get("instances").([]interface{})
+
+			instancesRaw := viper.Get("instances")
+			if instancesRaw == nil {
+				instancesRaw = []any{}
+			}
+			instancesInterface := instancesRaw.([]any)
 
 			format, _ := cmd.Flags().GetString("format")
 			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
 
-			// Find the instance
-			var targetInstance map[string]interface{}
-			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["name"] == name {
-					targetInstance = instanceMap
+			// Convert interface{} to config.Instance structs
+			var instances []config.Instance
+			for _, item := range instancesInterface {
+				itemMap := item.(map[string]any)
+
+				instance := config.Instance{
+					Name:    getString(itemMap, "name"),
+					FQDN:    getString(itemMap, "fqdn"),
+					Token:   getString(itemMap, "token"),
+					Default: getBool(itemMap, "default"),
+				}
+				instances = append(instances, instance)
+			}
+
+			// If a name was provided, filter to that single instance
+			var results []config.Instance
+			for _, inst := range instances {
+				if inst.Name == name {
+					results = append(results, inst)
 					break
 				}
 			}
 
-			if targetInstance == nil {
-				return fmt.Errorf("%s not found", name)
+			formatter, err := output.NewFormatter(format, output.Options{
+				ShowSensitive: showSensitive,
+			})
+			if err != nil {
+				return err
 			}
 
-			// Mask sensitive info if needed
-			if !showSensitive {
-				targetInstance["token"] = cli.SensitiveInformationOverlay
-			}
-
-			if format == "pretty" {
-				var prettyJSON bytes.Buffer
-				instanceBytes, err := json.Marshal(targetInstance)
-				if err != nil {
-					return fmt.Errorf("failed to marshal instance: %w", err)
-				}
-				err = json.Indent(&prettyJSON, instanceBytes, "", "\t")
-				if err != nil {
-					return fmt.Errorf("failed to format JSON: %w", err)
-				}
-				fmt.Println(prettyJSON.String())
-				return nil
-			}
-
-			if format == "json" {
-				instanceBytes, err := json.Marshal(targetInstance)
-				if err != nil {
-					return fmt.Errorf("failed to marshal instance: %w", err)
-				}
-				fmt.Println(string(instanceBytes))
-				return nil
-			}
-
-			// Table format
-			fmt.Println("Name\tHost\tToken")
-			fmt.Printf("%s\t%s\t%s\n", name, targetInstance["fqdn"], targetInstance["token"])
-
-			if !showSensitive {
-				fmt.Println("\nNote: Use -s to show sensitive information.")
-			}
-
-			return nil
+			return formatter.Format(results)
 		},
 	}
 }

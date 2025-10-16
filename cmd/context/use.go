@@ -11,9 +11,9 @@ import (
 // NewUseCommand creates the use command
 func NewUseCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:     "use <name>",
+		Use:     "use <context_name>",
 		Example: `context use myserver`,
-		Args:    cli.ExactArgs(1, "<name>"),
+		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Switch to a different context (set as default)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
