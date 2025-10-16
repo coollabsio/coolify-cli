@@ -56,16 +56,16 @@ Example: coolify database backup create abc123 --frequency "0 0 * * *" --enabled
 				dumpAll, _ := cmd.Flags().GetBool("dump-all")
 				req.DumpAll = &dumpAll
 			}
-			if cmd.Flags().Changed("retention-amount-local") {
-				amount, _ := cmd.Flags().GetInt("retention-amount-local")
+			if cmd.Flags().Changed("retention-amount-locally") {
+				amount, _ := cmd.Flags().GetInt("retention-amount-locally")
 				req.DatabaseBackupRetentionAmountLocally = &amount
 			}
-			if cmd.Flags().Changed("retention-days-local") {
-				days, _ := cmd.Flags().GetInt("retention-days-local")
+			if cmd.Flags().Changed("retention-days-locally") {
+				days, _ := cmd.Flags().GetInt("retention-days-locally")
 				req.DatabaseBackupRetentionDaysLocally = &days
 			}
-			if cmd.Flags().Changed("retention-storage-local") {
-				storage, _ := cmd.Flags().GetString("retention-storage-local")
+			if cmd.Flags().Changed("retention-storage-locally") {
+				storage, _ := cmd.Flags().GetString("retention-storage-locally")
 				req.DatabaseBackupRetentionMaxStorageLocally = &storage
 			}
 			if cmd.Flags().Changed("retention-amount-s3") {
