@@ -64,9 +64,9 @@ var deployByUuidCmd = &cobra.Command{
 }
 
 var deployByNameCmd = &cobra.Command{
-	Use:   "name <name>",
+	Use:   "name <resource_name>",
 	Short: "Deploy by resource name",
-	Args:  exactArgs(1, "<uuid>"),
+	Args:  exactArgs(1, "<resource_name>"),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		name := args[0]

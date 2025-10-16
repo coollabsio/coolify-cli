@@ -96,7 +96,7 @@ The Coolify CLI is a command-line interface for managing Coolify instances, serv
 - `root.go` - Root command, global flags, initialization
 - `servers.go` - Server management commands
 - `deploy.go` - Deployment commands
-- `instances.go` - Instance configuration commands
+- `context.go` - Context (instance) configuration commands
 - `projects.go` - Project listing and inspection
 - etc.
 

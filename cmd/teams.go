@@ -45,10 +45,10 @@ var listTeamsCmd = &cobra.Command{
 }
 
 var getTeamCmd = &cobra.Command{
-	Use:   "get <id>",
+	Use:   "get <team_id>",
 	Short: "Get team details by ID",
 	Long:  `Get detailed information about a specific team by its ID.`,
-	Args:  exactArgs(1, "<id>"),
+	Args:  exactArgs(1, "<team_id>"),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		teamID := args[0]

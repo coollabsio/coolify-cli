@@ -19,7 +19,7 @@ import (
 )
 
 // CliVersion is the CLI version
-var CliVersion = "1.0.0"
+var CliVersion = "1.0.1"
 
 // CheckInterval for version checking
 var CheckInterval = 10 * time.Minute
@@ -53,7 +53,7 @@ type Tag struct {
 var rootCmd = &cobra.Command{
 	Use:   "coolify",
 	Short: "Coolify CLI",
-	Long:  `A CLI tool to interact with Coolify API.`,
+	Long:  fmt.Sprintf("A CLI tool to interact with Coolify API.\nVersion: %s", CliVersion),
 	SilenceUsage: true, // Don't show usage on errors
 	SilenceErrors: false, // Still print errors
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {

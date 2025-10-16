@@ -87,9 +87,9 @@ var listContextsCmd = &cobra.Command{
 	},
 }
 var addContextCmd = &cobra.Command{
-	Use:     "add <name> <url> <token>",
+	Use:     "add <context_name> <url> <token>",
 	Example: `context add myserver https://coolify.example.com your-api-token`,
-	Args:    exactArgs(3, "<name> <url> <token>"),
+	Args:    exactArgs(3, "<context_name> <url> <token>"),
 	Short:   "Add a new context",
 	Run: func(cmd *cobra.Command, args []string) {
 		Name := args[0]
@@ -141,9 +141,9 @@ var addContextCmd = &cobra.Command{
 	},
 }
 var deleteContextCmd = &cobra.Command{
-	Use:     "delete <name>",
+	Use:     "delete <context_name>",
 	Example: `context delete myserver`,
-	Args:    exactArgs(1, "<name>"),
+	Args:    exactArgs(1, "<context_name>"),
 	Short:   "Delete a context",
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -172,9 +172,9 @@ var deleteContextCmd = &cobra.Command{
 	},
 }
 var setTokenCmd = &cobra.Command{
-	Use:     "set-token <name> <token>",
+	Use:     "set-token <context_name> <token>",
 	Example: `context set-token myserver your-new-api-token`,
-	Args:    exactArgs(2, "<name> <token>"),
+	Args:    exactArgs(2, "<context_name> <token>"),
 	Short:   "Update the API token for a context",
 	Run: func(cmd *cobra.Command, args []string) {
 		Name = args[0]
@@ -204,9 +204,9 @@ var setTokenCmd = &cobra.Command{
 	},
 }
 var useContextCmd = &cobra.Command{
-	Use:     "use <name>",
+	Use:     "use <context_name>",
 	Example: `context use myserver`,
-	Args:    exactArgs(1, "<name>"),
+	Args:    exactArgs(1, "<context_name>"),
 	Short:   "Switch to a different context (set as default)",
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -238,9 +238,9 @@ var useContextCmd = &cobra.Command{
 	},
 }
 var getContextCmd = &cobra.Command{
-	Use:     "get <name>",
+	Use:     "get <context_name>",
 	Example: `context get myserver`,
-	Args:    exactArgs(1, "<name>"),
+	Args:    exactArgs(1, "<context_name>"),
 	Short:   "Get details of a specific context",
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -296,9 +296,89 @@ var getContextCmd = &cobra.Command{
 	},
 }
 
+var updateContextCmd = &cobra.Command{
+	Use:     "update <context_name>",
+	Example: `context update myserver --name newname --url https://new.coolify.com --token newtoken`,
+	Args:    exactArgs(1, "<context_name>"),
+	Short:   "Update a context's properties (name, URL, token)",
+	Run: func(cmd *cobra.Command, args []string) {
+		oldName := args[0]
+		instances := viper.Get("instances").([]interface{})
+
+		// Get flags
+		newName, _ := cmd.Flags().GetString("name")
+		newURL, _ := cmd.Flags().GetString("url")
+		newToken, _ := cmd.Flags().GetString("token")
+
+		// Check if at least one flag is provided
+		if newName == "" && newURL == "" && newToken == "" {
+			fmt.Println("Error: At least one of --name, --url, or --token must be provided")
+			fmt.Println("\nUsage: coolify context update <context_name> [--name <new_name>] [--url <new_url>] [--token <new_token>]")
+			return
+		}
+
+		// Find the context
+		var found bool
+		var contextToUpdate map[string]interface{}
+		for _, instance := range instances {
+			instanceMap := instance.(map[string]interface{})
+			if instanceMap["name"] == oldName {
+				found = true
+				contextToUpdate = instanceMap
+				break
+			}
+		}
+
+		if !found {
+			fmt.Printf("%s not found.\n", oldName)
+			return
+		}
+
+		// If renaming, check if new name already exists
+		if newName != "" && newName != oldName {
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["name"] == newName {
+					fmt.Printf("Error: Context with name '%s' already exists.\n", newName)
+					return
+				}
+			}
+			contextToUpdate["name"] = newName
+			fmt.Printf("Renamed context from '%s' to '%s'\n", oldName, newName)
+		}
+
+		// Update URL if provided
+		if newURL != "" {
+			contextToUpdate["fqdn"] = newURL
+			fmt.Printf("Updated URL to: %s\n", newURL)
+		}
+
+		// Update token if provided
+		if newToken != "" {
+			contextToUpdate["token"] = newToken
+			fmt.Println("Updated token")
+		}
+
+		// Save changes
+		viper.Set("instances", instances)
+		err := viper.WriteConfig()
+		if err != nil {
+			fmt.Printf("Error saving config: %v\n", err)
+			return
+		}
+
+		fmt.Println("\nContext updated successfully.")
+		listContextsCmd.Run(cmd, args)
+	},
+}
+
 func init() {
 	addContextCmd.Flags().BoolVarP(&SetDefaultInstance, "default", "d", false, "Set as default context")
 	addContextCmd.Flags().BoolP("force", "f", false, "Force overwrite if context already exists")
+
+	updateContextCmd.Flags().StringP("name", "n", "", "New name for the context")
+	updateContextCmd.Flags().StringP("url", "u", "", "New URL for the context")
+	updateContextCmd.Flags().StringP("token", "t", "", "New token for the context")
 
 	rootCmd.AddCommand(contextCmd)
 	contextCmd.AddCommand(contextVersionCmd)
@@ -306,6 +386,7 @@ func init() {
 	contextCmd.AddCommand(addContextCmd)
 	contextCmd.AddCommand(deleteContextCmd)
 	contextCmd.AddCommand(setTokenCmd)
+	contextCmd.AddCommand(updateContextCmd)
 	contextCmd.AddCommand(useContextCmd)
 	contextCmd.AddCommand(getContextCmd)
 }
