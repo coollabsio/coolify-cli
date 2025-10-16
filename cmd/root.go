@@ -34,10 +34,9 @@ var (
 	Name    string
 	Fqdn    string
 	Token   string
-	InstanceName string
+	ContextName string
 	Debug   bool
 	ShowSensitive bool
-	Force   bool
 	Format  string
 	JsonMode bool
 	PrettyMode bool
@@ -64,39 +63,37 @@ var rootCmd = &cobra.Command{
 
 // getAPIClient creates an API client from command flags or config
 func getAPIClient(cmd *cobra.Command) (*api.Client, error) {
-	// Try to get from flags first (check both local and persistent flags)
-	fqdn, _ := cmd.Flags().GetString("host")
+	// Get flags
 	token, _ := cmd.Flags().GetString("token")
-	instanceName, _ := cmd.Flags().GetString("instance")
+	contextName, _ := cmd.Flags().GetString("context")
 	debug, _ := cmd.Flags().GetBool("debug")
 
-	// If not from flags, load from config
-	if fqdn == "" || token == "" {
-		cfg, err := config.Load()
+	// Load config to get instance details
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	var instance *config.Instance
+	// Use context if specified, otherwise use default
+	if contextName != "" {
+		instance, err = cfg.GetInstance(contextName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load config: %w", err)
+			return nil, fmt.Errorf("context '%s' not found: %w", contextName, err)
 		}
+	} else {
+		instance, err = cfg.GetDefault()
+		if err != nil {
+			return nil, fmt.Errorf("no default instance configured: %w", err)
+		}
+	}
 
-		var instance *config.Instance
-		// Use instance if specified, otherwise use default
-		if instanceName != "" {
-			instance, err = cfg.GetInstance(instanceName)
-			if err != nil {
-				return nil, fmt.Errorf("instance '%s' not found: %w", instanceName, err)
-			}
-		} else {
-			instance, err = cfg.GetDefault()
-			if err != nil {
-				return nil, fmt.Errorf("no default instance configured: %w", err)
-			}
-		}
+	// Get FQDN from instance
+	fqdn := instance.FQDN
 
-		if fqdn == "" {
-			fqdn = instance.FQDN
-		}
-		if token == "" {
-			token = instance.Token
-		}
+	// Use token from flag if provided, otherwise use instance token
+	if token == "" {
+		token = instance.Token
 	}
 
 	// Create client
@@ -108,6 +105,59 @@ func getAPIClient(cmd *cobra.Command) (*api.Client, error) {
 	Debug = debug
 
 	return client, nil
+}
+
+// exactArgs returns a validator that ensures exactly n arguments are provided with a helpful error message
+func exactArgs(n int, usage string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) != n {
+			if n == 1 {
+				return fmt.Errorf("missing required argument: %s\n\nUsage: %s", usage, cmd.UseLine())
+			}
+			return fmt.Errorf("expected %d argument(s), got %d\n\nUsage: %s", n, len(args), cmd.UseLine())
+		}
+		return nil
+	}
+}
+
+// minArgs returns a validator that ensures at least n arguments are provided with a helpful error message
+func minArgs(n int, usage string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) < n {
+			return fmt.Errorf("missing required arguments: %s\n\nUsage: %s", usage, cmd.UseLine())
+		}
+		return nil
+	}
+}
+
+// parseInt parses a string to int with better error message
+func parseInt(s string) (int, error) {
+	var result int
+	_, err := fmt.Sscanf(s, "%d", &result)
+	if err != nil {
+		return 0, fmt.Errorf("'%s' is not a valid integer", s)
+	}
+	return result, nil
+}
+
+// splitOwnerRepo splits owner/repo string into parts
+func splitOwnerRepo(s string) []string {
+	parts := make([]string, 0, 2)
+	var current string
+	for _, char := range s {
+		if char == '/' {
+			if current != "" {
+				parts = append(parts, current)
+				current = ""
+			}
+		} else {
+			current += string(char)
+		}
+	}
+	if current != "" {
+		parts = append(parts, current)
+	}
+	return parts
 }
 
 // CheckLatestVersionOfCli checks for CLI updates
@@ -170,11 +220,18 @@ func CheckLatestVersionOfCli() (string, error) {
 	}
 
 	sort.Sort(compareVersion.Collection(versions))
-	latestVersion := versions[len(versions)-1].String()
-	if latestVersion != CliVersion {
+	latestVersion := versions[len(versions)-1]
+
+	// Compare versions properly using semantic versioning
+	currentVersion, err := compareVersion.NewVersion(CliVersion)
+	if err != nil {
+		return latestVersion.String(), err
+	}
+
+	if latestVersion.GreaterThan(currentVersion) {
 		fmt.Printf("There is a new version of Coolify CLI available.\nPlease update with 'coolify update'.\n\n")
 	}
-	return latestVersion, nil
+	return latestVersion.String(), nil
 }
 
 // Execute runs the root command
@@ -188,13 +245,11 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (https://app.coolify.io/security/api-tokens)")
-	rootCmd.PersistentFlags().StringVarP(&Fqdn, "host", "", "", "Coolify instance hostname")
-	rootCmd.PersistentFlags().StringVarP(&InstanceName, "instance", "", "", "Use specific instance by name")
+	rootCmd.PersistentFlags().StringVarP(&Token, "token", "", "", "Token for authentication (override context token)")
+	rootCmd.PersistentFlags().StringVarP(&ContextName, "context", "", "", "Use specific context by name")
 
 	rootCmd.PersistentFlags().StringVarP(&Format, "format", "", "table", "Format output (table|json|pretty)")
 	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
-	rootCmd.PersistentFlags().BoolVarP(&Force, "force", "f", false, "Force")
 	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "", false, "Debug mode")
 }
 
@@ -236,15 +291,23 @@ func initConfig() {
 	// This allows --instance flag to work correctly
 
 	// Check for updates
-	latestVersion, err := CheckLatestVersionOfCli()
+	latestVersionStr, err := CheckLatestVersionOfCli()
 	if err != nil {
 		if Debug {
 			log.Println("Failed to check for updates:", err)
 		}
 	}
-	if latestVersion != CliVersion {
-		if Debug {
-			log.Printf("New version of Coolify CLI is available: %s\n", latestVersion)
+
+	// Compare versions properly using semantic versioning
+	if latestVersionStr != "" {
+		latestVersion, err := compareVersion.NewVersion(latestVersionStr)
+		if err == nil {
+			currentVersion, err := compareVersion.NewVersion(CliVersion)
+			if err == nil && latestVersion.GreaterThan(currentVersion) {
+				if Debug {
+					log.Printf("New version of Coolify CLI is available: %s\n", latestVersionStr)
+				}
+			}
 		}
 	}
 }

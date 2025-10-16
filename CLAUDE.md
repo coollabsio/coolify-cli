@@ -145,6 +145,34 @@ CheckDefaultThings(&minimumVersion)
 - Use `ShowSensitive` flag to control display of tokens/secrets
 - Default overlay: `SensitiveInformationOverlay = "********"`
 
+### UUID vs ID Pattern
+**CRITICAL: Always use UUIDs for user-facing interactions, never internal database IDs.**
+
+When adding new commands or models:
+1. **Command Arguments**: Always accept UUIDs as string arguments (e.g., `<resource_uuid>`), never integer IDs
+2. **API Endpoints**: Construct API paths using UUIDs (e.g., `resources/{uuid}`), not IDs
+3. **Service Layer**: Methods should accept `uuid string` parameters, not `id int`
+4. **Table Output**: Hide internal IDs from table output using `table:"-"` struct tags
+5. **Model Fields**:
+   - Keep `ID int` field with `json:"id" table:"-"` (for API responses, hidden from users)
+   - Always include `UUID string` field with `json:"uuid"` (visible to users)
+
+**Example model:**
+```go
+type Resource struct {
+    ID   int    `json:"id" table:"-"`     // Hidden from table output
+    UUID string `json:"uuid"`              // Shown in table output
+    Name string `json:"name"`
+    // ... other fields
+}
+```
+
+**Why UUIDs?**
+- UUIDs are stable across environments (dev, staging, prod)
+- IDs are internal implementation details that can change
+- UUIDs are more secure (don't expose database sequencing)
+- Coolify API uses UUIDs as the primary resource identifier
+
 ## Testing Requirements
 
 **CRITICAL: All code changes MUST include tests. This is non-negotiable.**

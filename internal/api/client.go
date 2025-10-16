@@ -65,6 +65,11 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	return c.doRequest(ctx, "DELETE", path, nil, nil)
 }
 
+// Patch makes a PATCH request to the API
+func (c *Client) Patch(ctx context.Context, path string, body, result interface{}) error {
+	return c.doRequest(ctx, "PATCH", path, body, result)
+}
+
 // GetVersion fetches the API version
 func (c *Client) GetVersion(ctx context.Context) (string, error) {
 	var version string

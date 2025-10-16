@@ -10,8 +10,10 @@ import (
 )
 
 var domainsCmd = &cobra.Command{
-	Use:   "domains",
-	Short: "Domain related commands",
+	Use:     "domain",
+	Aliases: []string{"domains"},
+	Short:   "Domain related commands",
+	Long:    `List all domains configured across your Coolify resources.`,
 }
 
 var listDomainsCmd = &cobra.Command{

@@ -10,18 +10,18 @@ type Project struct {
 
 // Environment within a project
 type Environment struct {
-	ID           int           `json:"id"`
-	UUID         string        `json:"uuid"`
-	Name         string        `json:"name"`
-	Description  *string       `json:"description,omitempty"`
-	Applications []Application `json:"applications,omitempty"`
-	CreatedAt    string        `json:"created_at,omitempty"`
-	UpdatedAt    string        `json:"updated_at,omitempty"`
+	ID           int                    `json:"-" table:"-"`
+	UUID         string                 `json:"uuid"`
+	Name         string                 `json:"name"`
+	Description  *string                `json:"description,omitempty"`
+	Applications []ApplicationInProject `json:"applications,omitempty"`
+	CreatedAt    string                 `json:"-" table:"-"`
+	UpdatedAt    string                 `json:"-" table:"-"`
 }
 
-// Application within an environment
-type Application struct {
-	ID          int     `json:"id"`
+// ApplicationInProject represents a simplified application within an environment
+type ApplicationInProject struct {
+	ID          int     `json:"-" table:"-"`
 	UUID        string  `json:"uuid"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`

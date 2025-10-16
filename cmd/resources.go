@@ -10,8 +10,10 @@ import (
 )
 
 var resourcesCmd = &cobra.Command{
-	Use:   "resources",
-	Short: "Resource related commands",
+	Use:     "resource",
+	Aliases: []string{"resources"},
+	Short:   "Resource related commands",
+	Long:    `List all resources (applications, services, databases) across your Coolify instance.`,
 }
 
 var listResourcesCmd = &cobra.Command{

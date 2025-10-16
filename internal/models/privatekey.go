@@ -2,7 +2,7 @@ package models
 
 // PrivateKey represents an SSH private key
 type PrivateKey struct {
-	ID         int    `json:"id"`
+	ID         int    `json:"-" table:"-"`
 	UUID       string `json:"uuid"`
 	Name       string `json:"name"`
 	PublicKey  string `json:"public_key" sensitive:"true"`

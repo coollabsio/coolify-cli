@@ -24,8 +24,10 @@ type ProjectListRow struct {
 }
 
 var projectsCmd = &cobra.Command{
-	Use:   "projects",
-	Short: "Project related commands",
+	Use:     "project",
+	Aliases: []string{"projects"},
+	Short:   "Project related commands",
+	Long:    `Manage Coolify projects - list all projects or get details about a specific project.`,
 }
 
 var listProjectsCmd = &cobra.Command{
@@ -87,7 +89,7 @@ var listProjectsCmd = &cobra.Command{
 var oneProjectCmd = &cobra.Command{
 	Use:   "get [uuid]",
 	Short: "Get a project by uuid",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1, "<uuid>"),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		uuid := args[0]

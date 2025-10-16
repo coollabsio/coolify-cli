@@ -10,14 +10,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-var instancesCmd = &cobra.Command{
-	Use:   "instances",
-	Short: "Coolify instance related commands.",
+var contextCmd = &cobra.Command{
+	Use:   "context",
+	Short: "Manage Coolify contexts (instance configurations)",
+	Long:  `Manage Coolify contexts. A context contains the configuration (URL and token) for a Coolify instance.`,
 }
 
-var instanceVersionCmd = &cobra.Command{
+var contextVersionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Get instance version.",
+	Short: "Get current context's Coolify version",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 
@@ -37,9 +38,9 @@ var instanceVersionCmd = &cobra.Command{
 		return nil
 	},
 }
-var listInstancesCmd = &cobra.Command{
+var listContextsCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all Coolify instances.",
+	Short: "List all configured contexts",
 	Run: func(cmd *cobra.Command, args []string) {
 		instances := viper.Get("instances").([]interface{})
 
@@ -85,20 +86,21 @@ var listInstancesCmd = &cobra.Command{
 		fmt.Println("\nNote: Use -s to show sensitive information.")
 	},
 }
-var addInstanceCmd = &cobra.Command{
-	Use:     "add",
-	Example: `add <instanceName> <fqdn> <token>`,
-	Args:    cobra.ExactArgs(3),
-	Short:   "Add a Coolify instance.",
+var addContextCmd = &cobra.Command{
+	Use:     "add <name> <url> <token>",
+	Example: `context add myserver https://coolify.example.com your-api-token`,
+	Args:    exactArgs(3, "<name> <url> <token>"),
+	Short:   "Add a new context",
 	Run: func(cmd *cobra.Command, args []string) {
 		Name := args[0]
 		Host := args[1]
 		Token := args[2]
+		force, _ := cmd.Flags().GetBool("force")
 		instances := viper.Get("instances").([]interface{})
 		for _, instance := range instances {
 			instanceMap := instance.(map[string]interface{})
 			if instanceMap["name"] == Name {
-				if Force {
+				if force {
 					instanceMap["token"] = Token
 					if SetDefaultInstance {
 						for _, instance := range instances {
@@ -115,7 +117,7 @@ var addInstanceCmd = &cobra.Command{
 					return
 				}
 				fmt.Printf("%s already exists. \n", Name)
-				fmt.Println("\nNote: Use -f to force overwrite.")
+				fmt.Println("\nNote: Use --force to force overwrite.")
 				return
 			}
 		}
@@ -135,14 +137,14 @@ var addInstanceCmd = &cobra.Command{
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listInstancesCmd.Run(cmd, args)
+		listContextsCmd.Run(cmd, args)
 	},
 }
-var removeInstanceCmd = &cobra.Command{
-	Use:     "remove",
-	Example: `remove <instanceName>`,
-	Args:    cobra.ExactArgs(1),
-	Short:   "Remove a Coolify instance.",
+var deleteContextCmd = &cobra.Command{
+	Use:     "delete <name>",
+	Example: `context delete myserver`,
+	Args:    exactArgs(1, "<name>"),
+	Short:   "Delete a context",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Name := args[0]
@@ -169,18 +171,11 @@ var removeInstanceCmd = &cobra.Command{
 		fmt.Printf("%s not found. \n", Name)
 	},
 }
-var setCmd = &cobra.Command{
-	Use:   "set",
-	Args:  cobra.ExactArgs(2),
-	Short: "Set default instance or token.",
-	Run: func(cmd *cobra.Command, args []string) {
-	},
-}
 var setTokenCmd = &cobra.Command{
-	Use:     "token",
-	Example: `set token <instanceName> "<token>"`,
-	Args:    cobra.ExactArgs(2),
-	Short:   "Set token for the given Coolify instance.",
+	Use:     "set-token <name> <token>",
+	Example: `context set-token myserver your-new-api-token`,
+	Args:    exactArgs(2, "<name> <token>"),
+	Short:   "Update the API token for a context",
 	Run: func(cmd *cobra.Command, args []string) {
 		Name = args[0]
 		Token = args[1]
@@ -205,14 +200,14 @@ var setTokenCmd = &cobra.Command{
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listInstancesCmd.Run(cmd, args)
+		listContextsCmd.Run(cmd, args)
 	},
 }
-var setDefaultCmd = &cobra.Command{
-	Use:     "default",
-	Example: `set default <instanceName>`,
-	Args:    cobra.ExactArgs(1),
-	Short:   "Set the default Coolify instance.",
+var useContextCmd = &cobra.Command{
+	Use:     "use <name>",
+	Example: `context use myserver`,
+	Args:    exactArgs(1, "<name>"),
+	Short:   "Switch to a different context (set as default)",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Name := args[0]
@@ -239,14 +234,14 @@ var setDefaultCmd = &cobra.Command{
 		}
 		viper.Set("instances", instances)
 		viper.WriteConfig()
-		listInstancesCmd.Run(cmd, args)
+		listContextsCmd.Run(cmd, args)
 	},
 }
-var getInstanceCmd = &cobra.Command{
-	Use:     "get",
-	Example: `config get <instanceName>`,
-	Args:    cobra.ExactArgs(1),
-	Short:   "Get a Coolify instance.",
+var getContextCmd = &cobra.Command{
+	Use:     "get <name>",
+	Example: `context get myserver`,
+	Args:    exactArgs(1, "<name>"),
+	Short:   "Get details of a specific context",
 
 	Run: func(cmd *cobra.Command, args []string) {
 		Name := args[0]
@@ -302,16 +297,15 @@ var getInstanceCmd = &cobra.Command{
 }
 
 func init() {
-	addInstanceCmd.Flags().BoolVarP(&SetDefaultInstance, "default", "d", false, "Set default instance")
+	addContextCmd.Flags().BoolVarP(&SetDefaultInstance, "default", "d", false, "Set as default context")
+	addContextCmd.Flags().BoolP("force", "f", false, "Force overwrite if context already exists")
 
-	rootCmd.AddCommand(instancesCmd)
-	instancesCmd.AddCommand(instanceVersionCmd)
-	instancesCmd.AddCommand(listInstancesCmd)
-	instancesCmd.AddCommand(addInstanceCmd)
-	instancesCmd.AddCommand(removeInstanceCmd)
-	instancesCmd.AddCommand(setCmd)
-	instancesCmd.AddCommand(getInstanceCmd)
-	setCmd.AddCommand(setTokenCmd)
-	setCmd.AddCommand(setDefaultCmd)
-
+	rootCmd.AddCommand(contextCmd)
+	contextCmd.AddCommand(contextVersionCmd)
+	contextCmd.AddCommand(listContextsCmd)
+	contextCmd.AddCommand(addContextCmd)
+	contextCmd.AddCommand(deleteContextCmd)
+	contextCmd.AddCommand(setTokenCmd)
+	contextCmd.AddCommand(useContextCmd)
+	contextCmd.AddCommand(getContextCmd)
 }

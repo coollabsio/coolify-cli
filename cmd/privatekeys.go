@@ -12,8 +12,10 @@ import (
 )
 
 var privateKeysCmd = &cobra.Command{
-	Use:   "private-keys",
-	Short: "Private key related commands",
+	Use:     "private-key",
+	Aliases: []string{"private-keys", "key", "keys"},
+	Short:   "Private key related commands",
+	Long:    `Manage SSH private keys for server authentication - list, add, and remove keys.`,
 }
 
 var listPrivateKeysCmd = &cobra.Command{
@@ -58,7 +60,7 @@ var listPrivateKeysCmd = &cobra.Command{
 var addPrivateKeyCmd = &cobra.Command{
 	Use:     "add <name> <private_key_or_file>",
 	Example: `add mykey ~/.ssh/id_rsa`,
-	Args:    cobra.ExactArgs(2),
+	Args:    exactArgs(2, "<uuid1> <uuid2>"),
 	Short:   "Add a private key",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -100,7 +102,7 @@ var addPrivateKeyCmd = &cobra.Command{
 
 var removePrivateKeyCmd = &cobra.Command{
 	Use:   "remove <uuid>",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1, "<uuid>"),
 	Short: "Remove a private key",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()

@@ -1,0 +1,858 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestDatabaseService_List(t *testing.T) {
+	tests := []struct {
+		name           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantCount      int
+	}{
+		{
+			name: "successful list",
+			serverResponse: `[
+				{
+					"id": 1,
+					"uuid": "db-uuid-1",
+					"name": "Production PostgreSQL",
+					"description": "Main database",
+					"status": "running",
+					"type": "postgresql",
+					"created_at": "2024-01-01T00:00:00Z",
+					"updated_at": "2024-01-01T00:00:00Z"
+				}
+			]`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantCount:  1,
+		},
+		{
+			name:           "empty list",
+			serverResponse: `[]`,
+			statusCode:     http.StatusOK,
+			wantErr:        false,
+			wantCount:      0,
+		},
+		{
+			name:           "server error",
+			serverResponse: `{"error":"internal server error"}`,
+			statusCode:     http.StatusInternalServerError,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			databases, err := dbService.List(context.Background())
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, databases, tt.wantCount)
+		})
+	}
+}
+
+func TestDatabaseService_Get(t *testing.T) {
+	tests := []struct {
+		name           string
+		uuid           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantName       string
+	}{
+		{
+			name: "successful get",
+			uuid: "db-uuid-1",
+			serverResponse: `{
+				"id": 1,
+				"uuid": "db-uuid-1",
+				"name": "Production PostgreSQL",
+				"description": "Main database",
+				"status": "running",
+				"type": "postgresql",
+				"postgres_db": "myapp",
+				"created_at": "2024-01-01T00:00:00Z",
+				"updated_at": "2024-01-01T00:00:00Z"
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantName:   "Production PostgreSQL",
+		},
+		{
+			name:           "not found",
+			uuid:           "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid, r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			database, err := dbService.Get(context.Background(), tt.uuid)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, database.Name)
+			assert.Equal(t, tt.uuid, database.UUID)
+		})
+	}
+}
+
+func TestDatabaseService_Create(t *testing.T) {
+	tests := []struct {
+		name           string
+		dbType         string
+		request        *models.DatabaseCreateRequest
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantUUID       string
+	}{
+		{
+			name:   "create postgresql",
+			dbType: "postgresql",
+			request: &models.DatabaseCreateRequest{
+				ServerUUID:  "server-uuid-1",
+				ProjectUUID: "project-uuid-1",
+			},
+			serverResponse: `{
+				"id": 1,
+				"uuid": "db-uuid-new",
+				"name": "New Database",
+				"status": "starting",
+				"type": "postgresql",
+				"created_at": "2024-01-01T00:00:00Z",
+				"updated_at": "2024-01-01T00:00:00Z"
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantUUID:   "db-uuid-new",
+		},
+		{
+			name:   "validation error",
+			dbType: "mysql",
+			request: &models.DatabaseCreateRequest{
+				ServerUUID: "server-uuid-1",
+			},
+			serverResponse: `{"error":"project_uuid is required"}`,
+			statusCode:     http.StatusUnprocessableEntity,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbType, r.URL.Path)
+				assert.Equal(t, http.MethodPost, r.Method)
+
+				var req models.DatabaseCreateRequest
+				err := json.NewDecoder(r.Body).Decode(&req)
+				require.NoError(t, err)
+				assert.Equal(t, tt.request.ServerUUID, req.ServerUUID)
+
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			database, err := dbService.Create(context.Background(), tt.dbType, tt.request)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantUUID, database.UUID)
+		})
+	}
+}
+
+func TestDatabaseService_Update(t *testing.T) {
+	tests := []struct {
+		name       string
+		uuid       string
+		request    *models.DatabaseUpdateRequest
+		statusCode int
+		wantErr    bool
+	}{
+		{
+			name: "successful update",
+			uuid: "db-uuid-1",
+			request: &models.DatabaseUpdateRequest{
+				Name: stringPtr("Updated Name"),
+			},
+			statusCode: http.StatusOK,
+			wantErr:    false,
+		},
+		{
+			name: "not found",
+			uuid: "nonexistent",
+			request: &models.DatabaseUpdateRequest{
+				Name: stringPtr("Updated Name"),
+			},
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid, r.URL.Path)
+				assert.Equal(t, http.MethodPatch, r.Method)
+
+				var req models.DatabaseUpdateRequest
+				err := json.NewDecoder(r.Body).Decode(&req)
+				require.NoError(t, err)
+
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode == http.StatusNotFound {
+					w.Write([]byte(`{"error":"not found"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			err := dbService.Update(context.Background(), tt.uuid, tt.request)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDatabaseService_Delete(t *testing.T) {
+	tests := []struct {
+		name                       string
+		uuid                       string
+		deleteConfigurations       bool
+		deleteVolumes              bool
+		dockerCleanup              bool
+		deleteConnectedNetworks    bool
+		statusCode                 int
+		wantErr                    bool
+		expectedQueryString        string
+	}{
+		{
+			name:                    "successful delete with all cleanup",
+			uuid:                    "db-uuid-1",
+			deleteConfigurations:    true,
+			deleteVolumes:           true,
+			dockerCleanup:           true,
+			deleteConnectedNetworks: true,
+			statusCode:              http.StatusOK,
+			wantErr:                 false,
+			expectedQueryString:     "delete_configurations=true&delete_volumes=true&docker_cleanup=true&delete_connected_networks=true",
+		},
+		{
+			name:                    "successful delete without cleanup",
+			uuid:                    "db-uuid-2",
+			deleteConfigurations:    false,
+			deleteVolumes:           false,
+			dockerCleanup:           false,
+			deleteConnectedNetworks: false,
+			statusCode:              http.StatusOK,
+			wantErr:                 false,
+			expectedQueryString:     "delete_configurations=false&delete_volumes=false&docker_cleanup=false&delete_connected_networks=false",
+		},
+		{
+			name:                    "not found",
+			uuid:                    "nonexistent",
+			deleteConfigurations:    true,
+			deleteVolumes:           true,
+			dockerCleanup:           true,
+			deleteConnectedNetworks: true,
+			statusCode:              http.StatusNotFound,
+			wantErr:                 true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid, r.URL.Path)
+				assert.Equal(t, http.MethodDelete, r.Method)
+				if tt.expectedQueryString != "" {
+					assert.Equal(t, tt.expectedQueryString, r.URL.RawQuery)
+				}
+
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode == http.StatusOK {
+					w.Write([]byte(`{"message":"Database deleted"}`))
+				} else {
+					w.Write([]byte(`{"error":"not found"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			err := dbService.Delete(context.Background(), tt.uuid, tt.deleteConfigurations, tt.deleteVolumes, tt.dockerCleanup, tt.deleteConnectedNetworks)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDatabaseService_Start(t *testing.T) {
+	tests := []struct {
+		name           string
+		uuid           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantMessage    string
+	}{
+		{
+			name:           "successful start",
+			uuid:           "db-uuid-1",
+			serverResponse: `{"message":"Database started successfully"}`,
+			statusCode:     http.StatusOK,
+			wantErr:        false,
+			wantMessage:    "Database started successfully",
+		},
+		{
+			name:           "not found",
+			uuid:           "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/start", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			response, err := dbService.Start(context.Background(), tt.uuid)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMessage, response.Message)
+		})
+	}
+}
+
+func TestDatabaseService_Stop(t *testing.T) {
+	tests := []struct {
+		name           string
+		uuid           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantMessage    string
+	}{
+		{
+			name:           "successful stop",
+			uuid:           "db-uuid-1",
+			serverResponse: `{"message":"Database stopped successfully"}`,
+			statusCode:     http.StatusOK,
+			wantErr:        false,
+			wantMessage:    "Database stopped successfully",
+		},
+		{
+			name:           "not found",
+			uuid:           "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/stop", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			response, err := dbService.Stop(context.Background(), tt.uuid)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMessage, response.Message)
+		})
+	}
+}
+
+func TestDatabaseService_Restart(t *testing.T) {
+	tests := []struct {
+		name           string
+		uuid           string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantMessage    string
+	}{
+		{
+			name:           "successful restart",
+			uuid:           "db-uuid-1",
+			serverResponse: `{"message":"Database restarted successfully"}`,
+			statusCode:     http.StatusOK,
+			wantErr:        false,
+			wantMessage:    "Database restarted successfully",
+		},
+		{
+			name:           "not found",
+			uuid:           "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/restart", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			response, err := dbService.Restart(context.Background(), tt.uuid)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMessage, response.Message)
+		})
+	}
+}
+
+func TestDatabaseService_ListBackups(t *testing.T) {
+	tests := []struct {
+		name           string
+		dbUUID         string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantCount      int
+	}{
+		{
+			name:   "successful list",
+			dbUUID: "db-uuid-1",
+			serverResponse: `[
+				{
+					"uuid": "backup-uuid-1",
+					"enabled": true,
+					"frequency": "0 2 * * *",
+					"created_at": "2024-01-01T00:00:00Z",
+					"updated_at": "2024-01-01T00:00:00Z"
+				}
+			]`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantCount:  1,
+		},
+		{
+			name:           "empty list",
+			dbUUID:         "db-uuid-2",
+			serverResponse: `[]`,
+			statusCode:     http.StatusOK,
+			wantErr:        false,
+			wantCount:      0,
+		},
+		{
+			name:           "not found",
+			dbUUID:         "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			backups, err := dbService.ListBackups(context.Background(), tt.dbUUID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, backups, tt.wantCount)
+		})
+	}
+}
+
+func TestDatabaseService_UpdateBackup(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbUUID     string
+		backupUUID string
+		request    *models.DatabaseBackupUpdateRequest
+		statusCode int
+		wantErr    bool
+	}{
+		{
+			name:       "successful update",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "backup-uuid-1",
+			request: &models.DatabaseBackupUpdateRequest{
+				Enabled: boolPtr(true),
+			},
+			statusCode: http.StatusOK,
+			wantErr:    false,
+		},
+		{
+			name:       "not found",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "nonexistent",
+			request: &models.DatabaseBackupUpdateRequest{
+				Enabled: boolPtr(false),
+			},
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups/"+tt.backupUUID, r.URL.Path)
+				assert.Equal(t, http.MethodPatch, r.Method)
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode == http.StatusNotFound {
+					w.Write([]byte(`{"error":"not found"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			err := dbService.UpdateBackup(context.Background(), tt.dbUUID, tt.backupUUID, tt.request)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDatabaseService_DeleteBackup(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbUUID     string
+		backupUUID string
+		deleteS3   bool
+		statusCode int
+		wantErr    bool
+	}{
+		{
+			name:       "successful delete with S3",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "backup-uuid-1",
+			deleteS3:   true,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+		},
+		{
+			name:       "successful delete without S3",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "backup-uuid-2",
+			deleteS3:   false,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+		},
+		{
+			name:       "not found",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "nonexistent",
+			deleteS3:   false,
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups/"+tt.backupUUID, r.URL.Path)
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Contains(t, r.URL.RawQuery, fmt.Sprintf("delete_s3=%t", tt.deleteS3))
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode == http.StatusOK {
+					w.Write([]byte(`{"message":"Backup deleted"}`))
+				} else {
+					w.Write([]byte(`{"error":"not found"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			err := dbService.DeleteBackup(context.Background(), tt.dbUUID, tt.backupUUID, tt.deleteS3)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestDatabaseService_ListBackupExecutions(t *testing.T) {
+	tests := []struct {
+		name           string
+		dbUUID         string
+		backupUUID     string
+		serverResponse string
+		statusCode     int
+		wantErr        bool
+		wantCount      int
+	}{
+		{
+			name:       "successful list",
+			dbUUID:     "db-uuid-1",
+			backupUUID: "backup-uuid-1",
+			serverResponse: `{
+				"executions": [
+					{
+						"uuid": "exec-uuid-1",
+						"filename": "backup.sql",
+						"size": 1024,
+						"status": "success",
+						"created_at": "2024-01-01T00:00:00Z"
+					}
+				]
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantCount:  1,
+		},
+		{
+			name:       "empty list",
+			dbUUID:     "db-uuid-2",
+			backupUUID: "backup-uuid-2",
+			serverResponse: `{
+				"executions": []
+			}`,
+			statusCode: http.StatusOK,
+			wantErr:    false,
+			wantCount:  0,
+		},
+		{
+			name:           "not found",
+			dbUUID:         "db-uuid-1",
+			backupUUID:     "nonexistent",
+			serverResponse: `{"error":"not found"}`,
+			statusCode:     http.StatusNotFound,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups/"+tt.backupUUID+"/executions", r.URL.Path)
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			executions, err := dbService.ListBackupExecutions(context.Background(), tt.dbUUID, tt.backupUUID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, executions, tt.wantCount)
+		})
+	}
+}
+
+func TestDatabaseService_DeleteBackupExecution(t *testing.T) {
+	tests := []struct {
+		name          string
+		dbUUID        string
+		backupUUID    string
+		executionUUID string
+		deleteS3      bool
+		statusCode    int
+		wantErr       bool
+	}{
+		{
+			name:          "successful delete with S3",
+			dbUUID:        "db-uuid-1",
+			backupUUID:    "backup-uuid-1",
+			executionUUID: "exec-uuid-1",
+			deleteS3:      true,
+			statusCode:    http.StatusOK,
+			wantErr:       false,
+		},
+		{
+			name:          "successful delete without S3",
+			dbUUID:        "db-uuid-1",
+			backupUUID:    "backup-uuid-1",
+			executionUUID: "exec-uuid-2",
+			deleteS3:      false,
+			statusCode:    http.StatusOK,
+			wantErr:       false,
+		},
+		{
+			name:          "not found",
+			dbUUID:        "db-uuid-1",
+			backupUUID:    "backup-uuid-1",
+			executionUUID: "nonexistent",
+			deleteS3:      false,
+			statusCode:    http.StatusNotFound,
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups/"+tt.backupUUID+"/executions/"+tt.executionUUID, r.URL.Path)
+				assert.Equal(t, http.MethodDelete, r.Method)
+				assert.Contains(t, r.URL.RawQuery, fmt.Sprintf("delete_s3=%t", tt.deleteS3))
+				w.WriteHeader(tt.statusCode)
+				if tt.statusCode == http.StatusOK {
+					w.Write([]byte(`{"message":"Backup execution deleted"}`))
+				} else {
+					w.Write([]byte(`{"error":"not found"}`))
+				}
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			dbService := NewDatabaseService(client)
+
+			err := dbService.DeleteBackupExecution(context.Background(), tt.dbUUID, tt.backupUUID, tt.executionUUID, tt.deleteS3)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}

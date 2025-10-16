@@ -2,7 +2,7 @@ package models
 
 // Server represents a Coolify server
 type Server struct {
-	ID       int      `json:"id"`
+	ID       int      `json:"-" table:"-"`
 	UUID     string   `json:"uuid"`
 	Name     string   `json:"name"`
 	IP       string   `json:"ip" sensitive:"true"`
