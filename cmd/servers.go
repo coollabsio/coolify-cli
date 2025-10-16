@@ -13,8 +13,10 @@ import (
 var WithResources bool
 
 var serversCmd = &cobra.Command{
-	Use:   "servers",
-	Short: "Server related commands",
+	Use:     "server",
+	Aliases: []string{"servers"},
+	Short:   "Server related commands",
+	Long:    `Manage Coolify servers - list, get details, add new servers, validate connections, and remove servers.`,
 }
 
 var listServersCmd = &cobra.Command{
@@ -68,7 +70,7 @@ var listServersCmd = &cobra.Command{
 
 var oneServerCmd = &cobra.Command{
 	Use:   "get [uuid]",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1, "<uuid>"),
 	Short: "Get server details by uuid",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -124,7 +126,7 @@ var oneServerCmd = &cobra.Command{
 
 var removeServerCmd = &cobra.Command{
 	Use:   "remove [uuid]",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1, "<uuid>"),
 	Short: "Remove a server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -150,7 +152,7 @@ var removeServerCmd = &cobra.Command{
 
 var addServerCmd = &cobra.Command{
 	Use:   "add [name] [ip] [private_key_uuid]",
-	Args:  cobra.ExactArgs(3),
+	Args:  exactArgs(3, "<uuid1> <uuid2> <uuid3>"),
 	Short: "Add a server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
@@ -198,7 +200,7 @@ var addServerCmd = &cobra.Command{
 
 var validateServerCmd = &cobra.Command{
 	Use:   "validate [uuid]",
-	Args:  cobra.ExactArgs(1),
+	Args:  exactArgs(1, "<uuid>"),
 	Short: "Validate a server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()

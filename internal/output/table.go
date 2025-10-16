@@ -19,7 +19,7 @@ func NewTableFormatter(opts Options) *TableFormatter {
 
 // Format formats the data as a table
 func (f *TableFormatter) Format(data interface{}) error {
-	w := tabwriter.NewWriter(f.opts.Writer, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(f.opts.Writer, 0, 0, 2, ' ', tabwriter.Debug)
 	defer w.Flush()
 
 	// Handle different data types
@@ -65,7 +65,9 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 
 	// Get column headers from struct tags or field names
 	headers := f.getHeaders(firstElem.Type())
-	fmt.Fprintln(w, strings.Join(headers, "\t"))
+	// Add # as first column header
+	headersWithNum := append([]string{"#"}, headers...)
+	fmt.Fprintln(w, strings.Join(headersWithNum, "\t"))
 
 	// Print rows
 	for i := 0; i < val.Len(); i++ {
@@ -74,7 +76,9 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 			elem = elem.Elem()
 		}
 		row := f.formatStructRow(elem)
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+		// Add row number (1-indexed) as first column
+		rowWithNum := append([]string{fmt.Sprintf("%d", i+1)}, row...)
+		fmt.Fprintln(w, strings.Join(rowWithNum, "\t"))
 	}
 
 	return nil

@@ -14,6 +14,6 @@ type UUID struct {
 
 // Timestamps for created/updated times
 type Timestamps struct{
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	CreatedAt string `json:"-" table:"-"`
+	UpdatedAt string `json:"-" table:"-"`
 }

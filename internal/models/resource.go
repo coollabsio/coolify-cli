@@ -2,7 +2,7 @@ package models
 
 // Resource represents any deployable resource
 type Resource struct {
-	ID     int    `json:"id"`
+	ID     int    `json:"-" table:"-"`
 	UUID   string `json:"uuid"`
 	Name   string `json:"name"`
 	Type   string `json:"type"`
