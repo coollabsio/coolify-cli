@@ -26,3 +26,9 @@ type ServerCreateRequest struct {
 	PrivateKeyUUID  string `json:"private_key_uuid"`
 	InstantValidate bool   `json:"instant_validate"`
 }
+
+// Domain represents a domain configuration
+type Domain struct {
+	IP      string   `json:"ip"`
+	Domains []string `json:"domains"`
+}

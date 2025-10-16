@@ -1,0 +1,41 @@
+package github
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
+	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/service"
+	"github.com/spf13/cobra"
+)
+
+func NewListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all GitHub App integrations",
+		Long:  `List all GitHub App integrations configured in your Coolify instance.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := context.Background()
+
+			client, err := cli.GetAPIClient(cmd)
+			if err != nil {
+				return fmt.Errorf("failed to get API client: %w", err)
+			}
+
+			svc := service.NewGitHubAppService(client)
+			apps, err := svc.List(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list GitHub Apps: %w", err)
+			}
+
+			format, _ := cmd.Flags().GetString("format")
+			formatter, err := output.NewFormatter(format, output.Options{})
+			if err != nil {
+				return err
+			}
+
+			return formatter.Format(apps)
+		},
+	}
+}
