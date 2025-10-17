@@ -29,6 +29,11 @@ Example: coolify database backup create abc123 --frequency "0 0 * * *" --enabled
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			// Check minimum version requirement
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.436"); err != nil {
+				return err
+			}
+
 			req := &models.DatabaseBackupCreateRequest{}
 
 			// Apply flags if provided
