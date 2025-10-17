@@ -22,6 +22,7 @@ func NewContextCommand() *cobra.Command {
 	cmd.AddCommand(NewSetTokenCommand())
 	cmd.AddCommand(NewSetDefaultCommand())
 	cmd.AddCommand(NewVersionCommand())
+	cmd.AddCommand(NewVerifyCommand())
 
 	return cmd
 }
