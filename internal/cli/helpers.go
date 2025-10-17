@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/coollabsio/coolify-cli/internal/api"
+	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 )
 
@@ -68,4 +71,28 @@ func StringPtr(s string) *string {
 
 func BoolPtr(b bool) *bool {
 	return &b
+}
+
+// CheckMinimumVersion checks if the Coolify API version meets the minimum requirement
+func CheckMinimumVersion(ctx context.Context, client *api.Client, minimumVersion string) error {
+	currentVersionStr, err := client.GetVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get Coolify version: %w", err)
+	}
+
+	currentVersion, err := compareVersion.NewVersion(currentVersionStr)
+	if err != nil {
+		return fmt.Errorf("invalid current version '%s': %w", currentVersionStr, err)
+	}
+
+	minVersion, err := compareVersion.NewVersion(minimumVersion)
+	if err != nil {
+		return fmt.Errorf("invalid minimum version '%s': %w", minimumVersion, err)
+	}
+
+	if currentVersion.LessThan(minVersion) {
+		return fmt.Errorf("this command requires Coolify version %s or higher, but the current version is %s", minimumVersion, currentVersionStr)
+	}
+
+	return nil
 }

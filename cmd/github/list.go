@@ -23,6 +23,11 @@ func NewListCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			// Check minimum version requirement
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.436"); err != nil {
+				return err
+			}
+
 			svc := service.NewGitHubAppService(client)
 			apps, err := svc.List(ctx)
 			if err != nil {
