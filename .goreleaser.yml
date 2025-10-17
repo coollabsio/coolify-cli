@@ -12,3 +12,5 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=0
+    # Build all platforms in parallel using all available CPU cores
+    parallelism: -1
