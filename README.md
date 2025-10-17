@@ -55,15 +55,9 @@ You can change the default context with `coolify context use <context_name>` or 
 - `coolify servers list` - List all servers
 - `coolify servers get <uuid>` - Get a server by UUID
   - `--resources` - Get the resources and their status of a server
-<<<<<<< HEAD
-- `coolify servers add <server_name> <ip_address> <private_key_uuid>` - Add a new server
-  - `--port <port>` - SSH port (default: 22)
-  - `--user <user>` - SSH user (default: root)
-=======
 - `coolify servers add <name> <ip> <private_key_uuid>` - Add a new server
   - `-p, --port <port>` - SSH port (default: 22)
   - `-u, --user <user>` - SSH user (default: root)
->>>>>>> origin/v4.x
   - `--validate` - Validate server immediately after adding
 - `coolify servers remove <uuid>` - Remove a server
 - `coolify servers validate <uuid>` - Validate a server connection
@@ -191,15 +185,9 @@ You can change the default context with `coolify context use <context_name>` or 
 
 ### Deployments
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
-<<<<<<< HEAD
-  - `--force` - Force deployment
-- `coolify deploy name <resource_name>` - Deploy a resource by name
-  - `--force` - Force deployment
-=======
   - `-f, --force` - Force deployment
 - `coolify deploy name <name>` - Deploy a resource by name
   - `-f, --force` - Force deployment
->>>>>>> origin/v4.x
 - `coolify deploy batch <name1,name2,...>` - Deploy multiple resources at once
   - `-f, --force` - Force all deployments
 - `coolify deploy list` - List all deployments
@@ -246,11 +234,7 @@ You can change the default context with `coolify context use <context_name>` or 
 
 All commands support these global flags:
 
-<<<<<<< HEAD
 - `--context <name>` - Use a specific context instead of default
-=======
-- `--instance <name>` - Use a specific instance profile instead of default
->>>>>>> origin/v4.x
 - `--host <fqdn>` - Override the Coolify instance hostname
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
@@ -465,7 +449,7 @@ go install
 
 ## Contributing
 
-Contributions are welcome! Please check the [restructure documentation](RESTRUCTURE_PLAN.md) for architecture guidelines.
+Contributions are welcome!
 
 ## License
 
