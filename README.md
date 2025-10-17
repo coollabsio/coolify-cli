@@ -2,6 +2,8 @@
 
 ## Installation
 
+### Install script (recommended)
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
 ```
