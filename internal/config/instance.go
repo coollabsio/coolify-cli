@@ -10,7 +10,7 @@ import (
 type Instance struct {
 	Name    string `json:"name"`
 	FQDN    string `json:"fqdn"`
-	Token   string `json:"token"`
+	Token   string `json:"token" sensitive:"true"`
 	Default bool   `json:"default,omitempty"`
 }
 
