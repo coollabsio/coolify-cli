@@ -8,8 +8,6 @@ curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts
 
 It will install the CLI in `/usr/local/bin/coolify` and the configuration file in `~/.config/coolify/config.json`
 
-> If you are a windows or mac user, please test the installation script and let us know if it works for you.
-
 ## Getting Started
 1. Get a `<token>` from your Coolify dashboard (Cloud or self-hosted) at `/security/api-tokens`
 
