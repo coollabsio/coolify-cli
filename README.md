@@ -8,6 +8,17 @@ curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts
 
 It will install the CLI in `/usr/local/bin/coolify` and the configuration file in `~/.config/coolify/config.json`
 
+### Using `go install`
+       
+```bash
+go install github.com/coollabsio/coolify-cli/coolify@latest
+```
+
+This will install the `coolify` binary in your `$GOPATH/bin` directory (usually `~/go/bin`). Make sure this directory is in your `$PATH`.
+
+### Using the install script
+
+
 ## Getting Started
 1. Get a `<token>` from your Coolify dashboard (Cloud or self-hosted) at `/security/api-tokens`
 
