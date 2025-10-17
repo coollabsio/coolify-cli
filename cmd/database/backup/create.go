@@ -13,7 +13,7 @@ import (
 
 // NewCreateCommand creates a new database
 func NewCreateCommand() *cobra.Command {
-	return &cobra.Command{
+	createBackupCmd := &cobra.Command{
 		Use:   "create <database_uuid>",
 		Short: "Create a new scheduled backup configuration",
 		Long: `Create a new scheduled backup configuration for a database. Configure frequency, retention, S3 storage, and other backup options.
@@ -56,16 +56,16 @@ Example: coolify database backup create abc123 --frequency "0 0 * * *" --enabled
 				dumpAll, _ := cmd.Flags().GetBool("dump-all")
 				req.DumpAll = &dumpAll
 			}
-			if cmd.Flags().Changed("retention-amount-local") {
-				amount, _ := cmd.Flags().GetInt("retention-amount-local")
+			if cmd.Flags().Changed("retention-amount-locally") {
+				amount, _ := cmd.Flags().GetInt("retention-amount-locally")
 				req.DatabaseBackupRetentionAmountLocally = &amount
 			}
-			if cmd.Flags().Changed("retention-days-local") {
-				days, _ := cmd.Flags().GetInt("retention-days-local")
+			if cmd.Flags().Changed("retention-days-locally") {
+				days, _ := cmd.Flags().GetInt("retention-days-locally")
 				req.DatabaseBackupRetentionDaysLocally = &days
 			}
-			if cmd.Flags().Changed("retention-storage-local") {
-				storage, _ := cmd.Flags().GetString("retention-storage-local")
+			if cmd.Flags().Changed("retention-storage-locally") {
+				storage, _ := cmd.Flags().GetString("retention-storage-locally")
 				req.DatabaseBackupRetentionMaxStorageLocally = &storage
 			}
 			if cmd.Flags().Changed("retention-amount-s3") {
@@ -104,4 +104,21 @@ Example: coolify database backup create abc123 --frequency "0 0 * * *" --enabled
 			return formatter.Format(backup)
 		},
 	}
+
+	createBackupCmd.Flags().String("frequency", "", "Backup frequency (cron expression, e.g., '0 0 * * *' for daily)")
+	createBackupCmd.Flags().Bool("enabled", false, "Enable backup schedule")
+	createBackupCmd.Flags().Bool("save-s3", false, "Save backups to S3")
+	createBackupCmd.Flags().String("s3-storage-uuid", "", "S3 storage UUID")
+	createBackupCmd.Flags().String("databases-to-backup", "", "Comma-separated list of databases to backup")
+	createBackupCmd.Flags().Bool("dump-all", false, "Dump all databases")
+	createBackupCmd.Flags().Int("retention-amount-locally", 0, "Number of backups to retain locally")
+	createBackupCmd.Flags().Int("retention-days-locally", 0, "Days to retain backups locally")
+	createBackupCmd.Flags().String("retention-max-storage-locally", "", "Max storage for local backups (e.g., '1GB', '500MB')")
+	createBackupCmd.Flags().Int("retention-amount-s3", 0, "Number of backups to retain in S3")
+	createBackupCmd.Flags().Int("retention-days-s3", 0, "Days to retain backups in S3")
+	createBackupCmd.Flags().String("retention-max-storage-s3", "", "Max storage for S3 backups (e.g., '1GB', '500MB')")
+	createBackupCmd.Flags().Int("timeout", 0, "Backup timeout in seconds")
+	createBackupCmd.Flags().Bool("disable-local-backup", false, "Disable local backup storage")
+
+	return createBackupCmd
 }

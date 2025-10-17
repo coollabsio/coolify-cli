@@ -13,7 +13,7 @@ import (
 )
 
 func NewSyncEnvCommand() *cobra.Command {
-	return &cobra.Command{
+	syncEnvCmd := &cobra.Command{
 		Use:   "sync <app_uuid>",
 		Short: "Sync environment variables from a .env file",
 		Long: `Sync environment variables from a .env file. This command intelligently:
@@ -145,4 +145,10 @@ Example: coolify app env sync abc123 --file .env.production`,
 			return nil
 		},
 	}
+
+	syncEnvCmd.Flags().StringP("file", "f", "", "Path to .env file (required)")
+	syncEnvCmd.Flags().Bool("build-time", false, "Make all variables available at build time")
+	syncEnvCmd.Flags().Bool("preview", false, "Make all variables available in preview deployments")
+	syncEnvCmd.Flags().Bool("is-literal", false, "Treat all values as literal (don't interpolate variables)")
+	return syncEnvCmd
 }

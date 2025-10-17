@@ -14,7 +14,7 @@ import (
 
 // NewDeleteCommand deletes a database
 func NewDeleteCommand() *cobra.Command {
-	return &cobra.Command{
+	deleteBackupCmd := &cobra.Command{
 		Use:   "delete <database_uuid> <backup_uuid>",
 		Short: "Delete backup configuration",
 		Long:  `Delete a backup configuration and optionally all its executions from S3. First UUID is the database, second is the specific backup configuration.`,
@@ -56,4 +56,7 @@ func NewDeleteCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	deleteBackupCmd.Flags().Bool("delete-s3", false, "Delete backup files from S3")
+	return deleteBackupCmd
 }

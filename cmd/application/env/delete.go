@@ -10,7 +10,7 @@ import (
 )
 
 func NewDeleteEnvCommand() *cobra.Command {
-	return &cobra.Command{
+	deleteEnvCmd := &cobra.Command{
 		Use:   "delete <app_uuid> <env_uuid>",
 		Short: "Delete an environment variable",
 		Long:  `Delete an environment variable from an application. First UUID is the application, second is the specific environment variable to delete.`,
@@ -49,4 +49,7 @@ func NewDeleteEnvCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	deleteEnvCmd.Flags().Bool("force", false, "Skip confirmation prompt")
+	return deleteEnvCmd
 }
