@@ -594,7 +594,7 @@ feat: add server domains list command
 - [ ] All global flags are supported (format, show-sensitive, debug)
 - [ ] Used UUIDs (not IDs) for resource identifiers
 
-## Release Process
+## Release Process (not for contributors :) ) 
 
 Releases are automated using GoReleaser:
 
@@ -605,6 +605,7 @@ Releases are automated using GoReleaser:
 
 ## Getting Help
 
+- **Discord**: https://coolify.io/discord
 - **Issues**: [Open an issue](https://github.com/coollabsio/coolify-cli/issues) for bugs or feature requests
 - **Architecture**: Read [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation
 - **API Reference**: See the [OpenAPI specification](https://github.com/coollabsio/coolify/blob/v4.x/openapi.json)
