@@ -457,7 +457,7 @@ This CLI follows a clean architecture with:
 
 ```bash
 # Build
-go build -o coolify .
+go build -o coolify ./coolify
 
 # Run tests
 go test ./...
@@ -466,7 +466,7 @@ go test ./...
 go test -cover ./...
 
 # Install locally
-go install
+go install ./coolify
 ```
 
 ## Contributing

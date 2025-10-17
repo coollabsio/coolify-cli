@@ -67,13 +67,13 @@ go build -o coolify ./coolify
 
 ### Run locally
 ```bash
-go run ./coolify [command]
+go run ./coolify/coolify [command]
 ```
 
 ### Test a command
 ```bash
-go run ./coolify context list
-go run ./coolify servers list --debug
+go run ./coolify/coolify context list
+go run ./coolify/coolify servers list --debug
 ```
 
 ### Install locally
