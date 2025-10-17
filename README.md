@@ -35,6 +35,10 @@ You can change the default context with `coolify context use <context_name>` or 
 ### Configuration
 - `coolify config` - Show configuration file location
 
+### Shell Completion
+- `coolify completion <shell>` - Generate shell completion script
+  - Supported shells: `bash`, `zsh`, `fish`, `powershell`
+
 ### Context Management
 - `coolify context list` - List all configured contexts
 - `coolify context add <context_name> <url> <token>` - Add a new context
@@ -49,19 +53,23 @@ You can change the default context with `coolify context use <context_name>` or 
   - `--url <new_url>` - Change the context URL
   - `--token <new_token>` - Change the context token
 - `coolify context use <context_name>` - Switch to a different context (set as default)
+- `coolify context verify` - Verify current context connection and authentication
 - `coolify context version` - Get the Coolify API version of the current context
 
 ### Servers
-- `coolify servers list` - List all servers
-- `coolify servers get <uuid>` - Get a server by UUID
+
+Commands can use `server` or `servers` interchangeably.
+
+- `coolify server list` - List all servers
+- `coolify server get <uuid>` - Get a server by UUID
   - `--resources` - Get the resources and their status of a server
-- `coolify servers add <name> <ip> <private_key_uuid>` - Add a new server
+- `coolify server add <name> <ip> <private_key_uuid>` - Add a new server
   - `-p, --port <port>` - SSH port (default: 22)
   - `-u, --user <user>` - SSH user (default: root)
   - `--validate` - Validate server immediately after adding
-- `coolify servers remove <uuid>` - Remove a server
-- `coolify servers validate <uuid>` - Validate a server connection
-- `coolify servers domains <uuid>` - Get server domains by UUID
+- `coolify server remove <uuid>` - Remove a server
+- `coolify server validate <uuid>` - Validate a server connection
+- `coolify server domains <uuid>` - Get server domains by UUID
 
 ### Projects
 - `coolify projects list` - List all projects
@@ -225,10 +233,13 @@ You can change the default context with `coolify context use <context_name>` or 
 - `coolify team members list [team_id]` - List team members
 
 ### Private Keys
-- `coolify privatekeys list` - List all private keys
-- `coolify privatekeys create <key_name> <private-key>` - Create a new private key
-  - Use `@filename` to read from file: `coolify privatekeys create mykey @~/.ssh/id_rsa`
-- `coolify privatekeys delete <uuid>` - Delete a private key
+
+Commands can use `private-key`, `private-keys`, `key`, or `keys` interchangeably.
+
+- `coolify private-key list` - List all private keys
+- `coolify private-key add <key_name> <private-key>` - Add a new private key
+  - Use `@filename` to read from file: `coolify private-key add mykey @~/.ssh/id_rsa`
+- `coolify private-key remove <uuid>` - Remove a private key
 
 ## Global Flags
 
@@ -399,13 +410,13 @@ coolify team members list
 
 ```bash
 # List servers in production
-coolify --context=prod servers list
+coolify --context=prod server list
 
 # Add a server with validation
-coolify servers add myserver 192.168.1.100 <key-uuid> --validate
+coolify server add myserver 192.168.1.100 <key-uuid> --validate
 
 # Get server details with resources
-coolify servers get <uuid> --resources
+coolify server get <uuid> --resources
 ```
 
 ## Output Formats
@@ -414,13 +425,13 @@ The CLI supports three output formats:
 
 ```bash
 # Table format (default, human-readable)
-coolify servers list
+coolify server list
 
 # JSON format (for scripts)
-coolify servers list --format=json
+coolify server list --format=json
 
 # Pretty JSON (for debugging)
-coolify servers list --format=pretty
+coolify server list --format=pretty
 ```
 
 ## Architecture
