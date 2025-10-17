@@ -13,8 +13,8 @@ import (
 // NewAddCommand creates the add command
 func NewAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <name> <ip> <private_key_uuid>",
-		Args:  cli.ExactArgs(3, "<name> <ip> <private_key_uuid>"),
+		Use:   "add <server_name> <ip_address> <private_key_uuid>",
+		Args:  cli.ExactArgs(3, "<server_name> <ip_address> <private_key_uuid>"),
 		Short: "Add a server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()

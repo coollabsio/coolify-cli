@@ -30,7 +30,7 @@ func NewUseCommand() *cobra.Command {
 			}
 
 			if !found {
-				return fmt.Errorf("%s not found", name)
+				return fmt.Errorf("Context '%s' not found", name)
 			}
 
 			// Update default
@@ -48,8 +48,8 @@ func NewUseCommand() *cobra.Command {
 				return fmt.Errorf("failed to write config: %w", err)
 			}
 
-			// Show the list after switching
-			return NewListCommand().RunE(cmd, args)
+			fmt.Printf("Switched to context '%s'.\n", name)
+			return nil
 		},
 	}
 }

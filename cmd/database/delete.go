@@ -15,7 +15,7 @@ func NewDeleteCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a database",
-		Long:  `Delete a database in your Coolify instance.`,
+		Long:  `Delete a database in Coolify.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 

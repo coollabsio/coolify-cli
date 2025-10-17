@@ -10,7 +10,7 @@ func NewResourceCommand() *cobra.Command {
 		Use:     "resource",
 		Aliases: []string{"resources"},
 		Short:   "Resource related commands",
-		Long:    `List all resources (applications, services, databases) across your Coolify instance.`,
+		Long:    `List all resources (applications, services, databases) in Coolify.`,
 	}
 
 	// Add all resource subcommands

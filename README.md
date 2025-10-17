@@ -15,20 +15,20 @@ It will install the CLI in `/usr/local/bin/coolify` and the configuration file i
 
 ### Cloud
 
-2. Add the token with `coolify instances set token cloud <token>`
+2. Add the token with `coolify context set token cloud <token>`
 
 ### Self-hosted
 
-2. Add the token with `coolify instances add -d <name> <fqdn> <token>`
-   
-> Replace `<name>` with the name you want to give to the instance.
+2. Add the token with `coolify context add -d <context_name> <url> <token>`
+
+> Replace `<context_name>` with the name you want to give to the context.
 >
-> Replace `<fqdn>` with the fully qualified domain name of your Coolify instance.
+> Replace `<url>` with the fully qualified domain name of your Coolify instance.
 
 Now you can use the CLI with the token you just added.
 
-## Change default instance
-You can change the default instance with `coolify instances set default <name>`
+## Change default context
+You can change the default context with `coolify context use <context_name>`
 ## Currently Supported Commands
 
 ### Update
@@ -53,7 +53,7 @@ You can change the default instance with `coolify instances set default <name>`
 - `coolify servers list` - List all servers
 - `coolify servers get <uuid>` - Get a server by UUID
   - `--resources` - Get the resources and their status of a server
-- `coolify servers add <name> <ip> <private_key_uuid>` - Add a new server
+- `coolify servers add <server_name> <ip_address> <private_key_uuid>` - Add a new server
   - `--port <port>` - SSH port (default: 22)
   - `--user <user>` - SSH user (default: root)
   - `--validate` - Validate server immediately after adding
@@ -157,7 +157,7 @@ You can change the default instance with `coolify instances set default <name>`
 ### Deployments
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
   - `--force` - Force deployment
-- `coolify deploy name <name>` - Deploy a resource by name
+- `coolify deploy name <resource_name>` - Deploy a resource by name
   - `--force` - Force deployment
 - `coolify deploy batch <name1,name2,...>` - Deploy multiple resources at once
   - `--force` - Force all deployments
@@ -191,13 +191,13 @@ You can change the default instance with `coolify instances set default <name>`
 
 ### Teams
 - `coolify team list` - List all teams
-- `coolify team get <id>` - Get team details
+- `coolify team get <team_id>` - Get team details
 - `coolify team current` - Get current team
 - `coolify team members list [team_id]` - List team members
 
 ### Private Keys
 - `coolify privatekeys list` - List all private keys
-- `coolify privatekeys create <name> <private-key>` - Create a new private key
+- `coolify privatekeys create <key_name> <private-key>` - Create a new private key
   - Use `@filename` to read from file: `coolify privatekeys create mykey @~/.ssh/id_rsa`
 - `coolify privatekeys delete <uuid>` - Delete a private key
 
@@ -205,7 +205,7 @@ You can change the default instance with `coolify instances set default <name>`
 
 All commands support these global flags:
 
-- `--instance <name>` - Use a specific instance profile instead of default (NEW)
+- `--context <name>` - Use a specific context instead of default
 - `--host <fqdn>` - Override the Coolify instance hostname
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
@@ -218,20 +218,20 @@ All commands support these global flags:
 ### Multi-Environment Workflows
 
 ```bash
-# Add multiple instances
-coolify instances add prod https://prod.coolify.io <prod-token>
-coolify instances add staging https://staging.coolify.io <staging-token>
-coolify instances add dev https://dev.coolify.io <dev-token>
+# Add multiple contexts
+coolify context add prod https://prod.coolify.io <prod-token>
+coolify context add staging https://staging.coolify.io <staging-token>
+coolify context add dev https://dev.coolify.io <dev-token>
 
 # Set default
-coolify instances set default prod
+coolify context use prod
 
-# Use different profiles
-coolify --instance=staging servers list
-coolify --instance=prod deploy name api
-coolify --instance=dev resources list
+# Use different contexts
+coolify --context=staging servers list
+coolify --context=prod deploy name api
+coolify --context=dev resources list
 
-# Default profile (prod in this case)
+# Default context (prod in this case)
 coolify servers list
 ```
 
@@ -312,8 +312,8 @@ coolify deploy name my-application
 # Deploy multiple apps at once
 coolify deploy batch api,worker,frontend
 
-# Force deploy with specific profile
-coolify --instance=prod deploy batch api,worker --force
+# Force deploy with specific context
+coolify --context=prod deploy batch api,worker --force
 
 # Traditional UUID deployment still works
 coolify deploy uuid abc123-def456-...
@@ -370,7 +370,7 @@ coolify team members list
 
 ```bash
 # List servers in production
-coolify --instance=prod servers list
+coolify --context=prod servers list
 
 # Add a server with validation
 coolify servers add myserver 192.168.1.100 <key-uuid> --validate
@@ -399,7 +399,7 @@ coolify servers list --format=pretty
 This CLI follows a clean architecture with:
 - **Service Layer**: Business logic and API interactions
 - **Output Layer**: Consistent formatting across all commands
-- **Config Layer**: Multi-instance configuration management
+- **Config Layer**: Multi-context configuration management
 - **Models Layer**: Type-safe data structures
 
 ## Development

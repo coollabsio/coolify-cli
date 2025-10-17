@@ -43,7 +43,7 @@ func NewDeleteCommand() *cobra.Command {
 					return
 				}
 			}
-			fmt.Printf("%s not found. \n", Name)
+			fmt.Printf("Context '%s' not found.\n", Name)
 		},
 	}
 }

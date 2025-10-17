@@ -31,7 +31,7 @@ func NewSetDefaultCommand() *cobra.Command {
 			}
 
 			if !found {
-				return fmt.Errorf("%s instance is not found", name)
+				return fmt.Errorf("Context '%s' not found", name)
 			} else {
 				// Only unset other defaults if we found the target instance
 				for _, instance := range instances {

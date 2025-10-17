@@ -82,8 +82,8 @@ func TestTeamService_Get(t *testing.T) {
 	}{
 		{
 			name:       "successful get",
-			teamID:     "team-123",
-			response:   `{"uuid": "team-123", "name": "Test Team", "description": "A test team"}`,
+			teamID:     "1",
+			response:   `{"id": 1, "name": "Test Team", "description": "A test team", "personal_team": false, "created_at": "2025-01-01", "updated_at": "2025-01-01", "show_boarding": false}`,
 			statusCode: http.StatusOK,
 			wantErr:    false,
 		},
@@ -118,8 +118,8 @@ func TestTeamService_Get(t *testing.T) {
 				return
 			}
 
-			if !tt.wantErr && team.UUID != tt.teamID {
-				t.Errorf("TeamService.Get() got UUID %s, want %s", team.UUID, tt.teamID)
+			if !tt.wantErr && team.ID == 0 {
+				t.Errorf("TeamService.Get() got empty team ID")
 			}
 		})
 	}

@@ -122,10 +122,15 @@ func TestResource_MarshalUnmarshal(t *testing.T) {
 }
 
 func TestDeployment_MarshalUnmarshal(t *testing.T) {
+	appName := "test-app"
+	serverName := "test-server"
+	commit := "abc123"
 	deployment := Deployment{
-		Message:        "Deployment started",
-		ResourceUUID:   "resource-uuid",
-		DeploymentUUID: "deployment-uuid",
+		UUID:            "deployment-uuid",
+		ApplicationName: &appName,
+		ServerName:      &serverName,
+		Status:          "running",
+		Commit:          &commit,
 	}
 
 	// Marshal
@@ -137,8 +142,9 @@ func TestDeployment_MarshalUnmarshal(t *testing.T) {
 	err = json.Unmarshal(data, &unmarshaled)
 	require.NoError(t, err)
 
-	assert.Equal(t, deployment.Message, unmarshaled.Message)
-	assert.Equal(t, deployment.ResourceUUID, unmarshaled.ResourceUUID)
+	assert.Equal(t, deployment.UUID, unmarshaled.UUID)
+	assert.Equal(t, *deployment.ApplicationName, *unmarshaled.ApplicationName)
+	assert.Equal(t, deployment.Status, unmarshaled.Status)
 }
 
 func TestDomain_MarshalUnmarshal(t *testing.T) {
