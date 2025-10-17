@@ -12,7 +12,7 @@ import (
 
 // NewUpdateCommand updates a database
 func NewUpdateCommand() *cobra.Command {
-	return &cobra.Command{
+	updateBackupCmd := &cobra.Command{
 		Use:   "update <database_uuid> <backup_uuid>",
 		Short: "Update backup configuration",
 		Long:  `Update a backup configuration settings (frequency, retention, S3, etc.). First UUID is the database, second is the specific backup configuration.`,
@@ -107,4 +107,19 @@ func NewUpdateCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	updateBackupCmd.Flags().Bool("enabled", false, "Enable or disable backup")
+	updateBackupCmd.Flags().String("frequency", "", "Backup frequency (cron expression)")
+	updateBackupCmd.Flags().Bool("save-s3", false, "Save backups to S3")
+	updateBackupCmd.Flags().String("s3-storage-uuid", "", "S3 storage UUID")
+	updateBackupCmd.Flags().String("databases-to-backup", "", "Comma-separated list of databases to backup")
+	updateBackupCmd.Flags().Bool("dump-all", false, "Dump all databases")
+	updateBackupCmd.Flags().Int("retention-amount-locally", 0, "Number of backups to retain locally")
+	updateBackupCmd.Flags().Int("retention-days-locally", 0, "Days to retain backups locally")
+	updateBackupCmd.Flags().Int("retention-max-storage-locally", 0, "Max storage for local backups (MB)")
+	updateBackupCmd.Flags().Int("retention-amount-s3", 0, "Number of backups to retain in S3")
+	updateBackupCmd.Flags().Int("retention-days-s3", 0, "Days to retain backups in S3")
+	updateBackupCmd.Flags().Int("retention-max-storage-s3", 0, "Max storage for S3 backups (MB)")
+
+	return updateBackupCmd
 }
