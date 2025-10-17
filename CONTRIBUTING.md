@@ -6,33 +6,34 @@ Thank you for your interest in contributing to the Coolify CLI! This document pr
 
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
-- [Making Changes](#making-changes)
-- [Testing Requirements](#testing-requirements)
-- [Submitting Changes](#submitting-changes)
-- [Code Style](#code-style)
 - [Project Architecture](#project-architecture)
+- [Adding a New Command](#adding-a-new-command)
+- [Testing Requirements](#testing-requirements)
+- [Code Style & Conventions](#code-style--conventions)
+- [Submitting Changes](#submitting-changes)
 
 ## Getting Started
 
 Before you start contributing:
 
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally
-3. **Create a new branch** for your feature or bug fix
-4. **Read the CLAUDE.md** file for detailed architectural guidance
-
-## Development Setup
+1. **Read the [ARCHITECTURE.md](ARCHITECTURE.md)** for detailed architectural guidance
+2. **Review the [OpenAPI specification](https://github.com/coollabsio/coolify/blob/v4.x/openapi.json)** to understand available API endpoints
+3. **Check existing issues** to see if your feature/bug is already being worked on
+4. **Open an issue** to discuss your proposed changes (for large features)
 
 ### Prerequisites
 
-- Go 1.22 or higher
+- Go 1.24 or higher
 - Git
 
-### Building the Project
+## Development Setup
+
+### Clone and Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/coollabsio/coolify-cli.git
+# Fork the repository on GitHub
+# Clone your fork
+git clone https://github.com/YOUR_USERNAME/coolify-cli.git
 cd coolify-cli
 
 # Build the CLI
@@ -49,31 +50,298 @@ go install
 go run main.go [command]
 
 # Example commands
-go run main.go instances list
-go run main.go servers list --debug
+go run main.go context list
+go run main.go server list --debug
+
+# With flags
+go run main.go server list --format json --debug
 ```
 
-## Making Changes
+### Project Structure
 
-### Before You Code
+```
+cmd/                 # CLI commands (organized by feature)
+├── root.go          # Root command and global flags
+├── application/     # Application management commands
+├── context/         # Manage Coolify instances
+├── server/          # Server management
+├── project/         # Project management
+├── database/        # Database management
+├── deployment/      # Deployment operations
+├── service/         # Service management
+└── ...
 
-1. **Check existing issues** to see if your feature/bug is already being worked on
-2. **Open an issue** to discuss your proposed changes (for large features)
-3. **Review the API specification** at https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+internal/            # Internal packages
+├── api/             # API client (HTTP communication)
+├── cli/             # CLI utilities (GetAPIClient helper)
+├── config/          # Configuration management
+├── models/          # Data models and structs
+├── output/          # Output formatters (table, json, pretty)
+├── parser/          # Input parsing utilities
+├── service/         # Business logic layer
+└── version/         # Version management
 
-### Adding a New Command
+test/                # Test utilities and fixtures
+└── fixtures/        # Mock API response data
+```
 
-When adding a new command, follow this checklist:
+## Project Architecture
 
-- [ ] Create command implementation in `cmd/`
-- [ ] Implement all three output formats: `table`, `json`, `pretty`
-- [ ] Call `CheckDefaultThings(nil)` for version validation
-- [ ] Use `Fetch()`, `Post()`, or `Delete()` helpers for API calls
-- [ ] Create corresponding test file(s)
-- [ ] Test all flags, arguments, and error cases
-- [ ] Add integration tests if needed
-- [ ] Update README.md with command documentation
-- [ ] Verify test coverage meets requirements
+The Coolify CLI follows a **layered architecture**:
+
+```
+User → Commands (cmd/) → Services (internal/service/) → API Client (internal/api/) → Coolify API
+```
+
+### Layer Responsibilities
+
+1. **Command Layer** (`cmd/`)
+   - Parse CLI arguments and flags
+   - Call service layer methods
+   - Format output using output formatters
+
+2. **Service Layer** (`internal/service/`)
+   - Business logic
+   - Coordinate API calls
+   - Transform data
+
+3. **API Client Layer** (`internal/api/`)
+   - HTTP communication
+   - Retry logic with exponential backoff
+   - Authentication (Bearer tokens)
+   - Error handling
+
+### Key Dependencies
+
+- **cobra**: CLI framework
+- **viper**: Configuration management
+- **stretchr/testify**: Testing assertions
+
+## Adding a New Command
+
+Follow these steps to add a new command:
+
+### 1. Create Command Directory Structure
+
+```bash
+# Create directory for your command
+mkdir -p cmd/myfeature
+```
+
+### 2. Create Parent Command
+
+Create `cmd/myfeature/myfeature.go`:
+
+```go
+package myfeature
+
+import "github.com/spf13/cobra"
+
+// NewMyFeatureCommand creates the myfeature parent command
+func NewMyFeatureCommand() *cobra.Command {
+    cmd := &cobra.Command{
+        Use:     "myfeature",
+        Aliases: []string{"mf"},
+        Short:   "MyFeature related commands",
+        Long:    `Manage MyFeature resources.`,
+    }
+
+    // Add subcommands
+    cmd.AddCommand(NewListCommand())
+    cmd.AddCommand(NewGetCommand())
+    // ... more subcommands
+
+    return cmd
+}
+```
+
+### 3. Create Subcommand
+
+Create `cmd/myfeature/list.go`:
+
+```go
+package myfeature
+
+import (
+    "context"
+    "fmt"
+
+    "github.com/coollabsio/coolify-cli/internal/cli"
+    "github.com/coollabsio/coolify-cli/internal/output"
+    "github.com/coollabsio/coolify-cli/internal/service"
+    "github.com/spf13/cobra"
+)
+
+func NewListCommand() *cobra.Command {
+    return &cobra.Command{
+        Use:   "list",
+        Short: "List all myfeature resources",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            ctx := context.Background()
+
+            // Get API client
+            client, err := cli.GetAPIClient(cmd)
+            if err != nil {
+                return fmt.Errorf("failed to get API client: %w", err)
+            }
+
+            // Use service layer
+            svc := service.NewMyFeatureService(client)
+            items, err := svc.List(ctx)
+            if err != nil {
+                return fmt.Errorf("failed to list items: %w", err)
+            }
+
+            // Format output
+            format, _ := cmd.Flags().GetString("format")
+            showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+
+            formatter, err := output.NewFormatter(format, output.Options{
+                ShowSensitive: showSensitive,
+            })
+            if err != nil {
+                return err
+            }
+
+            return formatter.Format(items)
+        },
+    }
+}
+```
+
+### 4. Create Service Layer
+
+Create `internal/service/myfeature.go`:
+
+```go
+package service
+
+import (
+    "context"
+
+    "github.com/coollabsio/coolify-cli/internal/api"
+    "github.com/coollabsio/coolify-cli/internal/models"
+)
+
+type MyFeatureService struct {
+    client *api.Client
+}
+
+func NewMyFeatureService(client *api.Client) *MyFeatureService {
+    return &MyFeatureService{client: client}
+}
+
+func (s *MyFeatureService) List(ctx context.Context) ([]models.MyFeature, error) {
+    var items []models.MyFeature
+    err := s.client.Get(ctx, "myfeature", &items)
+    return items, err
+}
+
+func (s *MyFeatureService) Get(ctx context.Context, uuid string) (*models.MyFeature, error) {
+    var item models.MyFeature
+    err := s.client.Get(ctx, "myfeature/"+uuid, &item)
+    return &item, err
+}
+
+func (s *MyFeatureService) Create(ctx context.Context, req models.MyFeatureCreateRequest) (*models.Response, error) {
+    var response models.Response
+    err := s.client.Post(ctx, "myfeature", req, &response)
+    return &response, err
+}
+
+func (s *MyFeatureService) Delete(ctx context.Context, uuid string) error {
+    return s.client.Delete(ctx, "myfeature/"+uuid)
+}
+```
+
+### 5. Create Models
+
+Create `internal/models/myfeature.go`:
+
+```go
+package models
+
+type MyFeature struct {
+    ID          int    `json:"id" table:"-"`           // Hidden from table output
+    UUID        string `json:"uuid"`                   // Shown to users
+    Name        string `json:"name"`
+    Description string `json:"description"`
+    Status      string `json:"status"`
+    // Add more fields...
+}
+
+type MyFeatureCreateRequest struct {
+    Name        string `json:"name"`
+    Description string `json:"description"`
+}
+```
+
+**Important**: Always use `UUID` for user-facing identifiers, not database `ID`. Hide `ID` field from table output using `table:"-"` tag.
+
+### 6. Register Command
+
+Add your command to `cmd/root.go`:
+
+```go
+import (
+    // ... existing imports
+    "github.com/coollabsio/coolify-cli/cmd/myfeature"
+)
+
+func init() {
+    // ... existing code
+    rootCmd.AddCommand(myfeature.NewMyFeatureCommand())
+}
+```
+
+### 7. Create Tests
+
+Create `internal/service/myfeature_test.go`:
+
+```go
+package service
+
+import (
+    "context"
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+
+    "github.com/coollabsio/coolify-cli/internal/api"
+    "github.com/coollabsio/coolify-cli/internal/models"
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
+func TestMyFeatureService_List(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        assert.Equal(t, "/api/v1/myfeature", r.URL.Path)
+        assert.Equal(t, "GET", r.Method)
+
+        items := []models.MyFeature{
+            {UUID: "uuid-1", Name: "item-1"},
+            {UUID: "uuid-2", Name: "item-2"},
+        }
+        json.NewEncoder(w).Encode(items)
+    }))
+    defer server.Close()
+
+    client := api.NewClient(server.URL, "test-token")
+    svc := NewMyFeatureService(client)
+
+    items, err := svc.List(context.Background())
+
+    require.NoError(t, err)
+    assert.Len(t, items, 2)
+    assert.Equal(t, "uuid-1", items[0].UUID)
+}
+```
+
+### 8. Update Documentation
+
+- Add command documentation to `README.md`
+- Include usage examples and flag descriptions
 
 ## Testing Requirements
 
@@ -84,6 +352,7 @@ When adding a new command, follow this checklist:
 - **Minimum coverage**: 70% for all packages
 - **New features**: 80%+ coverage required
 - **Bug fixes**: Must include regression tests
+- **Refactoring**: Must maintain or improve existing coverage
 
 ### Running Tests
 
@@ -94,20 +363,23 @@ go test ./internal/...
 # Run with coverage
 go test ./internal/... -cover
 
+# Run specific package
+go test ./internal/service/... -v
+
+# Run specific test
+go test ./internal/service -run TestServerService_List -v
+
 # Generate coverage report
 go test ./internal/... -coverprofile=coverage.out
 go tool cover -html=coverage.out
-
-# Run with verbose output
-go test ./internal/... -v
 ```
 
 ### Writing Tests
 
-Use table-driven tests for multiple scenarios:
+#### Use Table-Driven Tests
 
 ```go
-func TestYourFunction(t *testing.T) {
+func TestMyFunction(t *testing.T) {
     tests := []struct {
         name    string
         input   string
@@ -130,65 +402,185 @@ func TestYourFunction(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            got, err := YourFunction(tt.input)
+            got, err := MyFunction(tt.input)
             if (err != nil) != tt.wantErr {
-                t.Errorf("YourFunction() error = %v, wantErr %v", err, tt.wantErr)
+                t.Errorf("MyFunction() error = %v, wantErr %v", err, tt.wantErr)
                 return
             }
             if got != tt.want {
-                t.Errorf("YourFunction() = %v, want %v", got, tt.want)
+                t.Errorf("MyFunction() = %v, want %v", got, tt.want)
             }
         })
     }
 }
 ```
 
+#### Mock HTTP Requests
+
+**IMPORTANT**: Never call real APIs in tests. Use `httptest.NewServer()`:
+
+```go
+func TestServiceMethod(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Verify request
+        assert.Equal(t, "/api/v1/endpoint", r.URL.Path)
+        assert.Equal(t, "GET", r.Method)
+
+        // Return mock response
+        response := models.MyResponse{Data: "test"}
+        json.NewEncoder(w).Encode(response)
+    }))
+    defer server.Close()
+
+    client := api.NewClient(server.URL, "test-token")
+    // ... test your service
+}
+```
+
 ### Test Guidelines
 
-- **Never call real APIs** in unit tests - use `httptest.NewServer()` for mocks
-- Use descriptive test names: `TestFunctionName_Scenario_ExpectedBehavior`
-- Use `t.Run()` for subtests
-- Use `t.Parallel()` when tests are independent
-- Store mock API responses in `test/fixtures/`
+- **Test naming**: `TestFunctionName_Scenario_ExpectedBehavior`
+- **Use subtests**: `t.Run()` for related test cases
+- **Use testify**: `require.NoError()` for must-pass assertions, `assert.Equal()` for comparisons
+- **Mock HTTP**: Use `httptest.NewServer()` for all API tests
+- **Test contexts**: Always pass `context.Background()` in tests
+- **Test errors**: Verify error messages and types
+
+## Code Style & Conventions
+
+### Go Standards
+
+- Follow standard Go idioms and conventions
+- Use `gofmt` for code formatting
+- Run `go vet` to catch common issues
+- Prefer standard library over external dependencies
+
+### Project Conventions
+
+#### API Client Usage
+
+```go
+// Create client (usually done via cli.GetAPIClient())
+client := api.NewClient(baseURL, token, api.WithDebug(true))
+
+// GET request
+var result MyStruct
+err := client.Get(ctx, "endpoint", &result)
+
+// POST request
+err := client.Post(ctx, "endpoint", requestBody, &result)
+
+// DELETE request
+err := client.Delete(ctx, "endpoint")
+
+// PATCH request
+err := client.Patch(ctx, "endpoint", requestBody, &result)
+```
+
+#### Service Layer Pattern
+
+```go
+type MyService struct {
+    client *api.Client
+}
+
+func NewMyService(client *api.Client) *MyService {
+    return &MyService{client: client}
+}
+
+func (s *MyService) List(ctx context.Context) ([]models.Item, error) {
+    var items []models.Item
+    err := s.client.Get(ctx, "items", &items)
+    return items, err
+}
+```
+
+#### Error Handling
+
+```go
+// Wrap errors with context
+if err != nil {
+    return fmt.Errorf("failed to fetch data: %w", err)
+}
+
+// Check and handle specific error types
+if apiErr, ok := err.(*api.Error); ok {
+    if apiErr.StatusCode == 404 {
+        return fmt.Errorf("resource not found")
+    }
+}
+```
+
+#### Global Flags
+
+All commands automatically inherit these global flags:
+
+- `--format` (table|json|pretty) - Output format
+- `--show-sensitive` - Show sensitive information
+- `--debug` - Enable debug mode
+- `--context` - Use specific context by name
+- `--token` - Override context token
+
+Access flags in commands:
+
+```go
+format, _ := cmd.Flags().GetString("format")
+showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+debug, _ := cmd.Flags().GetBool("debug")
+```
 
 ## Submitting Changes
 
 ### Before Committing
 
 ```bash
-# 1. Run tests
-go test ./internal/...
-
-# 2. Check coverage
-go test ./internal/... -cover
-
-# 3. Format code
+# 1. Format code
 go fmt ./...
 
-# 4. Run linter (if available)
-golangci-lint run
+# 2. Run tests
+go test ./internal/...
+
+# 3. Check coverage
+go test ./internal/... -cover
+
+# 4. Run vet
+go vet ./...
 ```
 
 ### Commit Messages
 
-Write clear, descriptive commit messages:
+Write clear, descriptive commit messages following conventional commits format:
 
 ```
-Add servers delete command
+<type>: <short summary>
 
-- Implement DELETE /servers/{uuid} endpoint
-- Add confirmation prompt with --force flag
-- Include tests for success and error cases
+<detailed description>
+
+<footer>
+```
+
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+
+Example:
+
+```
+feat: add server domains list command
+
+- Implement GET /servers/{uuid}/domains endpoint
+- Add server domains subcommand
+- Include tests for domain listing
 - Update README with new command documentation
 ```
 
 ### Pull Requests
 
-1. **Push your branch** to your fork
-2. **Open a pull request** against the `v4.x` branch
-3. **Describe your changes** clearly in the PR description
-4. **Link related issues** using "Fixes #123" or "Closes #123"
-5. **Ensure CI passes** - tests must pass and coverage must meet requirements
+1. **Fork** the repository
+2. **Create a branch** from `v4.x`: `git checkout -b feature/my-feature v4.x`
+3. **Make your changes** with tests
+4. **Push** to your fork: `git push origin feature/my-feature`
+5. **Open a pull request** against the `v4.x` branch
+6. **Describe your changes** clearly in the PR description
+7. **Link related issues** using "Fixes #123" or "Closes #123"
 
 ### PR Checklist
 
@@ -199,56 +591,24 @@ Add servers delete command
 - [ ] CLAUDE.md updated (if changing architecture)
 - [ ] Commit messages are descriptive
 - [ ] PR description explains the changes
+- [ ] All global flags are supported (format, show-sensitive, debug)
+- [ ] Used UUIDs (not IDs) for resource identifiers
 
-## Code Style
+## Release Process
 
-### Go Standards
+Releases are automated using GoReleaser:
 
-- Follow standard Go idioms and conventions
-- Use Go 1.22+ features
-- Prefer standard library over external dependencies
-- Use `net/http` for HTTP operations
-- Implement proper error handling
-
-### Project Conventions
-
-- Use Cobra command pattern for CLI commands
-- Use Viper for configuration management
-- Support all three output formats: `table`, `json`, `pretty`
-- Handle sensitive data with `--show-sensitive` flag
-- Follow RESTful patterns for API interactions
-
-## Project Architecture
-
-### Command Structure
-
-```
-cmd/
-├── root.go          # Root command with core utilities
-├── context.go       # Manage Coolify instances
-├── servers.go       # Server management
-├── projects.go      # Project management
-├── resources.go     # Resource management
-├── deploy.go        # Deployment operations
-├── domains.go       # Domain management
-├── privatekeys.go   # SSH key management
-├── update.go        # Self-update functionality
-└── version.go       # Version information
-```
-
-### Key Patterns
-
-- Use `Fetch(url)` for GET requests
-- Use `Post(url, input)` for POST requests
-- Use `Delete(url)` for DELETE requests
-- Call `CheckDefaultThings(nil)` for version validation
-- All API calls use `/api/v1/` base path
+1. Tag a new version: `git tag v1.2.3`
+2. Push the tag: `git push origin v1.2.3`
+3. Create a GitHub release
+4. GoReleaser builds binaries for all platforms automatically
 
 ## Getting Help
 
-- **Issues**: Open an issue on GitHub for bugs or feature requests
-- **Documentation**: Read CLAUDE.md for detailed architectural guidance
-- **API Spec**: Refer to the OpenAPI schema at https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+- **Issues**: [Open an issue](https://github.com/coollabsio/coolify-cli/issues) for bugs or feature requests
+- **Architecture**: Read [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation
+- **API Reference**: See the [OpenAPI specification](https://github.com/coollabsio/coolify/blob/v4.x/openapi.json)
+- **Code Guidance**: See [CLAUDE.md](CLAUDE.md) for AI assistant guidance
 
 ## License
 
