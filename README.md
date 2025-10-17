@@ -120,6 +120,10 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify app env delete <app_uuid> <env_uuid>` - Delete an environment variable
 - `coolify app env sync <app_uuid>` - Sync environment variables from a .env file
   - `--file <path>` - Path to .env file (required)
+  - `--build-time` - Make all variables available at build time
+  - `--preview` - Make all variables available in preview deployments
+  - `--is-literal` - Treat all values as literal (don't interpolate variables)
+  - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
 
 ### Databases
 - `coolify database list` - List all databases
@@ -190,6 +194,10 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service env delete <service_uuid> <env_uuid>` - Delete an environment variable
 - `coolify service env sync <service_uuid>` - Sync environment variables from a .env file
   - `--file <path>` - Path to .env file (required)
+  - `--build-time` - Make all variables available at build time
+  - `--preview` - Make all variables available in preview deployments
+  - `--is-literal` - Treat all values as literal (don't interpolate variables)
+  - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
 
 ### Deployments
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
@@ -295,7 +303,10 @@ coolify app logs <uuid>
 # Environment variables
 coolify app env list <uuid>
 coolify app env create <uuid> --key API_KEY --value secret123
+
+# Sync from .env file (updates existing, creates new, keeps others unchanged)
 coolify app env sync <uuid> --file .env
+coolify app env sync <uuid> --file .env.production --build-time --preview
 ```
 
 ### Database Management
