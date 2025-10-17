@@ -7,7 +7,12 @@ before:
 builds:
   - id: coolify
     binary: coolify
-    main: ./coolify
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+    main: ./coolify/main.go
     goos:
       - darwin
       - linux
