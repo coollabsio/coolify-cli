@@ -14,7 +14,7 @@ import (
 )
 
 // CliVersion is the CLI version
-const CliVersion = "1.0.1"
+const CliVersion = "1.0.2"
 
 // CheckInterval for version checking
 const CheckInterval = 10 * time.Minute

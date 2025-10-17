@@ -26,20 +26,20 @@ type ApplicationListItem struct {
 // ApplicationUpdateRequest represents the request to update an application
 // All fields are optional - only provided fields will be updated
 type ApplicationUpdateRequest struct {
-	Name               *string `json:"name,omitempty"`
-	Description        *string `json:"description,omitempty"`
-	GitBranch          *string `json:"git_branch,omitempty"`
-	GitRepository      *string `json:"git_repository,omitempty"`
-	GitCommitSHA       *string `json:"git_commit_sha,omitempty"`
-	Domains            *string `json:"domains,omitempty"`
-	BuildCommand       *string `json:"build_command,omitempty"`
-	StartCommand       *string `json:"start_command,omitempty"`
-	InstallCommand     *string `json:"install_command,omitempty"`
-	BaseDirectory      *string `json:"base_directory,omitempty"`
-	PublishDirectory   *string `json:"publish_directory,omitempty"`
-	BuildPack          *string `json:"build_pack,omitempty"`
-	PortsExposes       *string `json:"ports_exposes,omitempty"`
-	PortsMappings      *string `json:"ports_mappings,omitempty"`
+	Name             *string `json:"name,omitempty"`
+	Description      *string `json:"description,omitempty"`
+	GitBranch        *string `json:"git_branch,omitempty"`
+	GitRepository    *string `json:"git_repository,omitempty"`
+	GitCommitSHA     *string `json:"git_commit_sha,omitempty"`
+	Domains          *string `json:"domains,omitempty"`
+	BuildCommand     *string `json:"build_command,omitempty"`
+	StartCommand     *string `json:"start_command,omitempty"`
+	InstallCommand   *string `json:"install_command,omitempty"`
+	BaseDirectory    *string `json:"base_directory,omitempty"`
+	PublishDirectory *string `json:"publish_directory,omitempty"`
+	BuildPack        *string `json:"build_pack,omitempty"`
+	PortsExposes     *string `json:"ports_exposes,omitempty"`
+	PortsMappings    *string `json:"ports_mappings,omitempty"`
 
 	// Docker configuration
 	Dockerfile              *string `json:"dockerfile,omitempty"`
@@ -72,9 +72,9 @@ type ApplicationUpdateRequest struct {
 	LimitsMemorySwappiness  *int    `json:"limits_memory_swappiness,omitempty"`
 
 	// Deployment hooks
-	PreDeploymentCommand          *string `json:"pre_deployment_command,omitempty"`
-	PreDeploymentCommandContainer *string `json:"pre_deployment_command_container,omitempty"`
-	PostDeploymentCommand         *string `json:"post_deployment_command,omitempty"`
+	PreDeploymentCommand           *string `json:"pre_deployment_command,omitempty"`
+	PreDeploymentCommandContainer  *string `json:"pre_deployment_command_container,omitempty"`
+	PostDeploymentCommand          *string `json:"post_deployment_command,omitempty"`
 	PostDeploymentCommandContainer *string `json:"post_deployment_command_container,omitempty"`
 
 	// Misc
@@ -112,21 +112,21 @@ type EnvironmentVariable struct {
 
 // EnvironmentVariableCreateRequest represents the request to create an environment variable
 type EnvironmentVariableCreateRequest struct {
-	Key           string `json:"key"`
-	Value         string `json:"value"`
-	IsBuildTime   *bool  `json:"is_build_time,omitempty"`
-	IsPreview     *bool  `json:"is_preview,omitempty"`
-	IsLiteral     *bool  `json:"is_literal,omitempty"`
-	IsMultiline   *bool  `json:"is_multiline,omitempty"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	IsBuildTime *bool  `json:"is_build_time,omitempty"`
+	IsPreview   *bool  `json:"is_preview,omitempty"`
+	IsLiteral   *bool  `json:"is_literal,omitempty"`
+	IsMultiline *bool  `json:"is_multiline,omitempty"`
 }
 
 // EnvironmentVariableUpdateRequest represents the request to update an environment variable
 type EnvironmentVariableUpdateRequest struct {
-	UUID          string  `json:"uuid"`
-	Key           *string `json:"key,omitempty"`
-	Value         *string `json:"value,omitempty"`
-	IsBuildTime   *bool   `json:"is_build_time,omitempty"`
-	IsPreview     *bool   `json:"is_preview,omitempty"`
-	IsLiteral     *bool   `json:"is_literal,omitempty"`
-	IsMultiline   *bool   `json:"is_multiline,omitempty"`
+	UUID        string  `json:"uuid"`
+	Key         *string `json:"key,omitempty"`
+	Value       *string `json:"value,omitempty"`
+	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsPreview   *bool   `json:"is_preview,omitempty"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
 }

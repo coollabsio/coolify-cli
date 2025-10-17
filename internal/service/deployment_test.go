@@ -14,11 +14,11 @@ import (
 
 func TestDeploymentService_Deploy(t *testing.T) {
 	tests := []struct {
-		name          string
-		uuid          string
-		force         bool
-		expectedPath  string
-		response      DeployResponse
+		name         string
+		uuid         string
+		force        bool
+		expectedPath string
+		response     DeployResponse
 	}{
 		{
 			name:         "deploy without force",
