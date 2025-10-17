@@ -6,6 +6,7 @@ config.json
 # Generated documentation (can be regenerated)
 man/
 docs/cli/
+dist/
 
 # Test coverage
 coverage.out
