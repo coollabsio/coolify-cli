@@ -34,6 +34,9 @@ You can change the default context with `coolify context use <context_name>` or 
 ### Update
 - `coolify update` - Update the CLI to the latest version
 
+### Configuration
+- `coolify config` - Show configuration file location
+
 ### Context Management
 - `coolify context list` - List all configured contexts
 - `coolify context add <context_name> <url> <token>` - Add a new context

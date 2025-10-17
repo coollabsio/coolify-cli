@@ -13,7 +13,7 @@ type UUID struct {
 }
 
 // Timestamps for created/updated times
-type Timestamps struct{
+type Timestamps struct {
 	CreatedAt string `json:"-" table:"-"`
 	UpdatedAt string `json:"-" table:"-"`
 }

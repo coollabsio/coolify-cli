@@ -246,8 +246,8 @@ func TestTableFormatter_NilPointer(t *testing.T) {
 
 func TestTableFormatter_SliceField(t *testing.T) {
 	type TestStruct struct {
-		Name  string   `json:"name"`
-		Tags  []string `json:"tags"`
+		Name string   `json:"name"`
+		Tags []string `json:"tags"`
 	}
 
 	data := []TestStruct{

@@ -280,15 +280,15 @@ func TestDatabaseService_Update(t *testing.T) {
 
 func TestDatabaseService_Delete(t *testing.T) {
 	tests := []struct {
-		name                       string
-		uuid                       string
-		deleteConfigurations       bool
-		deleteVolumes              bool
-		dockerCleanup              bool
-		deleteConnectedNetworks    bool
-		statusCode                 int
-		wantErr                    bool
-		expectedQueryString        string
+		name                    string
+		uuid                    string
+		deleteConfigurations    bool
+		deleteVolumes           bool
+		dockerCleanup           bool
+		deleteConnectedNetworks bool
+		statusCode              int
+		wantErr                 bool
+		expectedQueryString     string
 	}{
 		{
 			name:                    "successful delete with all cleanup",

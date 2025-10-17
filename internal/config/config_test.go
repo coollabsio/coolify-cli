@@ -556,7 +556,7 @@ func TestPath(t *testing.T) {
 		// Windows path should contain either AppData or backslashes
 		assert.True(t,
 			filepath.Separator == '\\' &&
-			(os.Getenv("APPDATA") != "" || filepath.IsAbs(path)),
+				(os.Getenv("APPDATA") != "" || filepath.IsAbs(path)),
 			"Windows path should be valid",
 		)
 	}

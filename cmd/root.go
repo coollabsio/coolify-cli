@@ -8,6 +8,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/application"
 	"github.com/coollabsio/coolify-cli/cmd/completion"
+	configcmd "github.com/coollabsio/coolify-cli/cmd/config"
 	"github.com/coollabsio/coolify-cli/cmd/context"
 	"github.com/coollabsio/coolify-cli/cmd/database"
 	"github.com/coollabsio/coolify-cli/cmd/deployment"
@@ -86,8 +87,9 @@ func init() {
 
 	// Register all subcommands
 	rootCmd.AddCommand(application.NewAppCommand())
-	rootCmd.AddCommand(context.NewContextCommand())
 	rootCmd.AddCommand(completion.NewCompletionsCommand())
+	rootCmd.AddCommand(configcmd.NewConfigCommand())
+	rootCmd.AddCommand(context.NewContextCommand())
 	rootCmd.AddCommand(database.NewDatabaseCommand())
 	rootCmd.AddCommand(deployment.NewDeploymentCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
