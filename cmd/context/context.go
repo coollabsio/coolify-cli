@@ -8,8 +8,8 @@ import (
 func NewContextCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "context",
-		Short: "Manage Coolify contexts (instance configurations)",
-		Long:  `Manage Coolify contexts. A context contains the configuration (URL and token) for a Coolify instance.`,
+		Short: "Manage Coolify contexts",
+		Long:  `Manage Coolify contexts. A context contains the configuration (URL and token) for connecting to Coolify.`,
 	}
 
 	// Add subcommands

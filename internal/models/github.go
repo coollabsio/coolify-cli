@@ -29,8 +29,8 @@ type GitHubAppCreateRequest struct {
 	AppID          int     `json:"app_id"`
 	InstallationID int     `json:"installation_id"`
 	ClientID       string  `json:"client_id"`
-	ClientSecret   string  `json:"client_secret"`
-	WebhookSecret  *string `json:"webhook_secret,omitempty"`
+	ClientSecret   string  `json:"client_secret" sensitive:"true"`
+	WebhookSecret  *string `json:"webhook_secret,omitempty" sensitive:"true"`
 	PrivateKeyUUID string  `json:"private_key_uuid"`
 	IsSystemWide   *bool   `json:"is_system_wide,omitempty"`
 }
@@ -46,8 +46,8 @@ type GitHubAppUpdateRequest struct {
 	AppID          *int    `json:"app_id,omitempty"`
 	InstallationID *int    `json:"installation_id,omitempty"`
 	ClientID       *string `json:"client_id,omitempty"`
-	ClientSecret   *string `json:"client_secret,omitempty"`
-	WebhookSecret  *string `json:"webhook_secret,omitempty"`
+	ClientSecret   *string `json:"client_secret,omitempty" sensitive:"true"`
+	WebhookSecret  *string `json:"webhook_secret,omitempty" sensitive:"true"`
 	PrivateKeyUUID *string `json:"private_key_uuid,omitempty"`
 	IsSystemWide   *bool   `json:"is_system_wide,omitempty"`
 }

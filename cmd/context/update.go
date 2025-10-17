@@ -10,7 +10,7 @@ import (
 
 // NewUpdateCommand creates the update command
 func NewUpdateCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "update <context_name>",
 		Example: `context update myserver --name newname --url https://new.coolify.com --token newtoken`,
 		Args:    cli.ExactArgs(1, "<context_name>"),
@@ -44,7 +44,7 @@ func NewUpdateCommand() *cobra.Command {
 			}
 
 			if !found {
-				fmt.Printf("%s not found.\n", oldName)
+				fmt.Printf("Context '%s' not found.\n", oldName)
 				return
 			}
 
@@ -86,4 +86,10 @@ func NewUpdateCommand() *cobra.Command {
 			fmt.Printf("Context '%s' updated successfully.\n", finalName)
 		},
 	}
+
+	cmd.Flags().StringP("name", "n", "", "New name for the context")
+	cmd.Flags().StringP("url", "u", "", "New URL for the context")
+	cmd.Flags().StringP("token", "t", "", "New token for the context")
+
+	return cmd
 }

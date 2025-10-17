@@ -1,6 +1,8 @@
 package context
 
 import (
+	"fmt"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/coollabsio/coolify-cli/internal/output"
@@ -48,6 +50,10 @@ func NewGetCommand() *cobra.Command {
 					results = append(results, inst)
 					break
 				}
+			}
+
+			if len(results) == 0 {
+				return fmt.Errorf("Context '%s' not found", name)
 			}
 
 			formatter, err := output.NewFormatter(format, output.Options{

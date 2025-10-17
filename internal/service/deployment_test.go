@@ -26,8 +26,13 @@ func TestDeploymentService_Deploy(t *testing.T) {
 			force:        false,
 			expectedPath: "/api/v1/deploy?uuid=res-123",
 			response: DeployResponse{
-				Message:      "Deployment started",
-				DeploymentID: "dep-456",
+				Deployments: []DeploymentInfo{
+					{
+						Message:        "Deployment started",
+						ResourceUUID:   "res-123",
+						DeploymentUUID: "dep-456",
+					},
+				},
 			},
 		},
 		{
@@ -36,8 +41,13 @@ func TestDeploymentService_Deploy(t *testing.T) {
 			force:        true,
 			expectedPath: "/api/v1/deploy?uuid=res-789&force=true",
 			response: DeployResponse{
-				Message:      "Force deployment started",
-				DeploymentID: "dep-999",
+				Deployments: []DeploymentInfo{
+					{
+						Message:        "Force deployment started",
+						ResourceUUID:   "res-789",
+						DeploymentUUID: "dep-999",
+					},
+				},
 			},
 		},
 	}
@@ -58,8 +68,11 @@ func TestDeploymentService_Deploy(t *testing.T) {
 
 			result, err := svc.Deploy(context.Background(), tt.uuid, tt.force)
 			require.NoError(t, err)
-			assert.Equal(t, tt.response.Message, result.Message)
-			assert.Equal(t, tt.response.DeploymentID, result.DeploymentID)
+			assert.Len(t, result.Deployments, len(tt.response.Deployments))
+			if len(result.Deployments) > 0 {
+				assert.Equal(t, tt.response.Deployments[0].Message, result.Deployments[0].Message)
+				assert.Equal(t, tt.response.Deployments[0].DeploymentUUID, result.Deployments[0].DeploymentUUID)
+			}
 		})
 	}
 }

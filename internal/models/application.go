@@ -99,12 +99,12 @@ type EnvironmentVariable struct {
 	ID             int     `json:"-" table:"-"`
 	UUID           string  `json:"uuid"`
 	Key            string  `json:"key"`
-	Value          string  `json:"value"`
+	Value          string  `json:"value" sensitive:"true"`
 	IsBuildTime    bool    `json:"is_build_time"`
 	IsPreview      bool    `json:"is_preview"`
 	IsLiteralValue bool    `json:"is_literal"`
 	IsShownOnce    bool    `json:"is_shown_once"`
-	RealValue      *string `json:"real_value,omitempty"`
+	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
 	ApplicationID  *int    `json:"-" table:"-"`
 	CreatedAt      string  `json:"-" table:"-"`
 	UpdatedAt      string  `json:"-" table:"-"`

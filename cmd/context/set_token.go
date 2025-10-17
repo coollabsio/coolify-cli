@@ -27,7 +27,7 @@ func NewSetTokenCommand() *cobra.Command {
 				}
 			}
 			if found == nil {
-				fmt.Printf("%s instance is not found. \n", name)
+				fmt.Printf("Context '%s' not found.\n", name)
 				return
 			}
 			instances := viper.Get("instances").([]interface{})

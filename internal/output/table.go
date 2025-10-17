@@ -20,7 +20,11 @@ func NewTableFormatter(opts Options) *TableFormatter {
 // Format formats the data as a table
 func (f *TableFormatter) Format(data interface{}) error {
 	w := tabwriter.NewWriter(f.opts.Writer, 0, 0, 2, ' ', tabwriter.Debug)
-	defer w.Flush()
+	defer func() {
+		w.Flush()
+		// Add a final newline after table output
+		fmt.Fprintln(f.opts.Writer)
+	}()
 
 	// Handle different data types
 	val := reflect.ValueOf(data)

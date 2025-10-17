@@ -15,7 +15,7 @@ func NewListCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all databases",
-		Long:  `List all databases in your Coolify instance.`,
+		Long:  `List all databases in Coolify.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 

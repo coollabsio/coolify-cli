@@ -14,7 +14,7 @@ func NewListCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all GitHub App integrations",
-		Long:  `List all GitHub App integrations configured in your Coolify instance.`,
+		Long:  `List all GitHub App integrations configured in Coolify.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 
