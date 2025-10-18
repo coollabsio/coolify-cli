@@ -16,7 +16,7 @@ func NewUpdateCommand() *cobra.Command {
 		Example: `context update myserver --name newname --url https://new.coolify.com --token newtoken`,
 		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Update a context's properties (name, URL, token)",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			oldName := args[0]
 			instances := viper.Get("instances").([]interface{})
 
@@ -27,9 +27,7 @@ func NewUpdateCommand() *cobra.Command {
 
 			// Check if at least one flag is provided
 			if newName == "" && newURL == "" && newToken == "" {
-				fmt.Println("Error: At least one of --name, --url, or --token must be provided")
-				fmt.Println("\nUsage: coolify context update <context_name> [--name <new_name>] [--url <new_url>] [--token <new_token>]")
-				return
+				return fmt.Errorf("at least one of --name, --url, or --token must be provided")
 			}
 
 			// Find the context
@@ -45,8 +43,7 @@ func NewUpdateCommand() *cobra.Command {
 			}
 
 			if !found {
-				fmt.Printf("Context '%s' not found.\n", oldName)
-				return
+				return fmt.Errorf("context '%s' not found", oldName)
 			}
 
 			// If renaming, check if new name already exists
@@ -54,8 +51,7 @@ func NewUpdateCommand() *cobra.Command {
 				for _, instance := range instances {
 					instanceMap := instance.(map[string]interface{})
 					if instanceMap["name"] == newName {
-						fmt.Printf("Error: Context with name '%s' already exists.\n", newName)
-						return
+						return fmt.Errorf("context with name '%s' already exists", newName)
 					}
 				}
 				contextToUpdate["name"] = newName
@@ -73,10 +69,8 @@ func NewUpdateCommand() *cobra.Command {
 
 			// Save changes
 			viper.Set("instances", instances)
-			err := viper.WriteConfig()
-			if err != nil {
-				fmt.Printf("Error saving config: %v\n", err)
-				return
+			if err := viper.WriteConfig(); err != nil {
+				return fmt.Errorf("failed to save config: %w", err)
 			}
 
 			// Use the new name if renamed, otherwise use old name
@@ -85,6 +79,7 @@ func NewUpdateCommand() *cobra.Command {
 				finalName = newName
 			}
 			fmt.Printf("Context '%s' updated successfully.\n", finalName)
+			return nil
 		},
 	}
 

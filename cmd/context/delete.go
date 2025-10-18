@@ -18,7 +18,7 @@ func NewDeleteCommand() *cobra.Command {
 		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Delete a context",
 
-		Run: func(_ *cobra.Command, args []string) {
+		RunE: func(_ *cobra.Command, args []string) error {
 			Name := args[0]
 			instances := viper.Get("instances").([]interface{})
 			for i, instance := range instances {
@@ -27,7 +27,7 @@ func NewDeleteCommand() *cobra.Command {
 					instances = slices.Delete(instances, i, i+1)
 					viper.Set("instances", instances)
 					if err := viper.WriteConfig(); err != nil {
-						fmt.Printf("failed to write config: %v\n", err)
+						return fmt.Errorf("failed to write config: %w", err)
 					}
 
 					if instanceMap["default"] == true {
@@ -35,7 +35,7 @@ func NewDeleteCommand() *cobra.Command {
 							instances[0].(map[string]interface{})["default"] = true
 							viper.Set("instances", instances)
 							if err := viper.WriteConfig(); err != nil {
-								fmt.Printf("failed to write config: %v\n", err)
+								return fmt.Errorf("failed to write config: %w", err)
 							}
 							newDefaultName := instances[0].(map[string]interface{})["name"]
 							fmt.Printf("Context '%s' deleted. '%s' is now the default context.\n", Name, newDefaultName)
@@ -45,10 +45,10 @@ func NewDeleteCommand() *cobra.Command {
 					} else {
 						fmt.Printf("Context '%s' deleted.\n", Name)
 					}
-					return
+					return nil
 				}
 			}
-			fmt.Printf("Context '%s' not found.\n", Name)
+			return fmt.Errorf("context '%s' not found", Name)
 		},
 	}
 }

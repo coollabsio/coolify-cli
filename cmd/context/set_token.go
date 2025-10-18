@@ -16,7 +16,7 @@ func NewSetTokenCommand() *cobra.Command {
 		Example: `context set-token myserver your-new-api-token`,
 		Args:    cli.ExactArgs(2, "<context_name> <token>"),
 		Short:   "Update the API token for a context",
-		Run: func(_ *cobra.Command, args []string) {
+		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
 			token := args[1]
 			var found interface{}
@@ -28,8 +28,7 @@ func NewSetTokenCommand() *cobra.Command {
 				}
 			}
 			if found == nil {
-				fmt.Printf("Context '%s' not found.\n", name)
-				return
+				return fmt.Errorf("context '%s' not found", name)
 			}
 			instances := viper.Get("instances").([]interface{})
 			for _, instance := range instances {
@@ -39,12 +38,11 @@ func NewSetTokenCommand() *cobra.Command {
 				}
 			}
 			viper.Set("instances", instances)
-			err := viper.WriteConfig()
-			if err != nil {
-				fmt.Printf("Failed to update token for context '%s': %v\n", name, err)
-				return
+			if err := viper.WriteConfig(); err != nil {
+				return fmt.Errorf("failed to update token for context '%s': %w", name, err)
 			}
 			fmt.Printf("Token updated for context '%s'.\n", name)
+			return nil
 		},
 	}
 }

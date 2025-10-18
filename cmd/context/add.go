@@ -17,7 +17,7 @@ func NewAddCommand() *cobra.Command {
 		Example: `context add myserver https://coolify.example.com your-api-token`,
 		Args:    cli.ExactArgs(3, "<context_name> <url> <token>"),
 		Short:   "Add a new context",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			host := args[1]
 			token := args[2]
@@ -46,14 +46,13 @@ func NewAddCommand() *cobra.Command {
 						}
 						viper.Set("instances", instances)
 						if err := viper.WriteConfig(); err != nil {
-							fmt.Printf("failed to write config: %v\n", err)
-							return
+							return fmt.Errorf("failed to write config: %w", err)
 						}
-						return
+						return nil
 					}
 					fmt.Printf("%s already exists.\n", name)
 					fmt.Println("\nNote: Use --force to force overwrite.")
-					return
+					return nil
 				}
 			}
 
@@ -81,8 +80,9 @@ func NewAddCommand() *cobra.Command {
 
 			viper.Set("instances", instances)
 			if err := viper.WriteConfig(); err != nil {
-				fmt.Printf("failed to write config: %v\n", err)
+				return fmt.Errorf("failed to write config: %w", err)
 			}
+			return nil
 		},
 	}
 
