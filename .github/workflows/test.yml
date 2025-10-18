@@ -32,7 +32,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Run tests
-        run: go test -v -race ./...
+        run: go test -v -race -cover ./...
 
   go-mod-tidy:
     runs-on: ubuntu-latest
