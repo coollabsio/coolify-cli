@@ -3,9 +3,10 @@ package context
 import (
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewUseCommand creates the use command
@@ -15,7 +16,7 @@ func NewUseCommand() *cobra.Command {
 		Example: `context use myserver`,
 		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Switch to a different context (set as default)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
 			instances := viper.Get("instances").([]interface{})
 

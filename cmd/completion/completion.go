@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 func NewCompletionsCommand() *cobra.Command {

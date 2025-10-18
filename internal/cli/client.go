@@ -3,9 +3,10 @@ package cli
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/config"
-	"github.com/spf13/cobra"
 )
 
 // GetAPIClient creates an API client from command flags or config

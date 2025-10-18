@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
-	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestApplicationService_List(t *testing.T) {
@@ -52,7 +53,7 @@ func TestApplicationService_List(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(applications)
+		_ = json.NewEncoder(w).Encode(applications)
 	}))
 	defer server.Close()
 
@@ -77,7 +78,7 @@ func TestApplicationService_List_Empty(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]models.Application{})
+		_ = json.NewEncoder(w).Encode([]models.Application{})
 	}))
 	defer server.Close()
 
@@ -90,9 +91,9 @@ func TestApplicationService_List_Empty(t *testing.T) {
 }
 
 func TestApplicationService_List_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"internal server error"}`))
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -128,7 +129,7 @@ func TestApplicationService_Get(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(application)
+		_ = json.NewEncoder(w).Encode(application)
 	}))
 	defer server.Close()
 
@@ -146,9 +147,9 @@ func TestApplicationService_Get(t *testing.T) {
 }
 
 func TestApplicationService_Get_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"application not found"}`))
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
 	}))
 	defer server.Close()
 
@@ -162,9 +163,9 @@ func TestApplicationService_Get_NotFound(t *testing.T) {
 }
 
 func TestApplicationService_Get_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"internal server error"}`))
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -189,7 +190,8 @@ func TestApplicationService_Update(t *testing.T) {
 
 		// Verify request body
 		var req models.ApplicationUpdateRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
 		assert.NotNil(t, req.Name)
 		assert.Equal(t, newName, *req.Name)
 		assert.NotNil(t, req.GitBranch)
@@ -208,7 +210,7 @@ func TestApplicationService_Update(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(updatedApp)
+		_ = json.NewEncoder(w).Encode(updatedApp)
 	}))
 	defer server.Close()
 
@@ -237,7 +239,8 @@ func TestApplicationService_Update_PartialUpdate(t *testing.T) {
 
 		// Verify only domains field is in request
 		var req models.ApplicationUpdateRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
 		assert.Nil(t, req.Name)
 		assert.Nil(t, req.GitBranch)
 		assert.NotNil(t, req.Domains)
@@ -256,7 +259,7 @@ func TestApplicationService_Update_PartialUpdate(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(updatedApp)
+		_ = json.NewEncoder(w).Encode(updatedApp)
 	}))
 	defer server.Close()
 
@@ -275,9 +278,9 @@ func TestApplicationService_Update_PartialUpdate(t *testing.T) {
 }
 
 func TestApplicationService_Update_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"application not found"}`))
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
 	}))
 	defer server.Close()
 
@@ -296,9 +299,9 @@ func TestApplicationService_Update_NotFound(t *testing.T) {
 }
 
 func TestApplicationService_Update_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"internal server error"}`))
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -334,9 +337,9 @@ func TestApplicationService_Delete(t *testing.T) {
 }
 
 func TestApplicationService_Delete_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"application not found"}`))
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
 	}))
 	defer server.Close()
 
@@ -349,9 +352,9 @@ func TestApplicationService_Delete_NotFound(t *testing.T) {
 }
 
 func TestApplicationService_Delete_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"internal server error"}`))
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -375,7 +378,7 @@ func TestApplicationService_Start(t *testing.T) {
 			DeploymentUUID: &deploymentUUID,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -399,7 +402,7 @@ func TestApplicationService_Start_WithForce(t *testing.T) {
 			Message: "Deployment request queued.",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -420,7 +423,7 @@ func TestApplicationService_Start_WithInstantDeploy(t *testing.T) {
 			Message: "Deployment request queued.",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -433,9 +436,9 @@ func TestApplicationService_Start_WithInstantDeploy(t *testing.T) {
 }
 
 func TestApplicationService_Start_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"failed to start application"}`))
+		_, _ = w.Write([]byte(`{"message":"failed to start application"}`))
 	}))
 	defer server.Close()
 
@@ -458,7 +461,7 @@ func TestApplicationService_Stop(t *testing.T) {
 			Message: "Application stopped successfully",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -472,9 +475,9 @@ func TestApplicationService_Stop(t *testing.T) {
 }
 
 func TestApplicationService_Stop_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"failed to stop application"}`))
+		_, _ = w.Write([]byte(`{"message":"failed to stop application"}`))
 	}))
 	defer server.Close()
 
@@ -497,7 +500,7 @@ func TestApplicationService_Restart(t *testing.T) {
 			Message: "Application restarted successfully",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -511,9 +514,9 @@ func TestApplicationService_Restart(t *testing.T) {
 }
 
 func TestApplicationService_Restart_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"failed to restart application"}`))
+		_, _ = w.Write([]byte(`{"message":"failed to restart application"}`))
 	}))
 	defer server.Close()
 
@@ -536,7 +539,7 @@ func TestApplicationService_Logs(t *testing.T) {
 			Logs: "[2025-10-15 12:00:00] Application started\n[2025-10-15 12:00:01] Server listening on port 3000\n",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -559,7 +562,7 @@ func TestApplicationService_Logs_WithLines(t *testing.T) {
 			Logs: "[2025-10-15 12:00:00] Log line\n",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -572,9 +575,9 @@ func TestApplicationService_Logs_WithLines(t *testing.T) {
 }
 
 func TestApplicationService_Logs_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"application not found"}`))
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
 	}))
 	defer server.Close()
 
@@ -612,7 +615,7 @@ func TestApplicationService_ListEnvs(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(envs)
+		_ = json.NewEncoder(w).Encode(envs)
 	}))
 	defer server.Close()
 
@@ -630,7 +633,7 @@ func TestApplicationService_ListEnvs_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]models.EnvironmentVariable{})
+		_ = json.NewEncoder(w).Encode([]models.EnvironmentVariable{})
 	}))
 	defer server.Close()
 
@@ -639,13 +642,13 @@ func TestApplicationService_ListEnvs_Empty(t *testing.T) {
 
 	result, err := svc.ListEnvs(context.Background(), "app-uuid-123")
 	require.NoError(t, err)
-	assert.Len(t, result, 0)
+	assert.Empty(t, result)
 }
 
 func TestApplicationService_ListEnvs_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"application not found"}`))
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
 	}))
 	defer server.Close()
 
@@ -674,7 +677,7 @@ func TestApplicationService_CreateEnv(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(env)
+		_ = json.NewEncoder(w).Encode(env)
 	}))
 	defer server.Close()
 
@@ -696,9 +699,9 @@ func TestApplicationService_CreateEnv(t *testing.T) {
 }
 
 func TestApplicationService_CreateEnv_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"message":"key already exists"}`))
+		_, _ = w.Write([]byte(`{"message":"key already exists"}`))
 	}))
 	defer server.Close()
 
@@ -727,7 +730,7 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 			Value: "newsecret456",
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(env)
+		_ = json.NewEncoder(w).Encode(env)
 	}))
 	defer server.Close()
 
@@ -748,9 +751,9 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 }
 
 func TestApplicationService_UpdateEnv_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"environment variable not found"}`))
+		_, _ = w.Write([]byte(`{"message":"environment variable not found"}`))
 	}))
 	defer server.Close()
 
@@ -785,9 +788,9 @@ func TestApplicationService_DeleteEnv(t *testing.T) {
 }
 
 func TestApplicationService_DeleteEnv_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"environment variable not found"}`))
+		_, _ = w.Write([]byte(`{"message":"environment variable not found"}`))
 	}))
 	defer server.Close()
 

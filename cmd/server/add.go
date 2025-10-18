@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewAddCommand creates the add command
@@ -28,7 +29,7 @@ func NewAddCommand() *cobra.Command {
 			// Parse arguments and flags
 			name := args[0]
 			ip := args[1]
-			privateKeyUuid := args[2]
+			privateKeyUUID := args[2]
 			port, _ := cmd.Flags().GetInt("port")
 			user, _ := cmd.Flags().GetString("user")
 			validate, _ := cmd.Flags().GetBool("validate")
@@ -39,7 +40,7 @@ func NewAddCommand() *cobra.Command {
 				IP:              ip,
 				Port:            port,
 				User:            user,
-				PrivateKeyUUID:  privateKeyUuid,
+				PrivateKeyUUID:  privateKeyUUID,
 				InstantValidate: validate,
 			}
 

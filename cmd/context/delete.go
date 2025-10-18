@@ -2,11 +2,12 @@ package context
 
 import (
 	"fmt"
+	"slices"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"slices"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewDeleteCommand creates the delete command
@@ -17,7 +18,7 @@ func NewDeleteCommand() *cobra.Command {
 		Args:    cli.ExactArgs(1, "<context_name>"),
 		Short:   "Delete a context",
 
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			Name := args[0]
 			instances := viper.Get("instances").([]interface{})
 			for i, instance := range instances {
@@ -25,13 +26,17 @@ func NewDeleteCommand() *cobra.Command {
 				if instanceMap["name"] == Name {
 					instances = slices.Delete(instances, i, i+1)
 					viper.Set("instances", instances)
-					viper.WriteConfig()
+					if err := viper.WriteConfig(); err != nil {
+						fmt.Printf("failed to write config: %v\n", err)
+					}
 
 					if instanceMap["default"] == true {
 						if len(instances) > 0 {
 							instances[0].(map[string]interface{})["default"] = true
 							viper.Set("instances", instances)
-							viper.WriteConfig()
+							if err := viper.WriteConfig(); err != nil {
+								fmt.Printf("failed to write config: %v\n", err)
+							}
 							newDefaultName := instances[0].(map[string]interface{})["name"]
 							fmt.Printf("Context '%s' deleted. '%s' is now the default context.\n", Name, newDefaultName)
 						} else {

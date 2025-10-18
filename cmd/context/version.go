@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewVersionCommand creates the version command for contexts
@@ -13,7 +14,7 @@ func NewVersionCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Get current context's Coolify version",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := context.Background()
 
 			// Get API client

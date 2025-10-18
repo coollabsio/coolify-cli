@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewCreateCommand() *cobra.Command {
@@ -116,7 +117,7 @@ Examples:
 				}
 				if cmd.Flags().Changed("postgres-db") {
 					db, _ := cmd.Flags().GetString("postgres-db")
-					req.PostgresDb = &db
+					req.PostgresDB = &db
 				}
 			}
 

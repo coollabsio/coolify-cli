@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewGetCommand() *cobra.Command {
@@ -26,7 +27,7 @@ func NewGetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.GetEnv(ctx, serviceUUID, envUUID)
 			if err != nil {
 				return fmt.Errorf("failed to get environment variable: %w", err)

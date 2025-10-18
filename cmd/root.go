@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"text/tabwriter"
+
+	compareVersion "github.com/hashicorp/go-version"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/coollabsio/coolify-cli/cmd/application"
 	"github.com/coollabsio/coolify-cli/cmd/completion"
@@ -23,9 +27,6 @@ import (
 	cliversion "github.com/coollabsio/coolify-cli/cmd/version"
 	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/coollabsio/coolify-cli/internal/version"
-	compareVersion "github.com/hashicorp/go-version"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // Legacy global variables - kept for backward compatibility during migration
@@ -39,10 +40,9 @@ var (
 	Debug              bool
 	ShowSensitive      bool
 	Format             string
-	JsonMode           bool
+	JSONMode           bool
 	PrettyMode         bool
 	SetDefaultInstance bool
-	w                  = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
 )
 
 var rootCmd = &cobra.Command{
@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 	Long:          `A CLI tool to interact with Coolify API.`,
 	SilenceUsage:  true,  // Don't show usage on errors
 	SilenceErrors: false, // Still print errors
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		return nil
 	},
 }
@@ -71,7 +71,7 @@ func init() {
 		Long:          fmt.Sprintf("A CLI tool to interact with Coolify API.\nVersion: %s", version.CliVersion),
 		SilenceUsage:  true,  // Don't show usage on errors
 		SilenceErrors: false, // Still print errors
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			return nil
 		},
 	}
@@ -112,11 +112,14 @@ func initConfig() {
 	// Ensure config directory exists
 	configDir := config.Path()[:len(config.Path())-len("/config.json")]
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		os.MkdirAll(configDir, 0755)
+		if err := os.MkdirAll(configDir, 0750); err != nil {
+			log.Printf("Failed to create config directory: %v\n", err)
+		}
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		var notFoundErr viper.ConfigFileNotFoundError
+		if errors.As(err, &notFoundErr) {
 			log.Println("Config file not found. Creating a new one at", config.Path())
 			if err := config.CreateDefault(); err != nil {
 				log.Printf("Failed to create default config: %v\n", err)

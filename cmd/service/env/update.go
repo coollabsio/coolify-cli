@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewUpdateCommand() *cobra.Command {
@@ -61,7 +62,7 @@ func NewUpdateCommand() *cobra.Command {
 				return fmt.Errorf("at least one field must be provided to update (--key, --value, --build-time, --preview, --is-literal, or --is-multiline)")
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.UpdateEnv(ctx, serviceUUID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update environment variable: %w", err)

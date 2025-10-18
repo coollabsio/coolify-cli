@@ -3,9 +3,10 @@ package context
 import (
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewSetTokenCommand creates the set-token command
@@ -15,7 +16,7 @@ func NewSetTokenCommand() *cobra.Command {
 		Example: `context set-token myserver your-new-api-token`,
 		Args:    cli.ExactArgs(2, "<context_name> <token>"),
 		Short:   "Update the API token for a context",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
 			token := args[1]
 			var found interface{}
@@ -38,7 +39,11 @@ func NewSetTokenCommand() *cobra.Command {
 				}
 			}
 			viper.Set("instances", instances)
-			viper.WriteConfig()
+			err := viper.WriteConfig()
+			if err != nil {
+				fmt.Printf("Failed to update token for context '%s': %v\n", name, err)
+				return
+			}
 			fmt.Printf("Token updated for context '%s'.\n", name)
 		},
 	}

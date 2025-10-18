@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewCreateCommand() *cobra.Command {
@@ -58,7 +59,7 @@ func NewCreateCommand() *cobra.Command {
 				req.IsMultiline = &isMultiline
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.CreateEnv(ctx, uuid, req)
 			if err != nil {
 				return fmt.Errorf("failed to create environment variable: %w", err)

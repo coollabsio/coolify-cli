@@ -1,6 +1,7 @@
 package version
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,7 @@ import (
 )
 
 // CliVersion is the CLI version
-const CliVersion = "1.0.3"
+const CliVersion = "1.0.4"
 
 // CheckInterval for version checking
 const CheckInterval = 10 * time.Minute
@@ -39,10 +40,13 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 
 	// Update check time
 	viper.Set("lastupdatechecktime", time.Now().Format(time.RFC3339))
-	viper.WriteConfig()
+	if err := viper.WriteConfig(); err != nil {
+		log.Printf("Failed to write config: %v\n", err)
+	}
 
 	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
-	req, err := http.NewRequest("GET", url, nil)
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}

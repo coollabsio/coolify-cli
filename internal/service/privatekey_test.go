@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
-	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestPrivateKeyService_List(t *testing.T) {
@@ -30,7 +31,7 @@ func TestPrivateKeyService_List(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(keys)
+		_ = json.NewEncoder(w).Encode(keys)
 	}))
 	defer server.Close()
 
@@ -60,11 +61,11 @@ func TestPrivateKeyService_Create(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var receivedReq models.PrivateKeyCreateRequest
-		json.NewDecoder(r.Body).Decode(&receivedReq)
+		_ = json.NewDecoder(r.Body).Decode(&receivedReq)
 		assert.Equal(t, req.Name, receivedReq.Name)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(key)
+		_ = json.NewEncoder(w).Encode(key)
 	}))
 	defer server.Close()
 

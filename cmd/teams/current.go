@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewCurrentCommand creates the current command
@@ -16,7 +17,7 @@ func NewCurrentCommand() *cobra.Command {
 		Use:   "current",
 		Short: "Get currently authenticated team",
 		Long:  `Get details of the team associated with the current authentication token.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := context.Background()
 
 			client, err := cli.GetAPIClient(cmd)

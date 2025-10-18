@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewRestartCommand restarts a service
@@ -25,7 +26,7 @@ func NewRestartCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			resp, err := serviceSvc.Restart(ctx, uuid)
 			if err != nil {
 				return fmt.Errorf("failed to restart service: %w", err)

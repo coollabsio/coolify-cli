@@ -7,10 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
-	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestServerService_List(t *testing.T) {
@@ -22,7 +23,7 @@ func TestServerService_List(t *testing.T) {
 			{UUID: "uuid-1", Name: "server-1"},
 			{UUID: "uuid-2", Name: "server-2"},
 		}
-		json.NewEncoder(w).Encode(servers)
+		_ = json.NewEncoder(w).Encode(servers)
 	}))
 	defer server.Close()
 
@@ -47,7 +48,7 @@ func TestServerService_Get(t *testing.T) {
 			Name: "test-server",
 			IP:   "192.168.1.100",
 		}
-		json.NewEncoder(w).Encode(server)
+		_ = json.NewEncoder(w).Encode(server)
 	}))
 	defer server.Close()
 
@@ -73,7 +74,7 @@ func TestServerService_GetResources(t *testing.T) {
 				{UUID: "res-1", Name: "resource-1", Type: "application"},
 			},
 		}
-		json.NewEncoder(w).Encode(resources)
+		_ = json.NewEncoder(w).Encode(resources)
 	}))
 	defer server.Close()
 
@@ -93,13 +94,13 @@ func TestServerService_Create(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var req models.ServerCreateRequest
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		assert.Equal(t, "new-server", req.Name)
 		assert.Equal(t, "192.168.1.200", req.IP)
 
 		response := models.Response{Message: "Server created"}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -126,7 +127,7 @@ func TestServerService_Delete(t *testing.T) {
 		assert.Equal(t, "DELETE", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(models.Response{Message: "Server deleted"})
+		_ = json.NewEncoder(w).Encode(models.Response{Message: "Server deleted"})
 	}))
 	defer server.Close()
 
@@ -144,7 +145,7 @@ func TestServerService_Validate(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		response := models.Response{Message: "Server is valid"}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 

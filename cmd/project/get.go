@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // EnvironmentRow represents an environment for display
@@ -55,7 +56,7 @@ func NewGetCommand() *cobra.Command {
 			var rows []EnvironmentRow
 
 			// If the project has environments, expand them
-			if project.Environments != nil && len(project.Environments) > 0 {
+			if len(project.Environments) > 0 {
 				for _, env := range project.Environments {
 					rows = append(rows, EnvironmentRow{
 						UUID:            env.UUID,

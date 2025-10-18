@@ -7,17 +7,18 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/coollabsio/coolify-cli/internal/version"
 	selfupdate "github.com/creativeprojects/go-selfupdate"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
+
+	"github.com/coollabsio/coolify-cli/internal/version"
 )
 
 func NewUpdateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "update",
 		Short: "Update Coolify CLI",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
 			if err != nil {
 				log.Printf("Error occurred while detecting version: %v", err)

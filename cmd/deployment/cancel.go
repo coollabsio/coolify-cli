@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewCancelCommand cancels a deployment
@@ -35,9 +36,11 @@ func NewCancelCommand() *cobra.Command {
 
 			// Prompt for confirmation unless --force is used
 			if !force {
-				var response string
 				fmt.Printf("Are you sure you want to cancel deployment %s? (yes/no): ", uuid)
-				fmt.Scanln(&response)
+				var response string
+				if _, err := fmt.Scanln(&response); err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
 
 				if response != "yes" && response != "y" {
 					fmt.Println("Cancel aborted.")

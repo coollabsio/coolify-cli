@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewListCommand lists all services
@@ -16,7 +17,7 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List all services",
 		Long:  `List all services in Coolify.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := context.Background()
 
 			client, err := cli.GetAPIClient(cmd)
@@ -24,7 +25,7 @@ func NewListCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			services, err := serviceSvc.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list services: %w", err)

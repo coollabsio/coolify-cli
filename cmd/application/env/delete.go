@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewDeleteEnvCommand() *cobra.Command {
@@ -31,7 +32,11 @@ func NewDeleteEnvCommand() *cobra.Command {
 			if !force {
 				var response string
 				fmt.Printf("Are you sure you want to delete this environment variable? (yes/no): ")
-				fmt.Scanln(&response)
+				_, err := fmt.Scanln(&response)
+
+				if err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
 
 				if response != "yes" && response != "y" {
 					fmt.Println("Delete cancelled.")

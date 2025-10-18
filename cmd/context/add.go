@@ -3,10 +3,11 @@ package context
 import (
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
-	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
+	"github.com/coollabsio/coolify-cli/internal/config"
 )
 
 // NewAddCommand creates the add command
@@ -44,7 +45,10 @@ func NewAddCommand() *cobra.Command {
 							fmt.Printf("%s already exists. Force overwriting.\n", name)
 						}
 						viper.Set("instances", instances)
-						viper.WriteConfig()
+						if err := viper.WriteConfig(); err != nil {
+							fmt.Printf("failed to write config: %v\n", err)
+							return
+						}
 						return
 					}
 					fmt.Printf("%s already exists.\n", name)

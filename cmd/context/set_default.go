@@ -3,9 +3,10 @@ package context
 import (
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewSetTokenCommand creates the set-token command
@@ -32,13 +33,13 @@ func NewSetDefaultCommand() *cobra.Command {
 
 			if !found {
 				return fmt.Errorf("Context '%s' not found", name)
-			} else {
-				// Only unset other defaults if we found the target instance
-				for _, instance := range instances {
-					instanceMap := instance.(map[string]interface{})
-					if instanceMap["name"] != name {
-						instanceMap["default"] = false
-					}
+			}
+
+			// Only unset other defaults if we found the target instance
+			for _, instance := range instances {
+				instanceMap := instance.(map[string]interface{})
+				if instanceMap["name"] != name {
+					instanceMap["default"] = false
 				}
 			}
 

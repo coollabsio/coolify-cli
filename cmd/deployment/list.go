@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewListCommand lists all deployments
@@ -16,7 +17,7 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List all deployments",
 		Long:  `List all currently running deployments across all resources.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := context.Background()
 
 			client, err := cli.GetAPIClient(cmd)
