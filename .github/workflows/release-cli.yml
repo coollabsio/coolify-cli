@@ -42,5 +42,6 @@ jobs:
           sed -i "s/version.*=.*\".*\"/version = \"$TAG\"/" internal/version/checker.go
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add internal/version/checker.go
           git commit -m "chore: update version to $TAG"
           git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git v4.x
