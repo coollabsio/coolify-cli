@@ -39,7 +39,7 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           echo "Updating version to $TAG"
-          sed -i "s/^version = \".*\"/version = \"$TAG\"/" internal/version/checker.go
+          sed -i "s/version.*=.*\".*\"/version = \"$TAG\"/" internal/version/checker.go
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: update version to $TAG"
