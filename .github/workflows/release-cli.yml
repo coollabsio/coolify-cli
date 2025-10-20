@@ -44,5 +44,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add internal/version/checker.go
-          git commit -m "chore: update version to $TAG"
+          git commit -m "chore: bump version to $TAG"
           git push origin v4.x
