@@ -10,15 +10,7 @@ This guide explains the release process for the Coolify CLI.
 
 ## Release Process
 
-### 1. Commit and Push Version Change
-
-```bash
-git add cmd/root.go
-git commit -m "chore: bump version to 1.x.x"
-git push origin v4.x
-```
-
-### 2. Create a GitHub Release
+### 1. Create a GitHub Release
 
 1. Go to https://github.com/coollabsio/coolify-cli/releases/new
 2. Click "Choose a tag" and create a new tag:
@@ -43,7 +35,7 @@ git push origin v4.x
      ```
 5. Click "Publish release"
 
-### 3. Automated Build Process
+### 2. Automated Build Process
 
 Once you publish the release:
 
@@ -58,7 +50,7 @@ Once you publish the release:
    - GitHub: `https://github.com/coollabsio/coolify-cli/releases/tag/v1.x.x`
    - Install script: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`
 
-### 5. Verify the Release
+### 3. Verify the Release
 
 After the workflow completes (usually 2-5 minutes):
 

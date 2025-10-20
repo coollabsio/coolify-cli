@@ -93,9 +93,7 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 	latestVersion := versions[len(versions)-1]
 
 	// Compare versions properly using semantic versioning
-	// Strip prerelease suffix for comparison if present
-	currentVersionStr := GetVersion()
-	currentVersion, err := compareVersion.NewVersion(currentVersionStr)
+	currentVersion, err := compareVersion.NewVersion(GetVersion())
 	if err != nil {
 		return latestVersion.String(), err
 	}
