@@ -27,7 +27,7 @@ func NewUpdateCommand() *cobra.Command {
 				log.Printf("Latest version for %s/%s could not be found from github repository", runtime.GOOS, runtime.GOARCH)
 				return
 			}
-			currentVersion, err := compareVersion.NewVersion(version.CliVersion)
+			currentVersion, err := compareVersion.NewVersion(version.GetVersion())
 			if err != nil {
 				log.Printf("Could not parse current version: %v", err)
 				return

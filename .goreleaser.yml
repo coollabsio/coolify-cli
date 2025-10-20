@@ -3,6 +3,8 @@ before:
     - go mod tidy
 builds:
   - binary: coolify
+    ldflags:
+      - -X github.com/coollabsio/coolify-cli/internal/version.version={{ .Version }}
     goos:
       - darwin
       - linux

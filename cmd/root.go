@@ -68,7 +68,7 @@ func init() {
 	rootCmd = &cobra.Command{
 		Use:           "coolify",
 		Short:         "Coolify CLI",
-		Long:          fmt.Sprintf("A CLI tool to interact with Coolify API.\nVersion: %s", version.CliVersion),
+		Long:          fmt.Sprintf("A CLI tool to interact with Coolify API.\nVersion: %s", version.GetVersion()),
 		SilenceUsage:  true,  // Don't show usage on errors
 		SilenceErrors: false, // Still print errors
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -153,7 +153,7 @@ func initConfig() {
 	if latestVersionStr != "" {
 		latestVersion, err := compareVersion.NewVersion(latestVersionStr)
 		if err == nil {
-			currentVersion, err := compareVersion.NewVersion(version.CliVersion)
+			currentVersion, err := compareVersion.NewVersion(version.GetVersion())
 			if err == nil && latestVersion.GreaterThan(currentVersion) {
 				if Debug {
 					log.Printf("New version of Coolify CLI is available: %s\n", latestVersionStr)

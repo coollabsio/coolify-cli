@@ -10,20 +10,7 @@ This guide explains the release process for the Coolify CLI.
 
 ## Release Process
 
-### 1. Update Version Number
-
-Edit `cmd/root.go` and update the `CliVersion` variable:
-
-```go
-var CliVersion = "1.x.x"  // Change to your new version
-```
-
-**Version Format:** Use semantic versioning: `MAJOR.MINOR.PATCH` (e.g., `1.2.3`)
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backwards compatible)
-- **PATCH**: Bug fixes (backwards compatible)
-
-### 2. Commit and Push Version Change
+### 1. Commit and Push Version Change
 
 ```bash
 git add cmd/root.go
@@ -31,7 +18,7 @@ git commit -m "chore: bump version to 1.x.x"
 git push origin v4.x
 ```
 
-### 3. Create a GitHub Release
+### 2. Create a GitHub Release
 
 1. Go to https://github.com/coollabsio/coolify-cli/releases/new
 2. Click "Choose a tag" and create a new tag:
@@ -56,7 +43,7 @@ git push origin v4.x
      ```
 5. Click "Publish release"
 
-### 4. Automated Build Process
+### 3. Automated Build Process
 
 Once you publish the release:
 
@@ -65,8 +52,9 @@ Once you publish the release:
    - **Linux**: amd64, arm64
    - **macOS (Darwin)**: amd64, arm64
    - **Windows**: amd64, arm64
-3. Binaries are automatically uploaded to the release
-4. The release becomes available at:
+3. Goreleaser injects the version from the tag into the binaries
+4. Binaries are automatically uploaded to the release
+5. The release becomes available at:
    - GitHub: `https://github.com/coollabsio/coolify-cli/releases/tag/v1.x.x`
    - Install script: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`
 
@@ -131,7 +119,7 @@ The release process uses these configuration files:
 - `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, etc.)
 - `.github/workflows/release-cli.yml` - GitHub Actions workflow
 - `scripts/install.sh` - User-facing install script
-- `cmd/root.go` - Contains `CliVersion` variable (line 22)
+- `cmd/root.go` - Contains `GetVersion` variable (line 22)
 
 ## Notes
 
