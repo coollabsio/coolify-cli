@@ -1,7 +1,6 @@
 package env
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewCreateEnvCommand() *cobra.Command {
 		Long:  `Create a new environment variable for a specific application. Use --key and --value flags to specify the variable.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

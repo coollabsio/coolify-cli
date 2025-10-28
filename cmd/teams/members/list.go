@@ -1,7 +1,6 @@
 package members
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewListCommand() *cobra.Command {
 		Long:  `List members of a specific team by ID, or list members of the current team if no ID is provided.`,
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

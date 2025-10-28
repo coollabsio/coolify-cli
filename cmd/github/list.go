@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func NewListCommand() *cobra.Command {
 		Short: "List all GitHub App integrations",
 		Long:  `List all GitHub App integrations configured in Coolify.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

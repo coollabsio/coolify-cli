@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewUpdateCommand() *cobra.Command {
 		Long:  `Update configuration for a specific application. Only specified fields will be updated.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

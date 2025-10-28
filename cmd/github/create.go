@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -22,7 +21,7 @@ Required flags: --name, --api-url, --html-url, --app-id, --installation-id, --cl
 
 Example: coolify github create --name "My GitHub App" --api-url "https://api.github.com" --html-url "https://github.com" --app-id 123456 --installation-id 789012 --client-id "Iv1.abc123" --client-secret "secret123" --private-key-uuid "abc-123-def-456"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewListCommand() *cobra.Command {
 		Short: "List all databases",
 		Long:  `List all databases in Coolify.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

@@ -19,7 +19,7 @@ func NewCancelCommand() *cobra.Command {
 		Long:  `Cancel an in-progress deployment. This will stop the deployment process and clean up any temporary resources.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
@@ -32,7 +32,10 @@ func NewCancelCommand() *cobra.Command {
 				return err
 			}
 
-			force, _ := cmd.Flags().GetBool("force")
+			force, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return fmt.Errorf("failed to parse force flag: %w", err)
+			}
 
 			// Prompt for confirmation unless --force is used
 			if !force {
@@ -54,7 +57,11 @@ func NewCancelCommand() *cobra.Command {
 				return fmt.Errorf("failed to cancel deployment: %w", err)
 			}
 
-			format, _ := cmd.Flags().GetString("format")
+			format, err := cmd.Flags().GetString("format")
+			if err != nil {
+				return fmt.Errorf("failed to get format flag: %w", err)
+			}
+
 			formatter, err := output.NewFormatter(format, output.Options{})
 			if err != nil {
 				return fmt.Errorf("failed to create formatter: %w", err)

@@ -2,7 +2,6 @@ package backup
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -21,7 +20,7 @@ func NewDeleteExecutionCommand() *cobra.Command {
 		Long:  `Delete a specific backup execution and optionally from S3. First UUID is the database, second is the backup configuration, third is the specific execution.`,
 		Args:  cli.ExactArgs(3, "<database_uuid> <backup_uuid> <execution_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 			backupUUID := args[1]
 			executionUUID := args[2]

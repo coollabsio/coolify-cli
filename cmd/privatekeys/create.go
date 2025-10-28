@@ -1,7 +1,6 @@
 package privatekeys
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -20,7 +19,7 @@ func NewCreateCommand() *cobra.Command {
 		Args:    cli.ExactArgs(2, "<key_name> <private_key_or_file>"),
 		Short:   "Add a private key",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			name := args[0]
 			privateKeyInput := args[1]
 

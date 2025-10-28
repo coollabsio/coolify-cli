@@ -1,7 +1,6 @@
 package privatekeys
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List all private keys",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

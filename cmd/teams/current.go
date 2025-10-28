@@ -1,7 +1,6 @@
 package teams
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewCurrentCommand() *cobra.Command {
 		Short: "Get currently authenticated team",
 		Long:  `Get details of the team associated with the current authentication token.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

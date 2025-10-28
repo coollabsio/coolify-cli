@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -22,7 +21,7 @@ func NewCreateCommand() *cobra.Command {
 Example: coolify database backup create abc123 --frequency "0 0 * * *" --enabled`,
 		Args: cli.ExactArgs(1, "<database_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

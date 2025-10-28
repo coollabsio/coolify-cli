@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewGetDomainsCommand() *cobra.Command {
 		Args:    cli.ExactArgs(1, "<uuid>"),
 		Short:   "Get server domains by uuid",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Get API client
 			client, err := cli.GetAPIClient(cmd)

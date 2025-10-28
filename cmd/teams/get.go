@@ -1,7 +1,6 @@
 package teams
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewGetCommand() *cobra.Command {
 		Long:  `Get detailed information about a specific team by its ID.`,
 		Args:  cli.ExactArgs(1, "<team_id>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			teamID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

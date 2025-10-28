@@ -1,7 +1,6 @@
 package env
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete an environment variable from a service. First UUID is the service, second is the specific environment variable to delete.`,
 		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			serviceUUID := args[0]
 			envUUID := args[1]
 

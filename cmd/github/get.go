@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewGetCommand() *cobra.Command {
 		Long:  `Get detailed information about a specific GitHub App integration.`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			appUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

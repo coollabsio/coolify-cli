@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -21,7 +20,7 @@ Provide resource names as comma-separated values.
 Example: coolify deploy batch app1,app2,app3`,
 		Args: cli.ExactArgs(1, "<names>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			namesStr := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

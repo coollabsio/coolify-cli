@@ -1,7 +1,6 @@
 package context
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -15,7 +14,7 @@ func NewVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Get current context's Coolify version",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Get API client
 			client, err := cli.GetAPIClient(cmd)

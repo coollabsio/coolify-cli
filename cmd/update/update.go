@@ -1,7 +1,6 @@
 package update
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -19,7 +18,7 @@ func NewUpdateCommand() *cobra.Command {
 		Use:   "update",
 		Short: "Update Coolify CLI",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
+			latest, found, err := selfupdate.DetectLatest(cmd.Context(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
 			if err != nil {
 				return fmt.Errorf("failed to detect latest version: %w", err)
 			}
@@ -40,7 +39,7 @@ func NewUpdateCommand() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("could not locate executable path: %w", err)
 				}
-				if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
+				if err := selfupdate.UpdateTo(cmd.Context(), latest.AssetURL, latest.AssetName, exe); err != nil {
 					return fmt.Errorf("error occurred while updating binary: %w", err)
 				}
 				log.Printf("Successfully updated to version %s", latest.Version())

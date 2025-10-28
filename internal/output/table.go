@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"text/tabwriter"
@@ -18,16 +17,18 @@ func NewTableFormatter(opts Options) *TableFormatter {
 	return &TableFormatter{opts: opts}
 }
 
-func (f *TableFormatter) Format(data any) error { // TODO
+func (f *TableFormatter) Format(data any) (err error) {
 	w := tabwriter.NewWriter(f.opts.Writer, 0, 0, 2, ' ', tabwriter.Debug)
 	defer func() {
-		err := w.Flush()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to flush table writer: %v\n", err)
-			return
+		if flushErr := w.Flush(); flushErr != nil {
+			if err == nil {
+				err = fmt.Errorf("failed to flush table writer: %w", flushErr)
+			}
 		}
-		// Add a final newline after table output
-		fmt.Fprintln(f.opts.Writer)
+		// Add a final newline nach table output, aber nur wenn kein Fehler
+		if err == nil {
+			fmt.Fprintln(f.opts.Writer)
+		}
 	}()
 
 	// Handle different data types

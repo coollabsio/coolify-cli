@@ -1,7 +1,6 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -26,7 +25,7 @@ Examples:
   coolify databases create mysql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production --name="My MySQL"`,
 		Args: cli.ExactArgs(1, "<type>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbType := args[0]
 			validTypes := []string{"postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "clickhouse", "dragonfly"}
 			isValid := false

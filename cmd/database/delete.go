@@ -2,7 +2,6 @@ package database
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -21,7 +20,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete a database and optionally clean up its configurations, volumes, and networks.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			force, _ := cmd.Flags().GetBool("force")

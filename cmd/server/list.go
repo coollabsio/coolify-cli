@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func NewListCommand() *cobra.Command {
 		Use:   "list",
 		Short: "List all servers",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Get API client
 			client, err := cli.GetAPIClient(cmd)

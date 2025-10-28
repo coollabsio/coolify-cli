@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewListCommand() *cobra.Command {
 		Short: "List all deployments",
 		Long:  `List all currently running deployments across all resources.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete an application. This action cannot be undone.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			force, _ := cmd.Flags().GetBool("force")

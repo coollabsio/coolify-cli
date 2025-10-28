@@ -1,7 +1,6 @@
 package env
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewGetEnvCommand() *cobra.Command {
 		Long:  `Get detailed information about a specific environment variable by UUID or key name.`,
 		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			appUUID := args[0]
 			envUUID := args[1]
 

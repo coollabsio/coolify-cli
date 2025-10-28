@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewExecutionCommand() *cobra.Command {
 		Long:  `List all executions for a backup configuration. First UUID is the database, second is the specific backup configuration.`,
 		Args:  cli.ExactArgs(2, "<database_uuid> <backup_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 			backupUUID := args[1]
 

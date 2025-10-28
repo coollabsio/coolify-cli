@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,7 +18,7 @@ func NewListCommand() *cobra.Command {
 		Long:  `List all backup configurations for a specific database.`,
 		Args:  cli.ExactArgs(1, "<database_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

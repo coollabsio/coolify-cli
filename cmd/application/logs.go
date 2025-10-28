@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,7 +21,7 @@ func NewLogsCommand() *cobra.Command {
 		Long:  `Retrieve logs for an application. Use --follow to continuously stream new logs.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

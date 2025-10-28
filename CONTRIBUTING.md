@@ -177,7 +177,7 @@ func NewListCommand() *cobra.Command {
         Use:   "list",
         Short: "List all myfeature resources",
         RunE: func(cmd *cobra.Command, args []string) error {
-            ctx := context.Background()
+            ctx := cmd.Context()
 
             // Get API client
             client, err := cli.GetAPIClient(cmd)
@@ -330,7 +330,7 @@ func TestMyFeatureService_List(t *testing.T) {
     client := api.NewClient(server.URL, "test-token")
     svc := NewMyFeatureService(client)
 
-    items, err := svc.List(context.Background())
+    items, err := svc.List(cmd.Context())
 
     require.NoError(t, err)
     assert.Len(t, items, 2)

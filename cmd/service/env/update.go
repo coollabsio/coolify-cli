@@ -1,7 +1,6 @@
 package env
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +17,7 @@ func NewUpdateCommand() *cobra.Command {
 		Long:  `Update an existing environment variable. First UUID is the service, second is the specific environment variable to update.`,
 		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			serviceUUID := args[0]
 			envUUID := args[1]
 
