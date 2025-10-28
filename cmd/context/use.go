@@ -43,8 +43,12 @@ func NewUseCommand() *cobra.Command {
 
 			// Update default
 			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["name"] == name {
+				instanceMap, ok := instance.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("invalid instance configuration")
+				}
+
+				if val, ok := instanceMap["name"].(string); ok && val == name {
 					instanceMap["default"] = true
 				} else {
 					delete(instanceMap, "default")

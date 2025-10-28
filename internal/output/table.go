@@ -27,7 +27,9 @@ func (f *TableFormatter) Format(data any) (err error) {
 		}
 		// Add a final newline nach table output, aber nur wenn kein Fehler
 		if err == nil {
-			fmt.Fprintln(f.opts.Writer)
+			if _, nlErr := fmt.Fprintln(f.opts.Writer); nlErr != nil {
+				err = fmt.Errorf("failed to write trailing newline: %w", nlErr)
+			}
 		}
 	}()
 
@@ -68,7 +70,7 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 
 	if firstElem.Kind() != reflect.Struct {
 		// Simple slice (e.g., []string)
-		for i := range val.Len() {
+		for i := 0; i < val.Len(); i++ {
 			if _, err := fmt.Fprintf(w, "%v\n", val.Index(i).Interface()); err != nil {
 				return fmt.Errorf("failed to write slice element: %w", err)
 			}
@@ -85,7 +87,7 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 	}
 
 	// Print rows
-	for i := range val.Len() {
+	for i := 0; i < val.Len(); i++ {
 		elem := val.Index(i)
 		if elem.Kind() == reflect.Ptr {
 			elem = elem.Elem()
