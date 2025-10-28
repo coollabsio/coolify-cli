@@ -15,10 +15,10 @@ func NewCreateEnvCommand() *cobra.Command {
 		Use:   "create <app_uuid>",
 		Short: "Create an environment variable for an application",
 		Long:  `Create a new environment variable for a specific application. Use --key and --value flags to specify the variable.`,
-		Args:  cli.ExactArgs(1, "<uuid>"),
+		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			uuid := args[0]
+			appUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -58,7 +58,7 @@ func NewCreateEnvCommand() *cobra.Command {
 			}
 
 			appSvc := service.NewApplicationService(client)
-			env, err := appSvc.CreateEnv(ctx, uuid, req)
+			env, err := appSvc.CreateEnv(ctx, appUUID, req)
 			if err != nil {
 				return fmt.Errorf("failed to create environment variable: %w", err)
 			}

@@ -1,6 +1,7 @@
 package version
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,7 +45,7 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 	}
 
 	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
-	ctx := cmd.Context()
+	ctx := context.Background()
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err

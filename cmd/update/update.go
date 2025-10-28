@@ -17,7 +17,7 @@ func NewUpdateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "update",
 		Short: "Update Coolify CLI",
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			latest, found, err := selfupdate.DetectLatest(cmd.Context(), selfupdate.ParseSlug("coollabsio/coolify-cli"))
 			if err != nil {
 				return fmt.Errorf("failed to detect latest version: %w", err)

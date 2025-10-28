@@ -18,13 +18,20 @@ func NewUseCommand() *cobra.Command {
 		Short:   "Switch to a different context (set as default)",
 		RunE: func(_ *cobra.Command, args []string) error {
 			name := args[0]
-			instances := viper.Get("instances").([]interface{})
+			raw := viper.Get("instances")
 
+			instances, ok := raw.([]interface{})
+			if !ok {
+				return fmt.Errorf("invalid instances configuration")
+			}
 			// Check if instance exists
 			var found bool
 			for _, instance := range instances {
-				instanceMap := instance.(map[string]interface{})
-				if instanceMap["name"] == name {
+				instanceMap, ok := instance.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("invalid instance configuration")
+				}
+				if val, ok := instanceMap["name"].(string); ok && val == name {
 					found = true
 					break
 				}
