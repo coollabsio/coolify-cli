@@ -25,7 +25,7 @@ func (f *TableFormatter) Format(data any) (err error) {
 				err = fmt.Errorf("failed to flush table writer: %w", flushErr)
 			}
 		}
-		// Add a final newline nach table output, aber nur wenn kein Fehler
+		// Add a final newline nach table output, but only if no error occurred
 		if err == nil {
 			if _, nlErr := fmt.Fprintln(f.opts.Writer); nlErr != nil {
 				err = fmt.Errorf("failed to write trailing newline: %w", nlErr)
