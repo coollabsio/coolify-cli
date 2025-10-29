@@ -23,11 +23,11 @@ var manCmd = &cobra.Command{
 The man pages will be written to the specified directory (default: ./man).`,
 	Example: `  coolify docs man
   coolify docs man --output-dir=/usr/local/share/man/man1`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		outputDir, _ := cmd.Flags().GetString("output-dir")
 
 		// Create output directory if it doesn't exist
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 
@@ -65,11 +65,11 @@ var markdownCmd = &cobra.Command{
 The markdown files will be written to the specified directory (default: ./docs).`,
 	Example: `  coolify docs markdown
   coolify docs markdown --output-dir=./documentation`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		outputDir, _ := cmd.Flags().GetString("output-dir")
 
 		// Create output directory if it doesn't exist
-		if err := os.MkdirAll(outputDir, 0755); err != nil {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
 			return fmt.Errorf("failed to create output directory: %w", err)
 		}
 

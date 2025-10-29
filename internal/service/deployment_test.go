@@ -7,9 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
 )
 
 func TestDeploymentService_Deploy(t *testing.T) {
@@ -59,7 +60,7 @@ func TestDeploymentService_Deploy(t *testing.T) {
 				assert.Equal(t, "GET", r.Method)
 
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(tt.response)
+				_ = json.NewEncoder(w).Encode(tt.response)
 			}))
 			defer server.Close()
 

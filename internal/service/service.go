@@ -8,18 +8,18 @@ import (
 	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
-// ServiceService handles service-related operations
-type ServiceService struct {
+// Service handles service-related operations
+type Service struct {
 	client *api.Client
 }
 
-// NewServiceService creates a new service service instance
-func NewServiceService(client *api.Client) *ServiceService {
-	return &ServiceService{client: client}
+// NewService creates a new service instance
+func NewService(client *api.Client) *Service {
+	return &Service{client: client}
 }
 
 // List retrieves all services
-func (s *ServiceService) List(ctx context.Context) ([]models.Service, error) {
+func (s *Service) List(ctx context.Context) ([]models.Service, error) {
 	var services []models.Service
 	err := s.client.Get(ctx, "services", &services)
 	if err != nil {
@@ -29,7 +29,7 @@ func (s *ServiceService) List(ctx context.Context) ([]models.Service, error) {
 }
 
 // Get retrieves a service by UUID
-func (s *ServiceService) Get(ctx context.Context, uuid string) (*models.Service, error) {
+func (s *Service) Get(ctx context.Context, uuid string) (*models.Service, error) {
 	var service models.Service
 	err := s.client.Get(ctx, fmt.Sprintf("services/%s", uuid), &service)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *ServiceService) Get(ctx context.Context, uuid string) (*models.Service,
 }
 
 // Create creates a new service
-func (s *ServiceService) Create(ctx context.Context, req *models.ServiceCreateRequest) (*models.Service, error) {
+func (s *Service) Create(ctx context.Context, req *models.ServiceCreateRequest) (*models.Service, error) {
 	var service models.Service
 	err := s.client.Post(ctx, "services", req, &service)
 	if err != nil {
@@ -49,7 +49,7 @@ func (s *ServiceService) Create(ctx context.Context, req *models.ServiceCreateRe
 }
 
 // Update updates a service
-func (s *ServiceService) Update(ctx context.Context, uuid string, req *models.ServiceUpdateRequest) (*models.Service, error) {
+func (s *Service) Update(ctx context.Context, uuid string, req *models.ServiceUpdateRequest) (*models.Service, error) {
 	var service models.Service
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s", uuid), req, &service)
 	if err != nil {
@@ -59,7 +59,7 @@ func (s *ServiceService) Update(ctx context.Context, uuid string, req *models.Se
 }
 
 // Delete deletes a service
-func (s *ServiceService) Delete(ctx context.Context, uuid string, deleteConfigurations, deleteVolumes, dockerCleanup, deleteConnectedNetworks bool) error {
+func (s *Service) Delete(ctx context.Context, uuid string, deleteConfigurations, deleteVolumes, dockerCleanup, deleteConnectedNetworks bool) error {
 	url := fmt.Sprintf("services/%s?delete_configurations=%t&delete_volumes=%t&docker_cleanup=%t&delete_connected_networks=%t",
 		uuid, deleteConfigurations, deleteVolumes, dockerCleanup, deleteConnectedNetworks)
 
@@ -71,7 +71,7 @@ func (s *ServiceService) Delete(ctx context.Context, uuid string, deleteConfigur
 }
 
 // Start starts a service
-func (s *ServiceService) Start(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
+func (s *Service) Start(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
 	var resp models.ServiceLifecycleResponse
 	err := s.client.Post(ctx, fmt.Sprintf("services/%s/start", uuid), nil, &resp)
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *ServiceService) Start(ctx context.Context, uuid string) (*models.Servic
 }
 
 // Stop stops a service
-func (s *ServiceService) Stop(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
+func (s *Service) Stop(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
 	var resp models.ServiceLifecycleResponse
 	err := s.client.Post(ctx, fmt.Sprintf("services/%s/stop", uuid), nil, &resp)
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *ServiceService) Stop(ctx context.Context, uuid string) (*models.Service
 }
 
 // Restart restarts a service
-func (s *ServiceService) Restart(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
+func (s *Service) Restart(ctx context.Context, uuid string) (*models.ServiceLifecycleResponse, error) {
 	var resp models.ServiceLifecycleResponse
 	err := s.client.Post(ctx, fmt.Sprintf("services/%s/restart", uuid), nil, &resp)
 	if err != nil {
@@ -101,7 +101,7 @@ func (s *ServiceService) Restart(ctx context.Context, uuid string) (*models.Serv
 }
 
 // ListEnvs retrieves all environment variables for a service
-func (s *ServiceService) ListEnvs(ctx context.Context, uuid string) ([]models.EnvironmentVariable, error) {
+func (s *Service) ListEnvs(ctx context.Context, uuid string) ([]models.EnvironmentVariable, error) {
 	var envs []models.EnvironmentVariable
 	err := s.client.Get(ctx, fmt.Sprintf("services/%s/envs", uuid), &envs)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *ServiceService) ListEnvs(ctx context.Context, uuid string) ([]models.En
 }
 
 // GetEnv retrieves a single environment variable by UUID or key
-func (s *ServiceService) GetEnv(ctx context.Context, serviceUUID, envIdentifier string) (*models.EnvironmentVariable, error) {
+func (s *Service) GetEnv(ctx context.Context, serviceUUID, envIdentifier string) (*models.EnvironmentVariable, error) {
 	envs, err := s.ListEnvs(ctx, serviceUUID)
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (s *ServiceService) GetEnv(ctx context.Context, serviceUUID, envIdentifier 
 }
 
 // CreateEnv creates a new environment variable for a service
-func (s *ServiceService) CreateEnv(ctx context.Context, uuid string, req *models.EnvironmentVariableCreateRequest) (*models.EnvironmentVariable, error) {
+func (s *Service) CreateEnv(ctx context.Context, uuid string, req *models.EnvironmentVariableCreateRequest) (*models.EnvironmentVariable, error) {
 	var env models.EnvironmentVariable
 	err := s.client.Post(ctx, fmt.Sprintf("services/%s/envs", uuid), req, &env)
 	if err != nil {
@@ -138,7 +138,7 @@ func (s *ServiceService) CreateEnv(ctx context.Context, uuid string, req *models
 }
 
 // UpdateEnv updates an environment variable for a service
-func (s *ServiceService) UpdateEnv(ctx context.Context, serviceUUID string, req *models.EnvironmentVariableUpdateRequest) (*models.EnvironmentVariable, error) {
+func (s *Service) UpdateEnv(ctx context.Context, serviceUUID string, req *models.EnvironmentVariableUpdateRequest) (*models.EnvironmentVariable, error) {
 	var env models.EnvironmentVariable
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs", serviceUUID), req, &env)
 	if err != nil {
@@ -148,7 +148,7 @@ func (s *ServiceService) UpdateEnv(ctx context.Context, serviceUUID string, req 
 }
 
 // DeleteEnv deletes an environment variable from a service
-func (s *ServiceService) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) error {
+func (s *Service) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) error {
 	err := s.client.Delete(ctx, fmt.Sprintf("services/%s/envs/%s", serviceUUID, envUUID))
 	if err != nil {
 		return fmt.Errorf("failed to delete environment variable %s from service %s: %w", envUUID, serviceUUID, err)
@@ -157,7 +157,7 @@ func (s *ServiceService) DeleteEnv(ctx context.Context, serviceUUID, envUUID str
 }
 
 // BulkUpdateEnvs updates multiple environment variables in a single request
-func (s *ServiceService) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *BulkUpdateEnvsRequest) (*BulkUpdateEnvsResponse, error) {
+func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *BulkUpdateEnvsRequest) (*BulkUpdateEnvsResponse, error) {
 	var response BulkUpdateEnvsResponse
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs/bulk", serviceUUID), req, &response)
 	if err != nil {

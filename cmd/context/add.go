@@ -3,10 +3,11 @@ package context
 import (
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
-	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
+	"github.com/coollabsio/coolify-cli/internal/config"
 )
 
 // NewAddCommand creates the add command
@@ -16,7 +17,7 @@ func NewAddCommand() *cobra.Command {
 		Example: `context add myserver https://coolify.example.com your-api-token`,
 		Args:    cli.ExactArgs(3, "<context_name> <url> <token>"),
 		Short:   "Add a new context",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			host := args[1]
 			token := args[2]
@@ -44,12 +45,14 @@ func NewAddCommand() *cobra.Command {
 							fmt.Printf("%s already exists. Force overwriting.\n", name)
 						}
 						viper.Set("instances", instances)
-						viper.WriteConfig()
-						return
+						if err := viper.WriteConfig(); err != nil {
+							return fmt.Errorf("failed to write config: %w", err)
+						}
+						return nil
 					}
 					fmt.Printf("%s already exists.\n", name)
 					fmt.Println("\nNote: Use --force to force overwrite.")
-					return
+					return nil
 				}
 			}
 
@@ -77,8 +80,9 @@ func NewAddCommand() *cobra.Command {
 
 			viper.Set("instances", instances)
 			if err := viper.WriteConfig(); err != nil {
-				fmt.Printf("failed to write config: %v\n", err)
+				return fmt.Errorf("failed to write config: %w", err)
 			}
+			return nil
 		},
 	}
 

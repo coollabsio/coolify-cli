@@ -2,14 +2,14 @@ package backup
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewDeleteCommand deletes a database
@@ -20,7 +20,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete a backup configuration and optionally all its executions from S3. First UUID is the database, second is the specific backup configuration.`,
 		Args:  cli.ExactArgs(2, "<database_uuid> <backup_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 			backupUUID := args[1]
 

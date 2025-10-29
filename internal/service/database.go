@@ -176,7 +176,7 @@ func (s *DatabaseService) DeleteBackupExecution(ctx context.Context, dbUUID, bac
 // inferDatabaseType determines the database type from available fields
 func inferDatabaseType(db *models.Database) string {
 	// Check for PostgreSQL
-	if db.PostgresUser != nil || db.PostgresPassword != nil || db.PostgresDb != nil {
+	if db.PostgresUser != nil || db.PostgresPassword != nil || db.PostgresDB != nil {
 		return "postgresql"
 	}
 

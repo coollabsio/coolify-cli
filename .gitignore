@@ -1,11 +1,12 @@
 coolify-cli
-coolify
+/coolify
 config.json
 .claude
 
 # Generated documentation (can be regenerated)
 man/
 docs/cli/
+dist/
 
 # Test coverage
 coverage.out

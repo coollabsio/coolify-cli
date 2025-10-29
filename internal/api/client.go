@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -102,7 +103,8 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body, resul
 		lastErr = err
 
 		// Don't retry on client errors (4xx) except 429 (rate limit)
-		if apiErr, ok := err.(*Error); ok {
+		var apiErr *Error
+		if errors.As(err, &apiErr) {
 			if apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 && apiErr.StatusCode != 429 {
 				return err
 			}

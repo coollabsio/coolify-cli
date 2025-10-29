@@ -1,11 +1,11 @@
 package context
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/spf13/cobra"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 // NewVerifyCommand creates the verify command for contexts
@@ -15,8 +15,8 @@ func NewVerifyCommand() *cobra.Command {
 		Short: "Verify current context connection and authentication",
 		Long: `Verify that the current context is properly configured by testing the connection
 to the Coolify instance and validating the API token.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
 			// Get API client - this will use the current default context
 			client, err := cli.GetAPIClient(cmd)

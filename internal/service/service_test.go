@@ -6,19 +6,20 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
-	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
-func TestServiceService_List(t *testing.T) {
+func TestService_List(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{
 				"id": 1,
 				"uuid": "service-uuid-1",
@@ -40,7 +41,7 @@ func TestServiceService_List(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	services, err := svc.List(context.Background())
 
@@ -54,44 +55,44 @@ func TestServiceService_List(t *testing.T) {
 	assert.Equal(t, "stopped", services[1].Status)
 }
 
-func TestServiceService_List_Empty(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_List_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	services, err := svc.List(context.Background())
 
 	require.NoError(t, err)
-	assert.Len(t, services, 0)
+	assert.Empty(t, services)
 }
 
-func TestServiceService_List_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_List_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "internal server error"}`))
+		_, _ = w.Write([]byte(`{"error": "internal server error"}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	_, err := svc.List(context.Background())
 
 	require.Error(t, err)
 }
 
-func TestServiceService_Get(t *testing.T) {
+func TestService_Get(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": 1,
 			"uuid": "service-uuid-123",
 			"name": "PostgreSQL 16",
@@ -112,7 +113,7 @@ func TestServiceService_Get(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	service, err := svc.Get(context.Background(), "service-uuid-123")
 
@@ -126,33 +127,33 @@ func TestServiceService_Get(t *testing.T) {
 	assert.Equal(t, "db-uuid-1", service.Databases[0].UUID)
 }
 
-func TestServiceService_Get_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_Get_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "service not found"}`))
+		_, _ = w.Write([]byte(`{"error": "service not found"}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	_, err := svc.Get(context.Background(), "nonexistent")
 
 	require.Error(t, err)
 }
 
-func TestServiceService_Start(t *testing.T) {
+func TestService_Start(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/start", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Service starting request queued."}`))
+		_, _ = w.Write([]byte(`{"message": "Service starting request queued."}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	resp, err := svc.Start(context.Background(), "service-uuid-123")
 
@@ -160,33 +161,33 @@ func TestServiceService_Start(t *testing.T) {
 	assert.Equal(t, "Service starting request queued.", resp.Message)
 }
 
-func TestServiceService_Start_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_Start_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "service already running"}`))
+		_, _ = w.Write([]byte(`{"error": "service already running"}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	_, err := svc.Start(context.Background(), "service-uuid-123")
 
 	require.Error(t, err)
 }
 
-func TestServiceService_Stop(t *testing.T) {
+func TestService_Stop(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/stop", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Service stopping request queued."}`))
+		_, _ = w.Write([]byte(`{"message": "Service stopping request queued."}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	resp, err := svc.Stop(context.Background(), "service-uuid-123")
 
@@ -194,33 +195,33 @@ func TestServiceService_Stop(t *testing.T) {
 	assert.Equal(t, "Service stopping request queued.", resp.Message)
 }
 
-func TestServiceService_Stop_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_Stop_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error": "service already stopped"}`))
+		_, _ = w.Write([]byte(`{"error": "service already stopped"}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	_, err := svc.Stop(context.Background(), "service-uuid-123")
 
 	require.Error(t, err)
 }
 
-func TestServiceService_Restart(t *testing.T) {
+func TestService_Restart(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/restart", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "Service restarting request queued."}`))
+		_, _ = w.Write([]byte(`{"message": "Service restarting request queued."}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	resp, err := svc.Restart(context.Background(), "service-uuid-123")
 
@@ -228,28 +229,28 @@ func TestServiceService_Restart(t *testing.T) {
 	assert.Equal(t, "Service restarting request queued.", resp.Message)
 }
 
-func TestServiceService_Restart_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestService_Restart_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "service not found"}`))
+		_, _ = w.Write([]byte(`{"error": "service not found"}`))
 	}))
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	_, err := svc.Restart(context.Background(), "service-uuid-123")
 
 	require.Error(t, err)
 }
 
-func TestServiceService_ListEnvs(t *testing.T) {
+func TestService_ListEnvs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/envs", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[
+		_, _ = w.Write([]byte(`[
 			{
 				"uuid": "env-1",
 				"key": "DATABASE_URL",
@@ -269,7 +270,7 @@ func TestServiceService_ListEnvs(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	envs, err := svc.ListEnvs(context.Background(), "service-uuid-123")
 
@@ -279,13 +280,13 @@ func TestServiceService_ListEnvs(t *testing.T) {
 	assert.Equal(t, "API_KEY", envs[1].Key)
 }
 
-func TestServiceService_CreateEnv(t *testing.T) {
+func TestService_CreateEnv(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/envs", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"uuid": "env-new",
 			"key": "NEW_VAR",
 			"value": "new_value",
@@ -296,7 +297,7 @@ func TestServiceService_CreateEnv(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	env, err := svc.CreateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableCreateRequest{
 		Key:   "NEW_VAR",
@@ -308,13 +309,13 @@ func TestServiceService_CreateEnv(t *testing.T) {
 	assert.Equal(t, "new_value", env.Value)
 }
 
-func TestServiceService_UpdateEnv(t *testing.T) {
+func TestService_UpdateEnv(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/envs", r.URL.Path)
 		assert.Equal(t, "PATCH", r.Method)
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"uuid": "env-123",
 			"key": "UPDATED_VAR",
 			"value": "updated_value",
@@ -325,7 +326,7 @@ func TestServiceService_UpdateEnv(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	newKey := "UPDATED_VAR"
 	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableUpdateRequest{
@@ -337,7 +338,7 @@ func TestServiceService_UpdateEnv(t *testing.T) {
 	assert.Equal(t, "UPDATED_VAR", env.Key)
 }
 
-func TestServiceService_DeleteEnv(t *testing.T) {
+func TestService_DeleteEnv(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/services/service-uuid-123/envs/env-456", r.URL.Path)
 		assert.Equal(t, "DELETE", r.Method)
@@ -347,7 +348,7 @@ func TestServiceService_DeleteEnv(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	svc := NewServiceService(client)
+	svc := NewService(client)
 
 	err := svc.DeleteEnv(context.Background(), "service-uuid-123", "env-456")
 

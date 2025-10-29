@@ -5,14 +5,14 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./coolify"
-  cmd = "go build -o ./coolify ."
+  cmd = "go build -o ./coolify ./coolify"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata", ".git", ".conductor"]
   exclude_file = []
   exclude_regex = ["_test.go"]
   exclude_unchanged = false
   follow_symlink = false
-  full_bin = "echo 'Build complete. Binary: ./coolify'"
+  full_bin = "echo 'Build complete. Binary: ./coolify/coolify'"
   include_dir = []
   include_ext = ["go", "tpl", "tmpl", "html"]
   include_file = []

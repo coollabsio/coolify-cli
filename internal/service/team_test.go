@@ -51,7 +51,7 @@ func TestTeamService_List(t *testing.T) {
 					t.Errorf("Expected path /api/v1/teams, got %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -104,7 +104,7 @@ func TestTeamService_Get(t *testing.T) {
 					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -155,7 +155,7 @@ func TestTeamService_Current(t *testing.T) {
 					t.Errorf("Expected path /api/v1/teams/current, got %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -214,7 +214,7 @@ func TestTeamService_ListMembers(t *testing.T) {
 					t.Errorf("Expected path %s, got %s", expectedPath, r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -262,7 +262,7 @@ func TestTeamService_CurrentMembers(t *testing.T) {
 					t.Errorf("Expected path /api/v1/teams/current/members, got %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 

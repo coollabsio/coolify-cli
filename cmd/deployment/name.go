@@ -1,13 +1,13 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewNameCommand deploys a resource by name
@@ -17,7 +17,7 @@ func NewNameCommand() *cobra.Command {
 		Short: "Deploy by resource name",
 		Args:  cli.ExactArgs(1, "<resource_name>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			name := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

@@ -1,13 +1,13 @@
 package github
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewListBranchesCommand() *cobra.Command {
@@ -19,7 +19,7 @@ func NewListBranchesCommand() *cobra.Command {
 Example: coolify github branches abc-123-def owner/repository`,
 		Args: cli.ExactArgs(2, "<app_uuid> <owner/repo>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			appUUID := args[0]
 
 			// Parse owner/repo

@@ -1,10 +1,19 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
+
 builds:
-  - binary: coolify
+  - id: coolify
+    binary: coolify
+    flags:
+      - -trimpath
     ldflags:
+      - -s
+      - -w
       - -X github.com/coollabsio/coolify-cli/internal/version.version={{ .Version }}
+    main: ./coolify/main.go
     goos:
       - darwin
       - linux

@@ -47,11 +47,11 @@ fi
 
 # Build the binary
 echo "🔨 Building coolify binary..."
-if ! go build -o coolify .; then
+if ! go build -o coolify ./coolify; then
     echo "❌ Error: Build failed"
     exit 1
 fi
 
-echo "✅ Binary built successfully: ./coolify"
+echo "✅ Binary built successfully: ./coolify/coolify"
 echo "🎉 Workspace setup complete!"
 echo "🔥 Use the run script for hot reload during development"

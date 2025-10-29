@@ -3,11 +3,12 @@ package context
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/coollabsio/coolify-cli/internal/output"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // NewGetCommand creates the get command
