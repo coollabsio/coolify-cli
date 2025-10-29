@@ -21,7 +21,7 @@ All commands in this CLI are wrappers around API endpoints defined in the OpenAP
 
 ### Command Structure
 The codebase follows Cobra's command pattern with a root command and subcommands:
-- Entry point: `main.go` calls `cmd.Execute()`
+- Entry point: `coolify/main.go` calls `cmd.Execute()`
 - Root command: `cmd/root.go` - contains core utilities (HTTP client, authentication, version checking, config management)
 - Subcommands: Each command is in its own file in `cmd/`:
   - `context.go` - manage Coolify context (add, remove, list, set default/token)
@@ -62,23 +62,23 @@ Three output modes supported via `--format` flag:
 
 ### Build
 ```bash
-go build -o coolify .
+go build -o coolify ./coolify
 ```
 
 ### Run locally
 ```bash
-go run main.go [command]
+go run ./coolify [command]
 ```
 
 ### Test a command
 ```bash
-go run main.go instances list
-go run main.go servers list --debug
+go run ./coolify context list
+go run ./coolify servers list --debug
 ```
 
 ### Install locally
 ```bash
-go install
+go install ./coolify
 ```
 
 ### Run tests

@@ -1,8 +1,18 @@
+version: 2
+
 before:
   hooks:
     - go mod tidy
+
 builds:
-  - binary: coolify
+  - id: coolify
+    binary: coolify
+    flags:
+      - -trimpath
+    ldflags:
+      - -s
+      - -w
+    main: ./coolify/main.go
     goos:
       - darwin
       - linux
@@ -12,5 +22,3 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=0
-    # Build all platforms in parallel using all available CPU cores
-    parallelism: -1

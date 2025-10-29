@@ -37,7 +37,7 @@ git clone https://github.com/YOUR_USERNAME/coolify-cli.git
 cd coolify-cli
 
 # Build the CLI
-go build -o coolify .
+go build -o coolify ./coolify
 
 # Install locally
 go install
@@ -47,14 +47,14 @@ go install
 
 ```bash
 # Run without installing
-go run main.go [command]
+go run ./coolify [command]
 
 # Example commands
-go run main.go context list
-go run main.go server list --debug
+go run ./coolify context list
+go run ./coolify server list --debug
 
 # With flags
-go run main.go server list --format json --debug
+go run ./coolify server list --format json --debug
 ```
 
 ### Project Structure

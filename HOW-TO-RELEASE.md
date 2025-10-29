@@ -69,6 +69,7 @@ Once you publish the release:
 4. The release becomes available at:
    - GitHub: `https://github.com/coollabsio/coolify-cli/releases/tag/v1.x.x`
    - Install script: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`
+   - `go install`: `go install github.com/coollabsio/coolify-cli/coolify@v1.x.x`
 
 ### 5. Verify the Release
 
@@ -128,10 +129,11 @@ After creating a release:
 
 The release process uses these configuration files:
 
-- `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, etc.)
+- `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, etc.) - points to `/coolify` as entry point
 - `.github/workflows/release-cli.yml` - GitHub Actions workflow
 - `scripts/install.sh` - User-facing install script
 - `cmd/root.go` - Contains `CliVersion` variable (line 22)
+- `coolify/main.go` - Binary entry point for `go install` support
 
 ## Notes
 
