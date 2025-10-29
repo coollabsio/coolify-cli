@@ -112,7 +112,7 @@ The release process uses these configuration files:
 - `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, etc.) - points to `/coolify` as entry point
 - `.github/workflows/release-cli.yml` - GitHub Actions workflow
 - `scripts/install.sh` - User-facing install script
-- `cmd/root.go` - Contains `GetVersion` variable (line 22)
+- `internal/version/checker.go` - Contains `GetVersion()` function that returns the current version
 - `coolify/main.go` - Binary entry point for `go install` support
 
 ## Notes
