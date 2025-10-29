@@ -1,13 +1,13 @@
 package backup
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewUpdateCommand updates a database
@@ -18,7 +18,7 @@ func NewUpdateCommand() *cobra.Command {
 		Long:  `Update a backup configuration settings (frequency, retention, S3, etc.). First UUID is the database, second is the specific backup configuration.`,
 		Args:  cli.ExactArgs(2, "<database_uuid> <backup_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbUUID := args[0]
 			backupUUID := args[1]
 

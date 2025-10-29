@@ -1,13 +1,13 @@
 package database
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewGetCommand gets database details
@@ -18,7 +18,7 @@ func NewGetCommand() *cobra.Command {
 		Long:  `Get detailed information about a specific database by UUID.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

@@ -1,13 +1,13 @@
 package env
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewCreateCommand() *cobra.Command {
@@ -17,7 +17,7 @@ func NewCreateCommand() *cobra.Command {
 		Long:  `Create a new environment variable for a specific service. Use --key and --value flags to specify the variable.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
@@ -58,7 +58,7 @@ func NewCreateCommand() *cobra.Command {
 				req.IsMultiline = &isMultiline
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.CreateEnv(ctx, uuid, req)
 			if err != nil {
 				return fmt.Errorf("failed to create environment variable: %w", err)

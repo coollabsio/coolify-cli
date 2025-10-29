@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
 )
 
 // SensitiveInformationOverlay is the string used to hide sensitive data

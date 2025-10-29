@@ -1,15 +1,15 @@
 package database
 
 import (
-	"context"
 	"fmt"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewCreateCommand() *cobra.Command {
@@ -25,7 +25,7 @@ Examples:
   coolify databases create mysql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production --name="My MySQL"`,
 		Args: cli.ExactArgs(1, "<type>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			dbType := args[0]
 			validTypes := []string{"postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "clickhouse", "dragonfly"}
 			isValid := false
@@ -116,7 +116,7 @@ Examples:
 				}
 				if cmd.Flags().Changed("postgres-db") {
 					db, _ := cmd.Flags().GetString("postgres-db")
-					req.PostgresDb = &db
+					req.PostgresDB = &db
 				}
 			}
 

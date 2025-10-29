@@ -119,19 +119,20 @@ func TestConfig_AddInstance(t *testing.T) {
 	t.Run("add second instance keeps first as default", func(t *testing.T) {
 		cfg := New()
 
-		cfg.AddInstance(Instance{
+		err1 := cfg.AddInstance(Instance{
 			Name:  "first",
 			FQDN:  "https://first.io",
 			Token: "token1",
 		})
 
-		err := cfg.AddInstance(Instance{
+		err2 := cfg.AddInstance(Instance{
 			Name:  "second",
 			FQDN:  "https://second.io",
 			Token: "token2",
 		})
 
-		require.NoError(t, err)
+		require.NoError(t, err1)
+		require.NoError(t, err2)
 		assert.Len(t, cfg.Instances, 2)
 		assert.True(t, cfg.Instances[0].Default)
 		assert.False(t, cfg.Instances[1].Default)
@@ -140,20 +141,21 @@ func TestConfig_AddInstance(t *testing.T) {
 	t.Run("add instance with default flag", func(t *testing.T) {
 		cfg := New()
 
-		cfg.AddInstance(Instance{
+		err1 := cfg.AddInstance(Instance{
 			Name:  "first",
 			FQDN:  "https://first.io",
 			Token: "token1",
 		})
 
-		err := cfg.AddInstance(Instance{
+		err2 := cfg.AddInstance(Instance{
 			Name:    "second",
 			FQDN:    "https://second.io",
 			Token:   "token2",
 			Default: true,
 		})
 
-		require.NoError(t, err)
+		require.NoError(t, err1)
+		require.NoError(t, err2)
 		assert.False(t, cfg.Instances[0].Default)
 		assert.True(t, cfg.Instances[1].Default)
 	})
@@ -161,19 +163,20 @@ func TestConfig_AddInstance(t *testing.T) {
 	t.Run("duplicate name returns error", func(t *testing.T) {
 		cfg := New()
 
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://test.io",
 			Token: "token1",
 		})
+		require.NoError(t, err)
 
-		err := cfg.AddInstance(Instance{
+		err = cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://other.io",
 			Token: "token2",
 		})
-
 		require.Error(t, err)
+
 		assert.Contains(t, err.Error(), "already exists")
 	})
 
@@ -194,41 +197,54 @@ func TestConfig_AddInstance(t *testing.T) {
 func TestConfig_RemoveInstance(t *testing.T) {
 	t.Run("remove existing instance", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "first",
 			FQDN:  "https://first.io",
 			Token: "token1",
 		})
-		cfg.AddInstance(Instance{
+		require.NoError(t, err)
+
+		err = cfg.AddInstance(Instance{
 			Name:  "second",
 			FQDN:  "https://second.io",
 			Token: "token2",
 		})
-
-		err := cfg.RemoveInstance("second")
-
 		require.NoError(t, err)
+
+		err = cfg.RemoveInstance("second")
+		require.NoError(t, err)
+
 		assert.Len(t, cfg.Instances, 1)
 		assert.Equal(t, "first", cfg.Instances[0].Name)
 	})
 
 	t.Run("remove default instance makes first default", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		// Setup: Create two instances with second as default
+		err := cfg.AddInstance(Instance{
 			Name:  "first",
 			FQDN:  "https://first.io",
 			Token: "token1",
 		})
-		cfg.AddInstance(Instance{
+		require.NoError(t, err)
+
+		err = cfg.AddInstance(Instance{
 			Name:  "second",
 			FQDN:  "https://second.io",
 			Token: "token2",
 		})
-		cfg.SetDefault("second")
-
-		err := cfg.RemoveInstance("second")
-
 		require.NoError(t, err)
+
+		err = cfg.SetDefault("second")
+		require.NoError(t, err)
+
+		// Act: Remove the default instance
+		err = cfg.RemoveInstance("second")
+		require.NoError(t, err)
+
+		// Assert: Verify removal and default reassignment
+		assert.Len(t, cfg.Instances, 1)
+		assert.Equal(t, "first", cfg.Instances[0].Name)
 		assert.True(t, cfg.Instances[0].Default)
 	})
 
@@ -244,11 +260,12 @@ func TestConfig_RemoveInstance(t *testing.T) {
 
 func TestConfig_GetInstance(t *testing.T) {
 	cfg := New()
-	cfg.AddInstance(Instance{
+	err := cfg.AddInstance(Instance{
 		Name:  "test",
 		FQDN:  "https://test.io",
 		Token: "test-token",
 	})
+	require.NoError(t, err)
 
 	t.Run("get existing instance", func(t *testing.T) {
 		instance, err := cfg.GetInstance("test")
@@ -269,12 +286,13 @@ func TestConfig_GetInstance(t *testing.T) {
 func TestConfig_GetDefault(t *testing.T) {
 	t.Run("get default instance", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:    "test",
 			FQDN:    "https://test.io",
 			Token:   "test-token",
 			Default: true,
 		})
+		require.NoError(t, err)
 
 		instance, err := cfg.GetDefault()
 
@@ -295,20 +313,23 @@ func TestConfig_GetDefault(t *testing.T) {
 func TestConfig_SetDefault(t *testing.T) {
 	t.Run("set existing instance as default", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "first",
 			FQDN:  "https://first.io",
 			Token: "token1",
 		})
-		cfg.AddInstance(Instance{
+		require.NoError(t, err)
+
+		err = cfg.AddInstance(Instance{
 			Name:  "second",
 			FQDN:  "https://second.io",
 			Token: "token2",
 		})
-
-		err := cfg.SetDefault("second")
-
 		require.NoError(t, err)
+
+		err = cfg.SetDefault("second")
+		require.NoError(t, err)
+
 		assert.False(t, cfg.Instances[0].Default)
 		assert.True(t, cfg.Instances[1].Default)
 	})
@@ -326,15 +347,16 @@ func TestConfig_SetDefault(t *testing.T) {
 func TestConfig_UpdateInstanceToken(t *testing.T) {
 	t.Run("update existing instance token", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://test.io",
 			Token: "old-token",
 		})
-
-		err := cfg.UpdateInstanceToken("test", "new-token")
-
 		require.NoError(t, err)
+
+		err = cfg.UpdateInstanceToken("test", "new-token")
+		require.NoError(t, err)
+
 		instance, _ := cfg.GetInstance("test")
 		assert.Equal(t, "new-token", instance.Token)
 	})
@@ -350,15 +372,16 @@ func TestConfig_UpdateInstanceToken(t *testing.T) {
 
 	t.Run("empty token returns error", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://test.io",
 			Token: "old-token",
 		})
+		require.NoError(t, err)
 
-		err := cfg.UpdateInstanceToken("test", "")
-
+		err = cfg.UpdateInstanceToken("test", "")
 		require.Error(t, err)
+
 		assert.Contains(t, err.Error(), "cannot be empty")
 	})
 }
@@ -366,14 +389,14 @@ func TestConfig_UpdateInstanceToken(t *testing.T) {
 func TestConfig_Validate(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://test.io",
 			Token: "token",
 		})
+		require.NoError(t, err)
 
-		err := cfg.Validate()
-
+		err = cfg.Validate()
 		require.NoError(t, err)
 	})
 
@@ -441,7 +464,8 @@ func TestLoadFromFile(t *testing.T) {
 		}
 
 		data, _ := json.Marshal(validConfig)
-		os.WriteFile(configPath, data, 0600)
+		err := os.WriteFile(configPath, data, 0600)
+		require.NoError(t, err)
 
 		// Load config
 		cfg, err := LoadFromFile(configPath)
@@ -462,9 +486,10 @@ func TestLoadFromFile(t *testing.T) {
 		tmpDir := t.TempDir()
 		configPath := filepath.Join(tmpDir, "config.json")
 
-		os.WriteFile(configPath, []byte("invalid json"), 0600)
+		err := os.WriteFile(configPath, []byte("invalid json"), 0600)
+		require.NoError(t, err)
 
-		_, err := LoadFromFile(configPath)
+		_, err = LoadFromFile(configPath)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse")
@@ -477,13 +502,14 @@ func TestSaveToFile(t *testing.T) {
 		configPath := filepath.Join(tmpDir, "config.json")
 
 		cfg := New()
-		cfg.AddInstance(Instance{
+		err := cfg.AddInstance(Instance{
 			Name:  "test",
 			FQDN:  "https://test.io",
 			Token: "test-token",
 		})
+		require.NoError(t, err)
 
-		err := SaveToFile(configPath, cfg)
+		err = SaveToFile(configPath, cfg)
 
 		require.NoError(t, err)
 
@@ -493,7 +519,8 @@ func TestSaveToFile(t *testing.T) {
 		// Verify content
 		data, _ := os.ReadFile(configPath)
 		var loaded Config
-		json.Unmarshal(data, &loaded)
+		err = json.Unmarshal(data, &loaded)
+		require.NoError(t, err)
 		assert.Len(t, loaded.Instances, 1)
 		assert.Equal(t, "test", loaded.Instances[0].Name)
 	})

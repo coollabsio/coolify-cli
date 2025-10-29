@@ -132,7 +132,7 @@ KEY2=value`
 	require.NoError(t, err)
 	assert.Len(t, envVars, 2)
 	assert.Equal(t, "KEY1", envVars[0].Key)
-	assert.Equal(t, "", envVars[0].Value)
+	assert.Empty(t, envVars[0].Value)
 	assert.Equal(t, "KEY2", envVars[1].Key)
 	assert.Equal(t, "value", envVars[1].Value)
 }
@@ -161,7 +161,7 @@ KEY2=value`
 	defer os.Remove(tmpFile)
 
 	_, err := ParseEnvFile(tmpFile)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing '='")
 }
 
@@ -173,7 +173,7 @@ KEY2=value`
 	defer os.Remove(tmpFile)
 
 	_, err := ParseEnvFile(tmpFile)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "empty key")
 }
 
@@ -185,13 +185,13 @@ KEY2=value`
 	defer os.Remove(tmpFile)
 
 	_, err := ParseEnvFile(tmpFile)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unclosed quoted value")
 }
 
 func TestParseEnvFile_FileNotFound(t *testing.T) {
 	_, err := ParseEnvFile("/nonexistent/file.env")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open file")
 }
 
@@ -203,7 +203,7 @@ func TestParseEnvFile_EmptyFile(t *testing.T) {
 
 	envVars, err := ParseEnvFile(tmpFile)
 	require.NoError(t, err)
-	assert.Len(t, envVars, 0)
+	assert.Empty(t, envVars)
 }
 
 func TestParseEnvFile_OnlyComments(t *testing.T) {
@@ -216,14 +216,14 @@ func TestParseEnvFile_OnlyComments(t *testing.T) {
 
 	envVars, err := ParseEnvFile(tmpFile)
 	require.NoError(t, err)
-	assert.Len(t, envVars, 0)
+	assert.Empty(t, envVars)
 }
 
 // Helper function to create a temporary .env file
 func createTempEnvFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, ".env")
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	require.NoError(t, err)
 	return tmpFile
 }

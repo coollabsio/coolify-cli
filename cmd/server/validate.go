@@ -1,12 +1,12 @@
 package server
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewValidateCommand creates the validate command
@@ -16,7 +16,7 @@ func NewValidateCommand() *cobra.Command {
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		Short: "Validate a server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Get API client
 			client, err := cli.GetAPIClient(cmd)

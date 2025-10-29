@@ -21,12 +21,12 @@ type Database struct {
 	LimitsMemoryReservation *string `json:"limits_memory_reservation,omitempty" table:"-"`
 	LimitsCpus              *string `json:"limits_cpus,omitempty" table:"-"`
 	LimitsCpuset            *string `json:"limits_cpuset,omitempty" table:"-"`
-	LimitsCpuShares         *int    `json:"limits_cpu_shares,omitempty" table:"-"`
+	LimitsCPUShares         *int    `json:"limits_cpu_shares,omitempty" table:"-"`
 
 	// PostgreSQL specific
 	PostgresUser           *string `json:"postgres_user,omitempty" table:"-"`
 	PostgresPassword       *string `json:"postgres_password,omitempty" table:"-"`
-	PostgresDb             *string `json:"postgres_db,omitempty" table:"-"`
+	PostgresDB             *string `json:"postgres_db,omitempty" table:"-"`
 	PostgresInitdbArgs     *string `json:"postgres_initdb_args,omitempty" table:"-"`
 	PostgresHostAuthMethod *string `json:"postgres_host_auth_method,omitempty" table:"-"`
 	PostgresConf           *string `json:"postgres_conf,omitempty" table:"-"`
@@ -99,12 +99,12 @@ type DatabaseCreateRequest struct {
 	LimitsMemoryReservation *string `json:"limits_memory_reservation,omitempty" table:"-"`
 	LimitsCpus              *string `json:"limits_cpus,omitempty" table:"-"`
 	LimitsCpuset            *string `json:"limits_cpuset,omitempty" table:"-"`
-	LimitsCpuShares         *int    `json:"limits_cpu_shares,omitempty" table:"-"`
+	LimitsCPUShares         *int    `json:"limits_cpu_shares,omitempty" table:"-"`
 
 	// PostgreSQL specific
 	PostgresUser           *string `json:"postgres_user,omitempty"`
 	PostgresPassword       *string `json:"postgres_password,omitempty"`
-	PostgresDb             *string `json:"postgres_db,omitempty" table:"-"`
+	PostgresDB             *string `json:"postgres_db,omitempty" table:"-"`
 	PostgresInitdbArgs     *string `json:"postgres_initdb_args,omitempty"`
 	PostgresHostAuthMethod *string `json:"postgres_host_auth_method,omitempty"`
 	PostgresConf           *string `json:"postgres_conf,omitempty"`

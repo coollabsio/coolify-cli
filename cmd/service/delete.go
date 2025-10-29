@@ -1,12 +1,12 @@
 package service
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewDeleteCommand deletes a service
@@ -17,7 +17,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete a service and optionally clean up its configurations, volumes, and networks.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
@@ -35,7 +35,11 @@ func NewDeleteCommand() *cobra.Command {
 			if !force {
 				var response string
 				fmt.Printf("Are you sure you want to delete this service? (yes/no): ")
-				fmt.Scanln(&response)
+				_, err := fmt.Scanln(&response)
+
+				if err != nil {
+					return fmt.Errorf("failed to read confirmation: %w", err)
+				}
 
 				if response != "yes" && response != "y" {
 					fmt.Println("Delete cancelled.")
@@ -43,7 +47,7 @@ func NewDeleteCommand() *cobra.Command {
 				}
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			err = serviceSvc.Delete(ctx, uuid, deleteConfigurations, deleteVolumes, dockerCleanup, deleteConnectedNetworks)
 			if err != nil {
 				return fmt.Errorf("failed to delete service: %w", err)

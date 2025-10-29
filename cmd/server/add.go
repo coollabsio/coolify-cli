@@ -1,13 +1,13 @@
 package server
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewAddCommand creates the add command
@@ -17,7 +17,7 @@ func NewAddCommand() *cobra.Command {
 		Args:  cli.ExactArgs(3, "<server_name> <ip_address> <private_key_uuid>"),
 		Short: "Add a server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 
 			// Get API client
 			client, err := cli.GetAPIClient(cmd)
@@ -28,7 +28,7 @@ func NewAddCommand() *cobra.Command {
 			// Parse arguments and flags
 			name := args[0]
 			ip := args[1]
-			privateKeyUuid := args[2]
+			privateKeyUUID := args[2]
 			port, _ := cmd.Flags().GetInt("port")
 			user, _ := cmd.Flags().GetString("user")
 			validate, _ := cmd.Flags().GetBool("validate")
@@ -39,7 +39,7 @@ func NewAddCommand() *cobra.Command {
 				IP:              ip,
 				Port:            port,
 				User:            user,
-				PrivateKeyUUID:  privateKeyUuid,
+				PrivateKeyUUID:  privateKeyUUID,
 				InstantValidate: validate,
 			}
 

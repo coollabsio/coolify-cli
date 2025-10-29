@@ -1,13 +1,13 @@
 package env
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewUpdateEnvCommand() *cobra.Command {
@@ -17,7 +17,7 @@ func NewUpdateEnvCommand() *cobra.Command {
 		Long:  `Update an existing environment variable. First UUID is the application, second is the specific environment variable to update.`,
 		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			appUUID := args[0]
 			envUUID := args[1]
 

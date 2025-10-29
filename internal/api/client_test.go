@@ -51,7 +51,7 @@ func TestClient_Get_Success(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]ServerResponse{
+		_ = json.NewEncoder(w).Encode([]ServerResponse{
 			{UUID: "uuid-1", Name: "server-1"},
 			{UUID: "uuid-2", Name: "server-2"},
 		})
@@ -73,7 +73,7 @@ func TestClient_Get_StringResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/version", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("4.0.0"))
+		_, _ = w.Write([]byte("4.0.0"))
 	}))
 	defer server.Close()
 
@@ -87,9 +87,9 @@ func TestClient_Get_StringResponse(t *testing.T) {
 }
 
 func TestClient_Get_NotFound(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"message": "Server not found",
 		})
 	}))
@@ -110,9 +110,9 @@ func TestClient_Get_NotFound(t *testing.T) {
 }
 
 func TestClient_Get_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"message": "Invalid token",
 		})
 	}))
@@ -145,13 +145,12 @@ func TestClient_Post_Success(t *testing.T) {
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		var req CreateServerRequest
-		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		assert.Equal(t, "test-server", req.Name)
 		assert.Equal(t, "192.168.1.100", req.IP)
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(CreateServerResponse{
+		_ = json.NewEncoder(w).Encode(CreateServerResponse{
 			UUID:    "new-uuid",
 			Message: "Server created",
 		})
@@ -174,9 +173,9 @@ func TestClient_Post_Success(t *testing.T) {
 }
 
 func TestClient_Post_BadRequest(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"message": "Invalid IP address",
 		})
 	}))
@@ -200,7 +199,7 @@ func TestClient_Delete_Success(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"message": "Server deleted",
 		})
 	}))
@@ -217,7 +216,7 @@ func TestClient_GetVersion(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/version", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("4.0.0-beta.383"))
+		_, _ = w.Write([]byte("4.0.0-beta.383"))
 	}))
 	defer server.Close()
 
@@ -231,14 +230,14 @@ func TestClient_GetVersion(t *testing.T) {
 
 func TestClient_Retry_Success(t *testing.T) {
 	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	}))
 	defer server.Close()
 
@@ -254,10 +253,10 @@ func TestClient_Retry_Success(t *testing.T) {
 
 func TestClient_Retry_NoRetryOn4xx(t *testing.T) {
 	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Bad request"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Bad request"})
 	}))
 	defer server.Close()
 
@@ -272,7 +271,7 @@ func TestClient_Retry_NoRetryOn4xx(t *testing.T) {
 }
 
 func TestClient_ContextCancellation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -292,7 +291,7 @@ func TestClient_ContextCancellation(t *testing.T) {
 }
 
 func TestClient_Timeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -308,9 +307,9 @@ func TestClient_Timeout(t *testing.T) {
 }
 
 func TestClient_Debug(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	}))
 	defer server.Close()
 
