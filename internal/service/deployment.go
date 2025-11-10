@@ -230,13 +230,11 @@ func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, d
 
 		// For pretty format, pretty-print the filtered JSON
 		var prettyJSON interface{}
-		// Try to unmarshal - if it fails, just return raw JSON (ignore error)
-		if json.Unmarshal([]byte(logsJSON), &prettyJSON) != nil {
-			return logsJSON, nil
-		}
-		// Try to marshal with indent - if it fails, return raw JSON (ignore error)
-		if prettyBytes, err := json.MarshalIndent(prettyJSON, "", "  "); err == nil {
-			return string(prettyBytes), nil
+		// Try to unmarshal and marshal with indent - if either fails, return raw JSON
+		if json.Unmarshal([]byte(logsJSON), &prettyJSON) == nil {
+			if prettyBytes, err := json.MarshalIndent(prettyJSON, "", "  "); err == nil {
+				return string(prettyBytes), nil
+			}
 		}
 		return logsJSON, nil
 	}
