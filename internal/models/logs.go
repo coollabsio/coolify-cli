@@ -21,8 +21,10 @@ type LogEntry struct {
 func ParseAndFormatLogs(logsJSON string, showHidden bool) (string, error) {
 	// Try to parse as JSON array
 	var logs []LogEntry
-	if err := json.Unmarshal([]byte(logsJSON), &logs); err != nil {
-		// If it fails, return the original string (might already be formatted text)
+	// Ignore parse errors - if it's not JSON, just return original
+	_ = json.Unmarshal([]byte(logsJSON), &logs)
+	if len(logs) == 0 {
+		// If parsing failed or array is empty, return original string
 		return logsJSON, nil
 	}
 

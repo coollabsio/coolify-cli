@@ -344,7 +344,7 @@ func TestDeploymentService_GetLogsByDeployment(t *testing.T) {
 
 				// Handle get deployment details request
 				if r.URL.Path == "/api/v1/deployments/"+tt.deploymentUUID {
-					w.Write([]byte(tt.deploymentDetail))
+					_, _ = w.Write([]byte(tt.deploymentDetail))
 					return
 				}
 
