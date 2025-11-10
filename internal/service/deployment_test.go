@@ -152,15 +152,15 @@ func TestDeploymentService_ListByApplication(t *testing.T) {
 
 func TestDeploymentService_GetLogsByApplication(t *testing.T) {
 	tests := []struct {
-		name                string
-		appUUID             string
-		lines               int
-		deploymentsList     string
-		deploymentDetails   string
-		expectedLogs        string
-		wantErr             bool
-		noDeployments       bool
-		emptyLogs           bool
+		name              string
+		appUUID           string
+		lines             int
+		deploymentsList   string
+		deploymentDetails string
+		expectedLogs      string
+		wantErr           bool
+		noDeployments     bool
+		emptyLogs         bool
 	}{
 		{
 			name:    "get logs successfully",
