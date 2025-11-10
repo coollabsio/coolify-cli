@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -131,6 +132,11 @@ func (s *DeploymentService) GetLogsByApplication(ctx context.Context, appUUID st
 
 // GetLogsByApplicationWithOptions retrieves deployment logs for a specific application with formatting options
 func (s *DeploymentService) GetLogsByApplicationWithOptions(ctx context.Context, appUUID string, take int, showHidden bool) (string, error) {
+	return s.GetLogsByApplicationWithFormat(ctx, appUUID, take, showHidden, "table")
+}
+
+// GetLogsByApplicationWithFormat retrieves deployment logs with format control
+func (s *DeploymentService) GetLogsByApplicationWithFormat(ctx context.Context, appUUID string, take int, showHidden bool, format string) (string, error) {
 	// Get deployments with optional limit
 	// If take is 0, get all deployments; otherwise get only the specified number
 	var deployments []models.Deployment
@@ -168,7 +174,7 @@ func (s *DeploymentService) GetLogsByApplicationWithOptions(ctx context.Context,
 	latestDeployment := deployments[0]
 
 	// Get logs for this deployment only
-	return s.GetLogsByDeploymentWithOptions(ctx, latestDeployment.UUID, showHidden)
+	return s.GetLogsByDeploymentWithFormat(ctx, latestDeployment.UUID, showHidden, format)
 }
 
 // GetLogsByDeployment retrieves logs for a specific deployment by UUID
@@ -178,6 +184,11 @@ func (s *DeploymentService) GetLogsByDeployment(ctx context.Context, deploymentU
 
 // GetLogsByDeploymentWithOptions retrieves logs for a specific deployment by UUID with formatting options
 func (s *DeploymentService) GetLogsByDeploymentWithOptions(ctx context.Context, deploymentUUID string, showHidden bool) (string, error) {
+	return s.GetLogsByDeploymentWithFormat(ctx, deploymentUUID, showHidden, "table")
+}
+
+// GetLogsByDeploymentWithFormat retrieves logs with format control (json/pretty/table)
+func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, deploymentUUID string, showHidden bool, format string) (string, error) {
 	// Get the full deployment details which includes logs
 	deployment, err := s.Get(ctx, deploymentUUID)
 	if err != nil {
@@ -188,7 +199,48 @@ func (s *DeploymentService) GetLogsByDeploymentWithOptions(ctx context.Context, 
 		return fmt.Sprintf("No logs available for deployment %s (Status: %s)", deployment.UUID, deployment.Status), nil
 	}
 
-	// Parse and format the logs
+	// For JSON/pretty format, filter hidden logs if needed
+	if format == "json" || format == "pretty" {
+		logsJSON := *deployment.Logs
+
+		// Filter out hidden logs unless showHidden is true
+		if !showHidden {
+			var logEntries []models.LogEntry
+			if err := json.Unmarshal([]byte(logsJSON), &logEntries); err == nil {
+				// Filter out hidden entries
+				var filtered []models.LogEntry
+				for _, entry := range logEntries {
+					if !entry.Hidden {
+						filtered = append(filtered, entry)
+					}
+				}
+
+				// Re-marshal the filtered logs
+				filteredBytes, err := json.Marshal(filtered)
+				if err == nil {
+					logsJSON = string(filteredBytes)
+				}
+			}
+		}
+
+		// For JSON format, return the filtered logs
+		if format == "json" {
+			return logsJSON, nil
+		}
+
+		// For pretty format, pretty-print the filtered JSON
+		var prettyJSON interface{}
+		if err := json.Unmarshal([]byte(logsJSON), &prettyJSON); err != nil {
+			return logsJSON, nil
+		}
+		prettyBytes, err := json.MarshalIndent(prettyJSON, "", "  ")
+		if err != nil {
+			return logsJSON, nil
+		}
+		return string(prettyBytes), nil
+	}
+
+	// For table/text format, parse and format the logs
 	formattedLogs, err := models.ParseAndFormatLogs(*deployment.Logs, showHidden)
 	if err != nil {
 		// If parsing fails, return the raw logs

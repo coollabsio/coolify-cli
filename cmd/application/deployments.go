@@ -87,16 +87,18 @@ Use --follow to continuously stream new logs.`,
 			lines, _ := cmd.Flags().GetInt("lines")
 			follow, _ := cmd.Flags().GetBool("follow")
 			debugLogs, _ := cmd.Flags().GetBool("debuglogs")
+			format, _ := cmd.Flags().GetString("format")
 			deploySvc := service.NewDeploymentService(client)
 
 			// Function to get logs based on whether we have a deployment UUID
+			// Returns raw or formatted based on format flag
 			getLogs := func() (string, error) {
 				if deploymentUUID != "" {
-					return deploySvc.GetLogsByDeploymentWithOptions(ctx, deploymentUUID, debugLogs)
+					return deploySvc.GetLogsByDeploymentWithFormat(ctx, deploymentUUID, debugLogs, format)
 				}
 				// Get logs from the latest deployment
 				// Use take=1 internally to efficiently fetch only the most recent deployment
-				return deploySvc.GetLogsByApplicationWithOptions(ctx, appUUID, 1, debugLogs)
+				return deploySvc.GetLogsByApplicationWithFormat(ctx, appUUID, 1, debugLogs, format)
 			}
 
 			if !follow {
@@ -105,8 +107,8 @@ Use --follow to continuously stream new logs.`,
 					return fmt.Errorf("failed to get deployment logs: %w", err)
 				}
 
-				// Apply line limit if specified
-				if lines > 0 {
+				// Apply line limit if specified (only for text output)
+				if lines > 0 && format == "table" {
 					logs = limitLogLines(logs, lines)
 				}
 
