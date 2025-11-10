@@ -1,6 +1,7 @@
 package version
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,8 +14,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-// CliVersion is the CLI version
-const CliVersion = "1.0.3"
+// Version variables injected by GoReleaser at build time via ldflags
+var (
+	version = "v1.0.3"
+)
+
+func GetVersion() string {
+	return version
+}
 
 // CheckInterval for version checking
 const CheckInterval = 10 * time.Minute
@@ -33,16 +40,19 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 			if debug {
 				log.Println("Skipping update check. Last check was less than 10 minutes ago.")
 			}
-			return CliVersion, nil
+			return GetVersion(), nil
 		}
 	}
 
 	// Update check time
 	viper.Set("lastupdatechecktime", time.Now().Format(time.RFC3339))
-	viper.WriteConfig()
+	if err := viper.WriteConfig(); err != nil {
+		log.Printf("Failed to write config: %v\n", err)
+	}
 
 	url := "https://api.github.com/repos/coollabsio/coolify-cli/git/refs/tags"
-	req, err := http.NewRequest("GET", url, nil)
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -87,7 +97,7 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 	latestVersion := versions[len(versions)-1]
 
 	// Compare versions properly using semantic versioning
-	currentVersion, err := compareVersion.NewVersion(CliVersion)
+	currentVersion, err := compareVersion.NewVersion(GetVersion())
 	if err != nil {
 		return latestVersion.String(), err
 	}

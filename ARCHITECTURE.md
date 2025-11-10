@@ -550,7 +550,10 @@ c.httpClient = &http.Client{
 
 ```bash
 # Local build
-go build -o coolify .
+go build -o coolify ./coolify
+
+# Install locally
+go install ./coolify
 
 # Multi-platform release
 goreleaser release --clean

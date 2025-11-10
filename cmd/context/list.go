@@ -1,10 +1,11 @@
 package context
 
 import (
-	"github.com/coollabsio/coolify-cli/internal/config"
-	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/coollabsio/coolify-cli/internal/config"
+	"github.com/coollabsio/coolify-cli/internal/output"
 )
 
 // NewListCommand creates the list command
@@ -12,7 +13,7 @@ func NewListCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all configured contexts",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			// Get instances from viper (returns []interface{})
 			instancesRaw := viper.Get("instances")
 			if instancesRaw == nil {

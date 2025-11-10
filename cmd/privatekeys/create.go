@@ -1,14 +1,14 @@
 package privatekeys
 
 import (
-	"context"
 	"fmt"
 	"os"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewCreateCommand creates the create command
@@ -19,7 +19,7 @@ func NewCreateCommand() *cobra.Command {
 		Args:    cli.ExactArgs(2, "<key_name> <private_key_or_file>"),
 		Short:   "Add a private key",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			name := args[0]
 			privateKeyInput := args[1]
 

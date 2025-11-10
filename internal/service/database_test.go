@@ -8,10 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/coollabsio/coolify-cli/internal/api"
-	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestDatabaseService_List(t *testing.T) {
@@ -61,7 +62,7 @@ func TestDatabaseService_List(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -71,7 +72,7 @@ func TestDatabaseService_List(t *testing.T) {
 			databases, err := dbService.List(context.Background())
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -123,7 +124,7 @@ func TestDatabaseService_Get(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid, r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -133,7 +134,7 @@ func TestDatabaseService_Get(t *testing.T) {
 			database, err := dbService.Get(context.Background(), tt.uuid)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -193,12 +194,11 @@ func TestDatabaseService_Create(t *testing.T) {
 				assert.Equal(t, http.MethodPost, r.Method)
 
 				var req models.DatabaseCreateRequest
-				err := json.NewDecoder(r.Body).Decode(&req)
-				require.NoError(t, err)
+				_ = json.NewDecoder(r.Body).Decode(&req)
 				assert.Equal(t, tt.request.ServerUUID, req.ServerUUID)
 
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -208,7 +208,7 @@ func TestDatabaseService_Create(t *testing.T) {
 			database, err := dbService.Create(context.Background(), tt.dbType, tt.request)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -253,12 +253,11 @@ func TestDatabaseService_Update(t *testing.T) {
 				assert.Equal(t, http.MethodPatch, r.Method)
 
 				var req models.DatabaseUpdateRequest
-				err := json.NewDecoder(r.Body).Decode(&req)
-				require.NoError(t, err)
+				_ = json.NewDecoder(r.Body).Decode(&req)
 
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusNotFound {
-					w.Write([]byte(`{"error":"not found"}`))
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
 				}
 			}))
 			defer server.Close()
@@ -269,7 +268,7 @@ func TestDatabaseService_Update(t *testing.T) {
 			err := dbService.Update(context.Background(), tt.uuid, tt.request)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -335,9 +334,9 @@ func TestDatabaseService_Delete(t *testing.T) {
 
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusOK {
-					w.Write([]byte(`{"message":"Database deleted"}`))
+					_, _ = w.Write([]byte(`{"message":"Database deleted"}`))
 				} else {
-					w.Write([]byte(`{"error":"not found"}`))
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
 				}
 			}))
 			defer server.Close()
@@ -348,7 +347,7 @@ func TestDatabaseService_Delete(t *testing.T) {
 			err := dbService.Delete(context.Background(), tt.uuid, tt.deleteConfigurations, tt.deleteVolumes, tt.dockerCleanup, tt.deleteConnectedNetworks)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -389,7 +388,7 @@ func TestDatabaseService_Start(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/start", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -399,7 +398,7 @@ func TestDatabaseService_Start(t *testing.T) {
 			response, err := dbService.Start(context.Background(), tt.uuid)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -441,7 +440,7 @@ func TestDatabaseService_Stop(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/stop", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -451,7 +450,7 @@ func TestDatabaseService_Stop(t *testing.T) {
 			response, err := dbService.Stop(context.Background(), tt.uuid)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -493,7 +492,7 @@ func TestDatabaseService_Restart(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/restart", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -503,7 +502,7 @@ func TestDatabaseService_Restart(t *testing.T) {
 			response, err := dbService.Restart(context.Background(), tt.uuid)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -561,7 +560,7 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -571,7 +570,7 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 			backups, err := dbService.ListBackups(context.Background(), tt.dbUUID)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -619,7 +618,7 @@ func TestDatabaseService_UpdateBackup(t *testing.T) {
 				assert.Equal(t, http.MethodPatch, r.Method)
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusNotFound {
-					w.Write([]byte(`{"error":"not found"}`))
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
 				}
 			}))
 			defer server.Close()
@@ -630,7 +629,7 @@ func TestDatabaseService_UpdateBackup(t *testing.T) {
 			err := dbService.UpdateBackup(context.Background(), tt.dbUUID, tt.backupUUID, tt.request)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -682,9 +681,9 @@ func TestDatabaseService_DeleteBackup(t *testing.T) {
 				assert.Contains(t, r.URL.RawQuery, fmt.Sprintf("delete_s3=%t", tt.deleteS3))
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusOK {
-					w.Write([]byte(`{"message":"Backup deleted"}`))
+					_, _ = w.Write([]byte(`{"message":"Backup deleted"}`))
 				} else {
-					w.Write([]byte(`{"error":"not found"}`))
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
 				}
 			}))
 			defer server.Close()
@@ -695,7 +694,7 @@ func TestDatabaseService_DeleteBackup(t *testing.T) {
 			err := dbService.DeleteBackup(context.Background(), tt.dbUUID, tt.backupUUID, tt.deleteS3)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -760,7 +759,7 @@ func TestDatabaseService_ListBackupExecutions(t *testing.T) {
 				assert.Equal(t, "/api/v1/databases/"+tt.dbUUID+"/backups/"+tt.backupUUID+"/executions", r.URL.Path)
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.serverResponse))
+				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
 			defer server.Close()
 
@@ -770,7 +769,7 @@ func TestDatabaseService_ListBackupExecutions(t *testing.T) {
 			executions, err := dbService.ListBackupExecutions(context.Background(), tt.dbUUID, tt.backupUUID)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
@@ -827,9 +826,9 @@ func TestDatabaseService_DeleteBackupExecution(t *testing.T) {
 				assert.Contains(t, r.URL.RawQuery, fmt.Sprintf("delete_s3=%t", tt.deleteS3))
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusOK {
-					w.Write([]byte(`{"message":"Backup execution deleted"}`))
+					_, _ = w.Write([]byte(`{"message":"Backup execution deleted"}`))
 				} else {
-					w.Write([]byte(`{"error":"not found"}`))
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
 				}
 			}))
 			defer server.Close()
@@ -840,7 +839,7 @@ func TestDatabaseService_DeleteBackupExecution(t *testing.T) {
 			err := dbService.DeleteBackupExecution(context.Background(), tt.dbUUID, tt.backupUUID, tt.executionUUID, tt.deleteS3)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 

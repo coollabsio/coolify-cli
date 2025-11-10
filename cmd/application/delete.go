@@ -1,12 +1,12 @@
 package application
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewDeleteCommand() *cobra.Command {
@@ -16,7 +16,7 @@ func NewDeleteCommand() *cobra.Command {
 		Long:  `Delete an application. This action cannot be undone.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			force, _ := cmd.Flags().GetBool("force")
@@ -24,7 +24,11 @@ func NewDeleteCommand() *cobra.Command {
 			if !force {
 				var response string
 				fmt.Printf("Are you sure you want to delete application %s? This cannot be undone. (yes/no): ", uuid)
-				fmt.Scanln(&response)
+				_, err := fmt.Scanln(&response)
+
+				if err != nil {
+					return fmt.Errorf("failed to read input: %w", err)
+				}
 
 				if response != "yes" && response != "y" {
 					fmt.Println("Delete cancelled.")

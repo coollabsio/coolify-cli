@@ -1,15 +1,15 @@
 package env
 
 import (
-	"context"
 	"fmt"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/parser"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewSyncEnvCommand() *cobra.Command {
@@ -24,7 +24,7 @@ func NewSyncEnvCommand() *cobra.Command {
 Example: coolify app env sync abc123 --file .env.production`,
 		Args: cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

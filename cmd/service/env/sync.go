@@ -1,15 +1,15 @@
 package env
 
 import (
-	"context"
 	"fmt"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/parser"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewSyncCommand() *cobra.Command {
@@ -24,7 +24,7 @@ func NewSyncCommand() *cobra.Command {
 Example: coolify service env sync abc123 --file .env.production`,
 		Args: cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
@@ -55,7 +55,7 @@ Example: coolify service env sync abc123 --file .env.production`,
 			fmt.Printf("Found %d environment variables in file. Syncing...\n", len(envVars))
 
 			// Fetch existing environment variables
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			existingEnvs, err := serviceSvc.ListEnvs(ctx, uuid)
 			if err != nil {
 				return fmt.Errorf("failed to list existing environment variables: %w", err)

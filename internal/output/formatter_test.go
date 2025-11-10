@@ -34,10 +34,10 @@ func TestNewFormatter(t *testing.T) {
 			formatter, err := NewFormatter(tt.format, opts)
 
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, formatter)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotNil(t, formatter)
 			}
 		})

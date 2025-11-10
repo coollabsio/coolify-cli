@@ -1,13 +1,13 @@
 package database
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewUpdateCommand updates a database
@@ -18,7 +18,7 @@ func NewUpdateCommand() *cobra.Command {
 		Long:  `Update a database's configuration by UUID.`,
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			uuid := args[0]
 
 			req := &models.DatabaseUpdateRequest{}

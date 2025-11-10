@@ -1,13 +1,13 @@
 package env
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewGetCommand() *cobra.Command {
@@ -17,7 +17,7 @@ func NewGetCommand() *cobra.Command {
 		Long:  `Get detailed information about a specific environment variable. First UUID is the service, second is the environment variable UUID or key name.`,
 		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			serviceUUID := args[0]
 			envUUID := args[1]
 
@@ -26,7 +26,7 @@ func NewGetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			serviceSvc := service.NewServiceService(client)
+			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.GetEnv(ctx, serviceUUID, envUUID)
 			if err != nil {
 				return fmt.Errorf("failed to get environment variable: %w", err)

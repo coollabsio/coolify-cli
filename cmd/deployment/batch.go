@@ -1,13 +1,13 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 // NewBatchCommand deploys multiple resources by name
@@ -20,7 +20,7 @@ Provide resource names as comma-separated values.
 Example: coolify deploy batch app1,app2,app3`,
 		Args: cli.ExactArgs(1, "<names>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			namesStr := args[0]
 
 			client, err := cli.GetAPIClient(cmd)

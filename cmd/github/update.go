@@ -1,13 +1,13 @@
 package github
 
 import (
-	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/service"
-	"github.com/spf13/cobra"
 )
 
 func NewUpdateCommand() *cobra.Command {
@@ -17,7 +17,7 @@ func NewUpdateCommand() *cobra.Command {
 		Long:  `Update an existing GitHub App integration. Provide the app UUID and the fields you want to update.`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			appUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
