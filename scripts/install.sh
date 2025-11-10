@@ -193,11 +193,6 @@ download_from_github() {
     error_exit "Downloaded file is empty"
   fi
 
-  # Check if file is actually a tar.gz (basic check)
-  if ! file "$TEMP_FILE" | grep -q "gzip compressed"; then
-    error_exit "Downloaded file is not a valid gzip archive"
-  fi
-
   # Create install directory if it doesn't exist (for user install)
   if [ "$USER_INSTALL" = true ] && [ ! -d "$install_dir" ]; then
     echo "Creating directory: ${install_dir}"
