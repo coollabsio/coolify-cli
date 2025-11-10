@@ -131,7 +131,7 @@ func TestDeploymentService_ListByApplication(t *testing.T) {
 				assert.Equal(t, "GET", r.Method)
 
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
@@ -231,13 +231,13 @@ func TestDeploymentService_GetLogsByApplication(t *testing.T) {
 
 				// Handle list deployments request
 				if r.URL.Path == "/api/v1/deployments/applications/"+tt.appUUID {
-					w.Write([]byte(tt.deploymentsList))
+					_, _ = w.Write([]byte(tt.deploymentsList))
 					return
 				}
 
 				// Handle get deployment details request
 				if !tt.noDeployments && r.URL.Path == "/api/v1/deployments/dep-123" || r.URL.Path == "/api/v1/deployments/dep-456" {
-					w.Write([]byte(tt.deploymentDetails))
+					_, _ = w.Write([]byte(tt.deploymentDetails))
 					return
 				}
 
@@ -261,9 +261,9 @@ func TestDeploymentService_GetLogsByApplication(t *testing.T) {
 }
 
 func TestDeploymentService_ListByApplication_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "application not found"}`))
+		_, _ = w.Write([]byte(`{"error": "application not found"}`))
 	}))
 	defer server.Close()
 
@@ -275,9 +275,9 @@ func TestDeploymentService_ListByApplication_Error(t *testing.T) {
 }
 
 func TestDeploymentService_GetLogsByApplication_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error": "internal server error"}`))
+		_, _ = w.Write([]byte(`{"error": "internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -368,9 +368,9 @@ func TestDeploymentService_GetLogsByDeployment(t *testing.T) {
 }
 
 func TestDeploymentService_GetLogsByDeployment_Error(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "deployment not found"}`))
+		_, _ = w.Write([]byte(`{"error": "deployment not found"}`))
 	}))
 	defer server.Close()
 

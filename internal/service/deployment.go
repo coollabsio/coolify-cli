@@ -230,20 +230,22 @@ func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, d
 
 		// For pretty format, pretty-print the filtered JSON
 		var prettyJSON interface{}
-		if err := json.Unmarshal([]byte(logsJSON), &prettyJSON); err != nil {
+		if unmarshalErr := json.Unmarshal([]byte(logsJSON), &prettyJSON); unmarshalErr != nil {
+			// If unmarshal fails, return raw JSON
 			return logsJSON, nil
 		}
-		prettyBytes, err := json.MarshalIndent(prettyJSON, "", "  ")
-		if err != nil {
+		prettyBytes, marshalErr := json.MarshalIndent(prettyJSON, "", "  ")
+		if marshalErr != nil {
+			// If marshal fails, return raw JSON
 			return logsJSON, nil
 		}
 		return string(prettyBytes), nil
 	}
 
 	// For table/text format, parse and format the logs
-	formattedLogs, err := models.ParseAndFormatLogs(*deployment.Logs, showHidden)
-	if err != nil {
-		// If parsing fails, return the raw logs
+	formattedLogs, parseErr := models.ParseAndFormatLogs(*deployment.Logs, showHidden)
+	if parseErr != nil {
+		// If parsing fails, return the raw logs (this is a fallback, not an error)
 		return *deployment.Logs, nil
 	}
 
