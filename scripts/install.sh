@@ -279,7 +279,7 @@ main() {
   echo
 
   # Download and install
-  download_from_github "$REPO" "$version_to_install" "coolify-cli" "$install_dir"
+  download_from_github "$REPO" "$version_to_install" "coolify" "$install_dir"
 
   echo
   echo -e "${GREEN}Installation complete!${NC}"

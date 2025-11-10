@@ -24,11 +24,15 @@ builds:
     env:
       - CGO_ENABLED=0
 
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
 archives:
   - id: coolify-archive
     builds:
       - coolify
-    name_template: "{{ .Binary }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
     format_overrides:
       - goos: windows
