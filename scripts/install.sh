@@ -173,7 +173,7 @@ download_from_github() {
   local name=$3
   local install_dir=$4
 
-  local filename="${name}_${release}_${OS}_${ARCH}.tar.gz"
+  local filename="${name}_${OS}_${ARCH}.tar.gz"
   local download_url="https://github.com/${repo}/releases/download/${release}/${filename}"
 
   echo -e "${GREEN}Downloading ${name} ${release}${NC}"
