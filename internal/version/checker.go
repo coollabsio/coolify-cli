@@ -14,8 +14,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-// CliVersion is the CLI version
-const CliVersion = "1.0.4"
+// Version variables injected by GoReleaser at build time via ldflags
+var (
+	version = "v1.0.3"
+)
+
+func GetVersion() string {
+	return version
+}
 
 // CheckInterval for version checking
 const CheckInterval = 10 * time.Minute
@@ -34,7 +40,7 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 			if debug {
 				log.Println("Skipping update check. Last check was less than 10 minutes ago.")
 			}
-			return CliVersion, nil
+			return GetVersion(), nil
 		}
 	}
 
@@ -91,7 +97,7 @@ func CheckLatestVersionOfCli(debug bool) (string, error) {
 	latestVersion := versions[len(versions)-1]
 
 	// Compare versions properly using semantic versioning
-	currentVersion, err := compareVersion.NewVersion(CliVersion)
+	currentVersion, err := compareVersion.NewVersion(GetVersion())
 	if err != nil {
 		return latestVersion.String(), err
 	}

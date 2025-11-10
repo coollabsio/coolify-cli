@@ -28,3 +28,24 @@ jobs:
           workdir: ./
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-version:
+    needs: [release-cli]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: v4.x
+          fetch-depth: 0
+
+      - name: Update version file
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "Updating version to $TAG"
+          sed -i "s/^\tversion = \".*\"/\tversion = \"$TAG\"/" internal/version/checker.go
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add internal/version/checker.go
+          git commit -m "chore: bump version to $TAG"
+          git push origin v4.x

@@ -14,7 +14,7 @@ func NewVersionCommand() *cobra.Command {
 		Use:   "version",
 		Short: "Current Coolify CLI version",
 		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Println(version.CliVersion)
+			fmt.Println(version.GetVersion())
 		},
 	}
 }
