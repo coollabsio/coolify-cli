@@ -125,6 +125,15 @@ Commands can use `server` or `servers` interchangeably.
   - `--is-literal` - Treat all values as literal (don't interpolate variables)
   - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
 
+#### Application Deployments
+- `coolify app deployments list <app-uuid>` - List all deployments for an application
+- `coolify app deployments logs <app-uuid> [deployment-uuid]` - Get deployment logs (formatted as human-readable text)
+  - If only `app-uuid` is provided: retrieves logs from the **latest/most recent deployment only**
+  - If `deployment-uuid` is also provided: retrieves logs for that **specific deployment**
+  - `-n, --lines <n>` - Number of log lines to display (default: 0 = all lines)
+  - `-f, --follow` - Follow log output in real-time (like tail -f)
+  - `--debuglogs` - Show debug logs (includes hidden commands and internal operations)
+
 ### Databases
 - `coolify database list` - List all databases
 - `coolify database get <uuid>` - Get database details
