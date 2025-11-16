@@ -173,7 +173,10 @@ download_from_github() {
   local name=$3
   local install_dir=$4
 
-  local filename="${name}_${OS}_${ARCH}.tar.gz"
+  # Clean version (remove 'v' prefix if present)
+  local clean_version="${release#v}"
+
+  local filename="${name}_${clean_version}_${OS}_${ARCH}.tar.gz"
   local download_url="https://github.com/${repo}/releases/download/${release}/${filename}"
 
   echo -e "${GREEN}Downloading ${name} ${release}${NC}"
@@ -279,7 +282,7 @@ main() {
   echo
 
   # Download and install
-  download_from_github "$REPO" "$version_to_install" "coolify" "$install_dir"
+  download_from_github "$REPO" "$version_to_install" "coolify-cli" "$install_dir"
 
   echo
   echo -e "${GREEN}Installation complete!${NC}"
