@@ -30,7 +30,7 @@ checksum:
 
 archives:
   - id: coolify-archive
-    builds:
+    ids:
       - coolify
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
