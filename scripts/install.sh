@@ -176,7 +176,7 @@ download_from_github() {
   # Clean version (remove 'v' prefix if present)
   local clean_version="${release#v}"
 
-  local filename="${name}_${clean_version}_${OS}_${ARCH}.tar.gz"
+  local filename="${name}_${release#v}_${OS}_${ARCH}.tar.gz"
   local download_url="https://github.com/${repo}/releases/download/${release}/${filename}"
 
   echo -e "${GREEN}Downloading ${name} ${release}${NC}"
