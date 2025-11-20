@@ -111,6 +111,7 @@ function Stop-WithError {
     param([string]$Message)
     Write-ErrorMessage "Error: $Message"
     Cleanup
+    throw $Message
 }
 
 # Check if running as administrator
