@@ -801,3 +801,149 @@ func TestApplicationService_DeleteEnv_Error(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to delete environment variable")
 }
+
+func TestApplicationService_ListEnvs_AllFields(t *testing.T) {
+	// Test that all fields including is_buildtime (without underscore), is_runtime, and is_shared
+	// are correctly parsed from API response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		// Mock API response with all fields
+		envs := []models.EnvironmentVariable{
+			{
+				UUID:           "env-1",
+				Key:            "DATABASE_URL",
+				Value:          "postgres://localhost",
+				IsBuildTime:    true,
+				IsPreview:      false,
+				IsLiteralValue: true,
+				IsShownOnce:    false,
+				IsRuntime:      true,
+				IsShared:       false,
+			},
+			{
+				UUID:           "env-2",
+				Key:            "API_KEY",
+				Value:          "secret",
+				IsBuildTime:    false,
+				IsPreview:      true,
+				IsLiteralValue: false,
+				IsShownOnce:    false,
+				IsRuntime:      false,
+				IsShared:       true,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(envs)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListEnvs(context.Background(), "app-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	// Verify first env var
+	assert.Equal(t, "DATABASE_URL", result[0].Key)
+	assert.True(t, result[0].IsBuildTime, "IsBuildTime should be true for DATABASE_URL")
+	assert.True(t, result[0].IsRuntime, "IsRuntime should be true for DATABASE_URL")
+	assert.False(t, result[0].IsShared, "IsShared should be false for DATABASE_URL")
+	assert.True(t, result[0].IsLiteralValue)
+	assert.False(t, result[0].IsPreview)
+
+	// Verify second env var
+	assert.Equal(t, "API_KEY", result[1].Key)
+	assert.False(t, result[1].IsBuildTime, "IsBuildTime should be false for API_KEY")
+	assert.False(t, result[1].IsRuntime, "IsRuntime should be false for API_KEY")
+	assert.True(t, result[1].IsShared, "IsShared should be true for API_KEY")
+	assert.False(t, result[1].IsLiteralValue)
+	assert.True(t, result[1].IsPreview)
+}
+
+func TestApplicationService_EnvBuildtimeFlag(t *testing.T) {
+	// Test specifically that is_buildtime (without underscore) unmarshals correctly
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs", r.URL.Path)
+
+		// Directly write JSON with is_buildtime (no underscore) to mimic actual API
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{
+				"uuid": "env-test-1",
+				"key": "BUILD_VAR",
+				"value": "build_value",
+				"is_buildtime": true,
+				"is_preview": false,
+				"is_literal": false,
+				"is_shown_once": false,
+				"is_runtime": true,
+				"is_shared": false
+			}
+		]`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListEnvs(context.Background(), "app-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "BUILD_VAR", result[0].Key)
+	assert.True(t, result[0].IsBuildTime, "is_buildtime field should unmarshal correctly to true")
+	assert.True(t, result[0].IsRuntime, "is_runtime field should unmarshal correctly to true")
+}
+
+func TestApplicationService_EnvRuntimeAndShared(t *testing.T) {
+	// Test is_runtime and is_shared fields specifically
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{
+				"uuid": "env-runtime",
+				"key": "RUNTIME_VAR",
+				"value": "runtime_value",
+				"is_buildtime": false,
+				"is_preview": false,
+				"is_literal": false,
+				"is_shown_once": false,
+				"is_runtime": true,
+				"is_shared": false
+			},
+			{
+				"uuid": "env-shared",
+				"key": "SHARED_VAR",
+				"value": "shared_value",
+				"is_buildtime": false,
+				"is_preview": false,
+				"is_literal": false,
+				"is_shown_once": false,
+				"is_runtime": false,
+				"is_shared": true
+			}
+		]`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListEnvs(context.Background(), "app-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+
+	// Verify runtime var
+	assert.Equal(t, "RUNTIME_VAR", result[0].Key)
+	assert.True(t, result[0].IsRuntime, "IsRuntime should be true")
+	assert.False(t, result[0].IsShared, "IsShared should be false")
+
+	// Verify shared var
+	assert.Equal(t, "SHARED_VAR", result[1].Key)
+	assert.False(t, result[1].IsRuntime, "IsRuntime should be false")
+	assert.True(t, result[1].IsShared, "IsShared should be true")
+}

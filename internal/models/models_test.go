@@ -227,3 +227,133 @@ func TestServerCreateRequest_Marshal(t *testing.T) {
 	assert.Equal(t, request.Port, unmarshaled.Port)
 	assert.True(t, unmarshaled.InstantValidate)
 }
+
+func TestEnvironmentVariable_IsBuildtimeField(t *testing.T) {
+	// Test that is_buildtime (without underscore) unmarshals correctly
+	jsonData := `{
+		"uuid": "env-123",
+		"key": "TEST_VAR",
+		"value": "test_value",
+		"is_buildtime": true,
+		"is_preview": false,
+		"is_literal": false,
+		"is_shown_once": false,
+		"is_runtime": true,
+		"is_shared": false
+	}`
+
+	var env EnvironmentVariable
+	err := json.Unmarshal([]byte(jsonData), &env)
+	require.NoError(t, err)
+
+	assert.Equal(t, "env-123", env.UUID)
+	assert.Equal(t, "TEST_VAR", env.Key)
+	assert.True(t, env.IsBuildTime, "is_buildtime should unmarshal to true")
+	assert.True(t, env.IsRuntime, "is_runtime should unmarshal to true")
+	assert.False(t, env.IsShared, "is_shared should unmarshal to false")
+}
+
+func TestEnvironmentVariable_MarshalUnmarshal(t *testing.T) {
+	realValue := "secret_value"
+	env := EnvironmentVariable{
+		UUID:           "env-uuid-123",
+		Key:            "DATABASE_URL",
+		Value:          "postgres://localhost/db",
+		IsBuildTime:    true,
+		IsPreview:      false,
+		IsLiteralValue: true,
+		IsShownOnce:    false,
+		IsRuntime:      true,
+		IsShared:       false,
+		RealValue:      &realValue,
+	}
+
+	// Marshal
+	data, err := json.Marshal(env)
+	require.NoError(t, err)
+
+	// Verify JSON contains is_buildtime (not is_build_time)
+	assert.Contains(t, string(data), `"is_buildtime":true`)
+	assert.NotContains(t, string(data), `"is_build_time"`)
+
+	// Unmarshal
+	var unmarshaled EnvironmentVariable
+	err = json.Unmarshal(data, &unmarshaled)
+	require.NoError(t, err)
+
+	assert.Equal(t, env.UUID, unmarshaled.UUID)
+	assert.Equal(t, env.Key, unmarshaled.Key)
+	assert.Equal(t, env.Value, unmarshaled.Value)
+	assert.True(t, unmarshaled.IsBuildTime)
+	assert.True(t, unmarshaled.IsLiteralValue)
+	assert.True(t, unmarshaled.IsRuntime)
+	assert.False(t, unmarshaled.IsShared)
+	assert.NotNil(t, unmarshaled.RealValue)
+	assert.Equal(t, *env.RealValue, *unmarshaled.RealValue)
+}
+
+func TestEnvironmentVariable_UnmarshalFromFixture(t *testing.T) {
+	fixtureData, err := os.ReadFile(filepath.Join("..", "..", "test", "fixtures", "environment_variable_complete.json"))
+	require.NoError(t, err)
+
+	var env EnvironmentVariable
+	err = json.Unmarshal(fixtureData, &env)
+	require.NoError(t, err)
+
+	assert.Equal(t, "env-test-uuid-123", env.UUID)
+	assert.Equal(t, "DATABASE_URL", env.Key)
+	assert.Equal(t, "postgres://localhost/mydb", env.Value)
+	assert.True(t, env.IsBuildTime, "IsBuildTime should be true from fixture")
+	assert.True(t, env.IsRuntime, "IsRuntime should be true from fixture")
+	assert.False(t, env.IsShared, "IsShared should be false from fixture")
+	assert.False(t, env.IsPreview)
+	assert.False(t, env.IsLiteralValue)
+	assert.False(t, env.IsShownOnce)
+	assert.NotNil(t, env.RealValue)
+	assert.Equal(t, "postgres://user:pass@localhost/mydb", *env.RealValue)
+}
+
+func TestEnvironmentVariable_PartialResponse(t *testing.T) {
+	// Test backward compatibility with older API responses that might not have all fields
+	jsonData := `{
+		"uuid": "env-123",
+		"key": "OLD_VAR",
+		"value": "old_value"
+	}`
+
+	var env EnvironmentVariable
+	err := json.Unmarshal([]byte(jsonData), &env)
+	require.NoError(t, err)
+
+	assert.Equal(t, "env-123", env.UUID)
+	assert.Equal(t, "OLD_VAR", env.Key)
+	assert.False(t, env.IsBuildTime, "Missing boolean fields should default to false")
+	assert.False(t, env.IsRuntime, "Missing boolean fields should default to false")
+	assert.False(t, env.IsShared, "Missing boolean fields should default to false")
+}
+
+func TestEnvironmentVariableCreateRequest_Marshal(t *testing.T) {
+	isBuildTime := true
+	isPreview := false
+	request := EnvironmentVariableCreateRequest{
+		Key:         "NEW_VAR",
+		Value:       "new_value",
+		IsBuildTime: &isBuildTime,
+		IsPreview:   &isPreview,
+	}
+
+	data, err := json.Marshal(request)
+	require.NoError(t, err)
+
+	// Request models should still use is_build_time (with underscore) per API spec
+	assert.Contains(t, string(data), `"is_build_time":true`)
+
+	var unmarshaled EnvironmentVariableCreateRequest
+	err = json.Unmarshal(data, &unmarshaled)
+	require.NoError(t, err)
+
+	assert.Equal(t, request.Key, unmarshaled.Key)
+	assert.Equal(t, request.Value, unmarshaled.Value)
+	assert.NotNil(t, unmarshaled.IsBuildTime)
+	assert.True(t, *unmarshaled.IsBuildTime)
+}
