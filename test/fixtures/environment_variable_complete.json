@@ -1,0 +1,12 @@
+{
+  "uuid": "env-test-uuid-123",
+  "key": "DATABASE_URL",
+  "value": "postgres://localhost/mydb",
+  "real_value": "postgres://user:pass@localhost/mydb",
+  "is_buildtime": true,
+  "is_preview": false,
+  "is_literal": false,
+  "is_shown_once": false,
+  "is_runtime": true,
+  "is_shared": false
+}

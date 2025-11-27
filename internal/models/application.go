@@ -100,10 +100,12 @@ type EnvironmentVariable struct {
 	UUID           string  `json:"uuid"`
 	Key            string  `json:"key"`
 	Value          string  `json:"value" sensitive:"true"`
-	IsBuildTime    bool    `json:"is_build_time"`
+	IsBuildTime    bool    `json:"is_buildtime"`
 	IsPreview      bool    `json:"is_preview"`
 	IsLiteralValue bool    `json:"is_literal"`
 	IsShownOnce    bool    `json:"is_shown_once"`
+	IsRuntime      bool    `json:"is_runtime"`
+	IsShared       bool    `json:"is_shared"`
 	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
 	ApplicationID  *int    `json:"-" table:"-"`
 	CreatedAt      string  `json:"-" table:"-"`
