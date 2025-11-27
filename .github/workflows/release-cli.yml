@@ -49,3 +49,8 @@ jobs:
           git add internal/version/checker.go
           git commit -m "chore: bump version to $TAG"
           git push origin v4.x
+
+          # Move the tag to point to the new commit with updated version
+          git tag -d "$TAG" || true
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG" --force

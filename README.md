@@ -4,11 +4,31 @@
 
 ### Install script (recommended)
 
+#### Linux/macOS
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
 ```
 
 It will install the CLI in `/usr/local/bin/coolify` and the configuration file in `~/.config/coolify/config.json`
+
+#### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+```
+
+It will install the CLI in `%ProgramFiles%\Coolify\coolify.exe` and the configuration file in `%USERPROFILE%\.config\coolify\config.json`
+
+For user installation (no admin rights required):
+```powershell
+$env:COOLIFY_USER_INSTALL=1; irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+```
+
+For a specific version:
+```powershell
+$env:COOLIFY_VERSION='v1.0.0'; irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+```
 
 ### Using `go install`
        

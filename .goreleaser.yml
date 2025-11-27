@@ -23,3 +23,17 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=0
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+archives:
+  - id: coolify-archive
+    ids:
+      - coolify
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+
+    format_overrides:
+      - goos: windows
+        formats: [zip]
