@@ -54,8 +54,12 @@ func NewUpdateEnvCommand() *cobra.Command {
 				isMultiline, _ := cmd.Flags().GetBool("is-multiline")
 				req.IsMultiline = &isMultiline
 			}
+			if cmd.Flags().Changed("runtime") {
+				isRuntime, _ := cmd.Flags().GetBool("runtime")
+				req.IsRuntime = &isRuntime
+			}
 
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsPreview == nil && req.IsLiteral == nil && req.IsMultiline == nil {
+			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsPreview == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
 				return fmt.Errorf("at least one field must be provided to update")
 			}
 
@@ -72,9 +76,10 @@ func NewUpdateEnvCommand() *cobra.Command {
 
 	cmd.Flags().String("key", "", "New environment variable key")
 	cmd.Flags().String("value", "", "New environment variable value")
-	cmd.Flags().Bool("build-time", false, "Available at build time")
+	cmd.Flags().Bool("build-time", true, "Available at build time (default: true)")
 	cmd.Flags().Bool("preview", false, "Available in preview deployments")
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
+	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
 	return cmd
 }

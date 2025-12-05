@@ -299,7 +299,7 @@ func TestService_CreateEnv(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewService(client)
 
-	env, err := svc.CreateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableCreateRequest{
+	env, err := svc.CreateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableCreateRequest{
 		Key:   "NEW_VAR",
 		Value: "new_value",
 	})
@@ -329,7 +329,7 @@ func TestService_UpdateEnv(t *testing.T) {
 	svc := NewService(client)
 
 	newKey := "UPDATED_VAR"
-	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableUpdateRequest{
+	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableUpdateRequest{
 		UUID: "env-123",
 		Key:  &newKey,
 	})

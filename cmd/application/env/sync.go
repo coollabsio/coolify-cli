@@ -40,6 +40,7 @@ Example: coolify app env sync abc123 --file .env.production`,
 			isBuildTime, _ := cmd.Flags().GetBool("build-time")
 			isPreview, _ := cmd.Flags().GetBool("preview")
 			isLiteral, _ := cmd.Flags().GetBool("is-literal")
+			isRuntime, _ := cmd.Flags().GetBool("runtime")
 
 			// Parse the .env file
 			envVars, err := parser.ParseEnvFile(filePath)
@@ -86,6 +87,9 @@ Example: coolify app env sync abc123 --file .env.production`,
 				}
 				if cmd.Flags().Changed("is-literal") {
 					req.IsLiteral = &isLiteral
+				}
+				if cmd.Flags().Changed("runtime") {
+					req.IsRuntime = &isRuntime
 				}
 
 				// Auto-detect multiline values
@@ -147,8 +151,9 @@ Example: coolify app env sync abc123 --file .env.production`,
 	}
 
 	syncEnvCmd.Flags().StringP("file", "f", "", "Path to .env file (required)")
-	syncEnvCmd.Flags().Bool("build-time", false, "Make all variables available at build time")
+	syncEnvCmd.Flags().Bool("build-time", true, "Make all variables available at build time (default: true)")
 	syncEnvCmd.Flags().Bool("preview", false, "Make all variables available in preview deployments")
 	syncEnvCmd.Flags().Bool("is-literal", false, "Treat all values as literal (don't interpolate variables)")
+	syncEnvCmd.Flags().Bool("runtime", true, "Make all variables available at runtime (default: true)")
 	return syncEnvCmd
 }

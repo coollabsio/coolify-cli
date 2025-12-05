@@ -68,3 +68,42 @@ type ServiceUpdateRequest struct {
 type ServiceLifecycleResponse struct {
 	Message string `json:"message"`
 }
+
+// ServiceEnvironmentVariable represents an environment variable for a service
+// Services don't have preview deployments, so IsPreview is excluded from output
+type ServiceEnvironmentVariable struct {
+	ID             int     `json:"-" table:"-"`
+	UUID           string  `json:"uuid"`
+	Key            string  `json:"key"`
+	Value          string  `json:"value" sensitive:"true"`
+	IsBuildTime    bool    `json:"is_buildtime"`
+	IsLiteralValue bool    `json:"is_literal"`
+	IsShownOnce    bool    `json:"is_shown_once"`
+	IsRuntime      bool    `json:"is_runtime"`
+	IsShared       bool    `json:"is_shared"`
+	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
+	ServiceID      *int    `json:"-" table:"-"`
+	CreatedAt      string  `json:"-" table:"-"`
+	UpdatedAt      string  `json:"-" table:"-"`
+}
+
+// ServiceEnvironmentVariableCreateRequest represents the request to create a service environment variable
+type ServiceEnvironmentVariableCreateRequest struct {
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	IsBuildTime *bool  `json:"is_build_time,omitempty"`
+	IsLiteral   *bool  `json:"is_literal,omitempty"`
+	IsMultiline *bool  `json:"is_multiline,omitempty"`
+	IsRuntime   *bool  `json:"is_runtime,omitempty"`
+}
+
+// ServiceEnvironmentVariableUpdateRequest represents the request to update a service environment variable
+type ServiceEnvironmentVariableUpdateRequest struct {
+	UUID        string  `json:"uuid"`
+	Key         *string `json:"key,omitempty"`
+	Value       *string `json:"value,omitempty"`
+	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsRuntime   *bool   `json:"is_runtime,omitempty"`
+}

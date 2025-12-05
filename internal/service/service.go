@@ -101,8 +101,8 @@ func (s *Service) Restart(ctx context.Context, uuid string) (*models.ServiceLife
 }
 
 // ListEnvs retrieves all environment variables for a service
-func (s *Service) ListEnvs(ctx context.Context, uuid string) ([]models.EnvironmentVariable, error) {
-	var envs []models.EnvironmentVariable
+func (s *Service) ListEnvs(ctx context.Context, uuid string) ([]models.ServiceEnvironmentVariable, error) {
+	var envs []models.ServiceEnvironmentVariable
 	err := s.client.Get(ctx, fmt.Sprintf("services/%s/envs", uuid), &envs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list environment variables for service %s: %w", uuid, err)
@@ -111,7 +111,7 @@ func (s *Service) ListEnvs(ctx context.Context, uuid string) ([]models.Environme
 }
 
 // GetEnv retrieves a single environment variable by UUID or key
-func (s *Service) GetEnv(ctx context.Context, serviceUUID, envIdentifier string) (*models.EnvironmentVariable, error) {
+func (s *Service) GetEnv(ctx context.Context, serviceUUID, envIdentifier string) (*models.ServiceEnvironmentVariable, error) {
 	envs, err := s.ListEnvs(ctx, serviceUUID)
 	if err != nil {
 		return nil, err
@@ -128,8 +128,8 @@ func (s *Service) GetEnv(ctx context.Context, serviceUUID, envIdentifier string)
 }
 
 // CreateEnv creates a new environment variable for a service
-func (s *Service) CreateEnv(ctx context.Context, uuid string, req *models.EnvironmentVariableCreateRequest) (*models.EnvironmentVariable, error) {
-	var env models.EnvironmentVariable
+func (s *Service) CreateEnv(ctx context.Context, uuid string, req *models.ServiceEnvironmentVariableCreateRequest) (*models.ServiceEnvironmentVariable, error) {
+	var env models.ServiceEnvironmentVariable
 	err := s.client.Post(ctx, fmt.Sprintf("services/%s/envs", uuid), req, &env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create environment variable for service %s: %w", uuid, err)
@@ -138,8 +138,8 @@ func (s *Service) CreateEnv(ctx context.Context, uuid string, req *models.Enviro
 }
 
 // UpdateEnv updates an environment variable for a service
-func (s *Service) UpdateEnv(ctx context.Context, serviceUUID string, req *models.EnvironmentVariableUpdateRequest) (*models.EnvironmentVariable, error) {
-	var env models.EnvironmentVariable
+func (s *Service) UpdateEnv(ctx context.Context, serviceUUID string, req *models.ServiceEnvironmentVariableUpdateRequest) (*models.ServiceEnvironmentVariable, error) {
+	var env models.ServiceEnvironmentVariable
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs", serviceUUID), req, &env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update environment variable for service %s: %w", serviceUUID, err)
@@ -156,9 +156,19 @@ func (s *Service) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) er
 	return nil
 }
 
+// ServiceBulkUpdateEnvsRequest represents the request to bulk update service environment variables
+type ServiceBulkUpdateEnvsRequest struct {
+	Data []models.ServiceEnvironmentVariableCreateRequest `json:"data"`
+}
+
+// ServiceBulkUpdateEnvsResponse represents the response from service bulk update
+type ServiceBulkUpdateEnvsResponse struct {
+	Message string `json:"message,omitempty"`
+}
+
 // BulkUpdateEnvs updates multiple environment variables in a single request
-func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *BulkUpdateEnvsRequest) (*BulkUpdateEnvsResponse, error) {
-	var response BulkUpdateEnvsResponse
+func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *ServiceBulkUpdateEnvsRequest) (*ServiceBulkUpdateEnvsResponse, error) {
+	var response ServiceBulkUpdateEnvsResponse
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs/bulk", serviceUUID), req, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk update environment variables for service %s: %w", serviceUUID, err)

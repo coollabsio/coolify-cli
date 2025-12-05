@@ -28,9 +28,9 @@ func NewCreateCommand() *cobra.Command {
 			key, _ := cmd.Flags().GetString("key")
 			value, _ := cmd.Flags().GetString("value")
 			isBuildTime, _ := cmd.Flags().GetBool("build-time")
-			isPreview, _ := cmd.Flags().GetBool("preview")
 			isLiteral, _ := cmd.Flags().GetBool("is-literal")
 			isMultiline, _ := cmd.Flags().GetBool("is-multiline")
+			isRuntime, _ := cmd.Flags().GetBool("runtime")
 
 			if key == "" {
 				return fmt.Errorf("--key is required")
@@ -39,7 +39,7 @@ func NewCreateCommand() *cobra.Command {
 				return fmt.Errorf("--value is required")
 			}
 
-			req := &models.EnvironmentVariableCreateRequest{
+			req := &models.ServiceEnvironmentVariableCreateRequest{
 				Key:   key,
 				Value: value,
 			}
@@ -48,14 +48,14 @@ func NewCreateCommand() *cobra.Command {
 			if cmd.Flags().Changed("build-time") {
 				req.IsBuildTime = &isBuildTime
 			}
-			if cmd.Flags().Changed("preview") {
-				req.IsPreview = &isPreview
-			}
 			if cmd.Flags().Changed("is-literal") {
 				req.IsLiteral = &isLiteral
 			}
 			if cmd.Flags().Changed("is-multiline") {
 				req.IsMultiline = &isMultiline
+			}
+			if cmd.Flags().Changed("runtime") {
+				req.IsRuntime = &isRuntime
 			}
 
 			serviceSvc := service.NewService(client)
@@ -71,10 +71,10 @@ func NewCreateCommand() *cobra.Command {
 
 	cmd.Flags().String("key", "", "Environment variable key (required)")
 	cmd.Flags().String("value", "", "Environment variable value (required)")
-	cmd.Flags().Bool("build-time", false, "Available at build time")
-	cmd.Flags().Bool("preview", false, "Available in preview deployments")
+	cmd.Flags().Bool("build-time", true, "Available at build time (default: true)")
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal (don't interpolate variables)")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
+	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
 
 	return cmd
 }
