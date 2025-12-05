@@ -14,7 +14,7 @@ import (
 
 // Version variables injected by GoReleaser at build time via ldflags
 var (
-	version = "v1.1"
+	version = "v1.2"
 )
 
 // GitHubAPIURL is the URL for fetching CLI version tags (exported for testing)
