@@ -38,8 +38,8 @@ Example: coolify service env sync abc123 --file .env.production`,
 			}
 
 			isBuildTime, _ := cmd.Flags().GetBool("build-time")
-			isPreview, _ := cmd.Flags().GetBool("preview")
 			isLiteral, _ := cmd.Flags().GetBool("is-literal")
+			isRuntime, _ := cmd.Flags().GetBool("runtime")
 
 			// Parse the .env file
 			envVars, err := parser.ParseEnvFile(filePath)
@@ -62,17 +62,17 @@ Example: coolify service env sync abc123 --file .env.production`,
 			}
 
 			// Build a map of existing env vars by key
-			existingMap := make(map[string]models.EnvironmentVariable)
+			existingMap := make(map[string]models.ServiceEnvironmentVariable)
 			for _, env := range existingEnvs {
 				existingMap[env.Key] = env
 			}
 
 			// Separate into updates and creates
-			var toUpdate []models.EnvironmentVariableCreateRequest
-			var toCreate []models.EnvironmentVariableCreateRequest
+			var toUpdate []models.ServiceEnvironmentVariableCreateRequest
+			var toCreate []models.ServiceEnvironmentVariableCreateRequest
 
 			for _, envVar := range envVars {
-				req := models.EnvironmentVariableCreateRequest{
+				req := models.ServiceEnvironmentVariableCreateRequest{
 					Key:   envVar.Key,
 					Value: envVar.Value,
 				}
@@ -81,11 +81,11 @@ Example: coolify service env sync abc123 --file .env.production`,
 				if cmd.Flags().Changed("build-time") {
 					req.IsBuildTime = &isBuildTime
 				}
-				if cmd.Flags().Changed("preview") {
-					req.IsPreview = &isPreview
-				}
 				if cmd.Flags().Changed("is-literal") {
 					req.IsLiteral = &isLiteral
+				}
+				if cmd.Flags().Changed("runtime") {
+					req.IsRuntime = &isRuntime
 				}
 
 				// Auto-detect multiline values
@@ -108,7 +108,7 @@ Example: coolify service env sync abc123 --file .env.production`,
 			// Perform bulk update if there are vars to update
 			if len(toUpdate) > 0 {
 				fmt.Printf("Updating %d existing variables...\n", len(toUpdate))
-				bulkReq := &service.BulkUpdateEnvsRequest{
+				bulkReq := &models.ServiceEnvBulkUpdateRequest{
 					Data: toUpdate,
 				}
 				_, err := serviceSvc.BulkUpdateEnvs(ctx, uuid, bulkReq)
@@ -147,9 +147,9 @@ Example: coolify service env sync abc123 --file .env.production`,
 	}
 
 	cmd.Flags().StringP("file", "f", "", "Path to .env file (required)")
-	cmd.Flags().Bool("build-time", false, "Make all variables available at build time")
-	cmd.Flags().Bool("preview", false, "Make all variables available in preview deployments")
+	cmd.Flags().Bool("build-time", true, "Make all variables available at build time (default: true)")
 	cmd.Flags().Bool("is-literal", false, "Treat all values as literal (don't interpolate variables)")
+	cmd.Flags().Bool("runtime", true, "Make all variables available at runtime (default: true)")
 
 	return cmd
 }

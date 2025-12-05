@@ -120,6 +120,7 @@ type EnvironmentVariableCreateRequest struct {
 	IsPreview   *bool  `json:"is_preview,omitempty"`
 	IsLiteral   *bool  `json:"is_literal,omitempty"`
 	IsMultiline *bool  `json:"is_multiline,omitempty"`
+	IsRuntime   *bool  `json:"is_runtime,omitempty"`
 }
 
 // EnvironmentVariableUpdateRequest represents the request to update an environment variable
@@ -131,4 +132,5 @@ type EnvironmentVariableUpdateRequest struct {
 	IsPreview   *bool   `json:"is_preview,omitempty"`
 	IsLiteral   *bool   `json:"is_literal,omitempty"`
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsRuntime   *bool   `json:"is_runtime,omitempty"`
 }

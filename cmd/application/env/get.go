@@ -11,7 +11,7 @@ import (
 )
 
 func NewGetEnvCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "get <app_uuid> <env_uuid_or_key>",
 		Short: "Get environment variable details",
 		Long:  `Get detailed information about a specific environment variable by UUID or key name.`,
@@ -27,6 +27,8 @@ func NewGetEnvCommand() *cobra.Command {
 			}
 
 			appSvc := service.NewApplicationService(client)
+
+			// First try to get by the identifier directly
 			env, err := appSvc.GetEnv(ctx, appUUID, envUUIDOrKey)
 			if err != nil {
 				return fmt.Errorf("failed to get environment variable: %w", err)
@@ -53,4 +55,6 @@ func NewGetEnvCommand() *cobra.Command {
 			return formatter.Format(env)
 		},
 	}
+
+	return cmd
 }

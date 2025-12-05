@@ -26,7 +26,7 @@ func NewUpdateCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			req := &models.EnvironmentVariableUpdateRequest{
+			req := &models.ServiceEnvironmentVariableUpdateRequest{
 				UUID: envUUID,
 			}
 
@@ -43,10 +43,6 @@ func NewUpdateCommand() *cobra.Command {
 				isBuildTime, _ := cmd.Flags().GetBool("build-time")
 				req.IsBuildTime = &isBuildTime
 			}
-			if cmd.Flags().Changed("preview") {
-				isPreview, _ := cmd.Flags().GetBool("preview")
-				req.IsPreview = &isPreview
-			}
 			if cmd.Flags().Changed("is-literal") {
 				isLiteral, _ := cmd.Flags().GetBool("is-literal")
 				req.IsLiteral = &isLiteral
@@ -55,10 +51,14 @@ func NewUpdateCommand() *cobra.Command {
 				isMultiline, _ := cmd.Flags().GetBool("is-multiline")
 				req.IsMultiline = &isMultiline
 			}
+			if cmd.Flags().Changed("runtime") {
+				isRuntime, _ := cmd.Flags().GetBool("runtime")
+				req.IsRuntime = &isRuntime
+			}
 
 			// Check if at least one field is being updated
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsPreview == nil && req.IsLiteral == nil && req.IsMultiline == nil {
-				return fmt.Errorf("at least one field must be provided to update (--key, --value, --build-time, --preview, --is-literal, or --is-multiline)")
+			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
+				return fmt.Errorf("at least one field must be provided to update (--key, --value, --build-time, --is-literal, --is-multiline, or --runtime)")
 			}
 
 			serviceSvc := service.NewService(client)
@@ -74,10 +74,10 @@ func NewUpdateCommand() *cobra.Command {
 
 	cmd.Flags().String("key", "", "New environment variable key")
 	cmd.Flags().String("value", "", "New environment variable value")
-	cmd.Flags().Bool("build-time", false, "Available at build time")
-	cmd.Flags().Bool("preview", false, "Available in preview deployments")
+	cmd.Flags().Bool("build-time", true, "Available at build time (default: true)")
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal (don't interpolate variables)")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
+	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
 
 	return cmd
 }

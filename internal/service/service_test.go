@@ -255,14 +255,14 @@ func TestService_ListEnvs(t *testing.T) {
 				"uuid": "env-1",
 				"key": "DATABASE_URL",
 				"value": "postgres://localhost",
-				"is_build_time": false,
+				"is_buildtime": false,
 				"is_preview": false
 			},
 			{
 				"uuid": "env-2",
 				"key": "API_KEY",
 				"value": "secret",
-				"is_build_time": true,
+				"is_buildtime": true,
 				"is_preview": false
 			}
 		]`))
@@ -290,7 +290,7 @@ func TestService_CreateEnv(t *testing.T) {
 			"uuid": "env-new",
 			"key": "NEW_VAR",
 			"value": "new_value",
-			"is_build_time": false,
+			"is_buildtime": false,
 			"is_preview": false
 		}`))
 	}))
@@ -299,7 +299,7 @@ func TestService_CreateEnv(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewService(client)
 
-	env, err := svc.CreateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableCreateRequest{
+	env, err := svc.CreateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableCreateRequest{
 		Key:   "NEW_VAR",
 		Value: "new_value",
 	})
@@ -319,7 +319,7 @@ func TestService_UpdateEnv(t *testing.T) {
 			"uuid": "env-123",
 			"key": "UPDATED_VAR",
 			"value": "updated_value",
-			"is_build_time": true,
+			"is_buildtime": true,
 			"is_preview": false
 		}`))
 	}))
@@ -329,7 +329,7 @@ func TestService_UpdateEnv(t *testing.T) {
 	svc := NewService(client)
 
 	newKey := "UPDATED_VAR"
-	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.EnvironmentVariableUpdateRequest{
+	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableUpdateRequest{
 		UUID: "env-123",
 		Key:  &newKey,
 	})
