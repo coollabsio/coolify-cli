@@ -255,14 +255,14 @@ func TestService_ListEnvs(t *testing.T) {
 				"uuid": "env-1",
 				"key": "DATABASE_URL",
 				"value": "postgres://localhost",
-				"is_build_time": false,
+				"is_buildtime": false,
 				"is_preview": false
 			},
 			{
 				"uuid": "env-2",
 				"key": "API_KEY",
 				"value": "secret",
-				"is_build_time": true,
+				"is_buildtime": true,
 				"is_preview": false
 			}
 		]`))
@@ -290,7 +290,7 @@ func TestService_CreateEnv(t *testing.T) {
 			"uuid": "env-new",
 			"key": "NEW_VAR",
 			"value": "new_value",
-			"is_build_time": false,
+			"is_buildtime": false,
 			"is_preview": false
 		}`))
 	}))
@@ -319,7 +319,7 @@ func TestService_UpdateEnv(t *testing.T) {
 			"uuid": "env-123",
 			"key": "UPDATED_VAR",
 			"value": "updated_value",
-			"is_build_time": true,
+			"is_buildtime": true,
 			"is_preview": false
 		}`))
 	}))

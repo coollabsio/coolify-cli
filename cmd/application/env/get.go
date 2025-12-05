@@ -14,7 +14,7 @@ func NewGetEnvCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <app_uuid> <env_uuid_or_key>",
 		Short: "Get environment variable details",
-		Long:  `Get detailed information about a specific environment variable by UUID or key name. By default, searches non-preview environment variables. Use --preview to search preview environment variables instead.`,
+		Long:  `Get detailed information about a specific environment variable by UUID or key name.`,
 		Args:  cli.ExactArgs(2, "<app_uuid> <env_uuid_or_key>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -32,18 +32,6 @@ func NewGetEnvCommand() *cobra.Command {
 			env, err := appSvc.GetEnv(ctx, appUUID, envUUIDOrKey)
 			if err != nil {
 				return fmt.Errorf("failed to get environment variable: %w", err)
-			}
-
-			// Check if the result matches the preview filter
-			showPreview, _ := cmd.Flags().GetBool("preview")
-			if env.IsPreview != showPreview {
-				// The found env doesn't match the preview filter
-				// This can happen when searching by key and there are both preview and non-preview versions
-				envType := "non-preview"
-				if showPreview {
-					envType = "preview"
-				}
-				return fmt.Errorf("environment variable '%s' not found in %s environment variables", envUUIDOrKey, envType)
 			}
 
 			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
@@ -67,8 +55,6 @@ func NewGetEnvCommand() *cobra.Command {
 			return formatter.Format(env)
 		},
 	}
-
-	cmd.Flags().Bool("preview", false, "Search preview environment variables instead of regular ones")
 
 	return cmd
 }
