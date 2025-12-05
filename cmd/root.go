@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 
-	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -144,24 +143,6 @@ func initConfig() {
 	// They are loaded on-demand by getAPIClient() based on --instance or default instance
 	// This allows --instance flag to work correctly
 
-	// Check for updates
-	latestVersionStr, err := version.CheckLatestVersionOfCli(Debug)
-	if err != nil {
-		if Debug {
-			log.Println("Failed to check for updates:", err)
-		}
-	}
-
-	// Compare versions properly using semantic versioning
-	if latestVersionStr != "" {
-		latestVersion, err := compareVersion.NewVersion(latestVersionStr)
-		if err == nil {
-			currentVersion, err := compareVersion.NewVersion(version.GetVersion())
-			if err == nil && latestVersion.GreaterThan(currentVersion) {
-				if Debug {
-					log.Printf("New version of Coolify CLI is available: %s\n", latestVersionStr)
-				}
-			}
-		}
-	}
+	// Check for updates (errors are handled silently inside the function)
+	_, _ = version.CheckLatestVersionOfCli(Debug)
 }
