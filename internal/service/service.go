@@ -156,19 +156,9 @@ func (s *Service) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) er
 	return nil
 }
 
-// ServiceBulkUpdateEnvsRequest represents the request to bulk update service environment variables
-type ServiceBulkUpdateEnvsRequest struct {
-	Data []models.ServiceEnvironmentVariableCreateRequest `json:"data"`
-}
-
-// ServiceBulkUpdateEnvsResponse represents the response from service bulk update
-type ServiceBulkUpdateEnvsResponse struct {
-	Message string `json:"message,omitempty"`
-}
-
 // BulkUpdateEnvs updates multiple environment variables in a single request
-func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *ServiceBulkUpdateEnvsRequest) (*ServiceBulkUpdateEnvsResponse, error) {
-	var response ServiceBulkUpdateEnvsResponse
+func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *models.ServiceEnvBulkUpdateRequest) (*models.ServiceEnvBulkUpdateResponse, error) {
+	var response models.ServiceEnvBulkUpdateResponse
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs/bulk", serviceUUID), req, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk update environment variables for service %s: %w", serviceUUID, err)

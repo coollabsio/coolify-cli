@@ -107,3 +107,13 @@ type ServiceEnvironmentVariableUpdateRequest struct {
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
 	IsRuntime   *bool   `json:"is_runtime,omitempty"`
 }
+
+// ServiceEnvBulkUpdateRequest represents the request to bulk update service environment variables
+type ServiceEnvBulkUpdateRequest struct {
+	Data []ServiceEnvironmentVariableCreateRequest `json:"data"`
+}
+
+// ServiceEnvBulkUpdateResponse represents the response from service bulk update
+type ServiceEnvBulkUpdateResponse struct {
+	Message string `json:"message,omitempty"`
+}

@@ -108,7 +108,7 @@ Example: coolify service env sync abc123 --file .env.production`,
 			// Perform bulk update if there are vars to update
 			if len(toUpdate) > 0 {
 				fmt.Printf("Updating %d existing variables...\n", len(toUpdate))
-				bulkReq := &service.ServiceBulkUpdateEnvsRequest{
+				bulkReq := &models.ServiceEnvBulkUpdateRequest{
 					Data: toUpdate,
 				}
 				_, err := serviceSvc.BulkUpdateEnvs(ctx, uuid, bulkReq)
