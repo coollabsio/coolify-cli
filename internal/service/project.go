@@ -39,3 +39,13 @@ func (s *ProjectService) Get(ctx context.Context, uuid string) (*models.Project,
 	}
 	return &project, nil
 }
+
+// Create creates a new project
+func (s *ProjectService) Create(ctx context.Context, req *models.ProjectCreateRequest) (*models.Project, error) {
+	var project models.Project
+	err := s.client.Post(ctx, "projects", req, &project)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project: %w", err)
+	}
+	return &project, nil
+}

@@ -134,3 +134,184 @@ type EnvironmentVariableUpdateRequest struct {
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
 	IsRuntime   *bool   `json:"is_runtime,omitempty"`
 }
+
+// ApplicationCreatePublicRequest for POST /applications/public
+// Creates an application from a public git repository
+type ApplicationCreatePublicRequest struct {
+	// Required fields
+	ProjectUUID   string `json:"project_uuid"`
+	ServerUUID    string `json:"server_uuid"`
+	GitRepository string `json:"git_repository"`
+	GitBranch     string `json:"git_branch"`
+	BuildPack     string `json:"build_pack"` // nixpacks, static, dockerfile, dockercompose
+	PortsExposes  string `json:"ports_exposes"`
+
+	// Environment (one of these is required)
+	EnvironmentName *string `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
+
+	// Optional fields
+	Name                   *string `json:"name,omitempty"`
+	Description            *string `json:"description,omitempty"`
+	Domains                *string `json:"domains,omitempty"`
+	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string `json:"destination_uuid,omitempty"`
+	BuildCommand           *string `json:"build_command,omitempty"`
+	StartCommand           *string `json:"start_command,omitempty"`
+	InstallCommand         *string `json:"install_command,omitempty"`
+	BaseDirectory          *string `json:"base_directory,omitempty"`
+	PublishDirectory       *string `json:"publish_directory,omitempty"`
+	PortsMappings          *string `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+
+	// Health checks
+	HealthCheckEnabled *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath    *string `json:"health_check_path,omitempty"`
+	HealthCheckPort    *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod  *string `json:"health_check_method,omitempty"`
+
+	// Resource limits
+	LimitsCPUs   *string `json:"limits_cpus,omitempty"`
+	LimitsMemory *string `json:"limits_memory,omitempty"`
+}
+
+// ApplicationCreateGitHubAppRequest for POST /applications/private-github-app
+// Creates an application from a private repository using GitHub App authentication
+type ApplicationCreateGitHubAppRequest struct {
+	// Required fields
+	ProjectUUID   string `json:"project_uuid"`
+	ServerUUID    string `json:"server_uuid"`
+	GitHubAppUUID string `json:"github_app_uuid"`
+	GitRepository string `json:"git_repository"`
+	GitBranch     string `json:"git_branch"`
+	BuildPack     string `json:"build_pack"`
+	PortsExposes  string `json:"ports_exposes"`
+
+	// Environment (one of these is required)
+	EnvironmentName *string `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
+
+	// Optional fields (same as public)
+	Name                   *string `json:"name,omitempty"`
+	Description            *string `json:"description,omitempty"`
+	Domains                *string `json:"domains,omitempty"`
+	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string `json:"destination_uuid,omitempty"`
+	BuildCommand           *string `json:"build_command,omitempty"`
+	StartCommand           *string `json:"start_command,omitempty"`
+	InstallCommand         *string `json:"install_command,omitempty"`
+	BaseDirectory          *string `json:"base_directory,omitempty"`
+	PublishDirectory       *string `json:"publish_directory,omitempty"`
+	PortsMappings          *string `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
+}
+
+// ApplicationCreateDeployKeyRequest for POST /applications/private-deploy-key
+// Creates an application from a private repository using SSH deploy key
+type ApplicationCreateDeployKeyRequest struct {
+	// Required fields
+	ProjectUUID    string `json:"project_uuid"`
+	ServerUUID     string `json:"server_uuid"`
+	PrivateKeyUUID string `json:"private_key_uuid"`
+	GitRepository  string `json:"git_repository"`
+	GitBranch      string `json:"git_branch"`
+	BuildPack      string `json:"build_pack"`
+	PortsExposes   string `json:"ports_exposes"`
+
+	// Environment (one of these is required)
+	EnvironmentName *string `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
+
+	// Optional fields (same as public)
+	Name                   *string `json:"name,omitempty"`
+	Description            *string `json:"description,omitempty"`
+	Domains                *string `json:"domains,omitempty"`
+	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string `json:"destination_uuid,omitempty"`
+	BuildCommand           *string `json:"build_command,omitempty"`
+	StartCommand           *string `json:"start_command,omitempty"`
+	InstallCommand         *string `json:"install_command,omitempty"`
+	BaseDirectory          *string `json:"base_directory,omitempty"`
+	PublishDirectory       *string `json:"publish_directory,omitempty"`
+	PortsMappings          *string `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
+}
+
+// ApplicationCreateDockerfileRequest for POST /applications/dockerfile
+// Creates an application from a custom Dockerfile
+type ApplicationCreateDockerfileRequest struct {
+	// Required fields
+	ProjectUUID string `json:"project_uuid"`
+	ServerUUID  string `json:"server_uuid"`
+	Dockerfile  string `json:"dockerfile"`
+
+	// Environment (one of these is required)
+	EnvironmentName *string `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
+
+	// Optional fields
+	Name                   *string `json:"name,omitempty"`
+	Description            *string `json:"description,omitempty"`
+	Domains                *string `json:"domains,omitempty"`
+	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
+	DestinationUUID        *string `json:"destination_uuid,omitempty"`
+	PortsExposes           *string `json:"ports_exposes,omitempty"`
+	PortsMappings          *string `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
+}
+
+// ApplicationCreateDockerImageRequest for POST /applications/dockerimage
+// Creates an application from a pre-built Docker image
+type ApplicationCreateDockerImageRequest struct {
+	// Required fields
+	ProjectUUID             string `json:"project_uuid"`
+	ServerUUID              string `json:"server_uuid"`
+	DockerRegistryImageName string `json:"docker_registry_image_name"`
+	PortsExposes            string `json:"ports_exposes"`
+
+	// Environment (one of these is required)
+	EnvironmentName *string `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
+
+	// Optional fields
+	Name                   *string `json:"name,omitempty"`
+	Description            *string `json:"description,omitempty"`
+	Domains                *string `json:"domains,omitempty"`
+	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
+	DestinationUUID        *string `json:"destination_uuid,omitempty"`
+	DockerRegistryImageTag *string `json:"docker_registry_image_tag,omitempty"`
+	PortsMappings          *string `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
+}

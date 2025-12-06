@@ -947,3 +947,250 @@ func TestApplicationService_EnvRuntimeAndShared(t *testing.T) {
 	assert.False(t, result[1].IsRuntime, "IsRuntime should be false")
 	assert.True(t, result[1].IsShared, "IsShared should be true")
 }
+
+func TestApplicationService_CreatePublic(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/public", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		var req models.ApplicationCreatePublicRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Equal(t, "proj-uuid", req.ProjectUUID)
+		assert.Equal(t, "server-uuid", req.ServerUUID)
+		assert.Equal(t, "https://github.com/user/repo", req.GitRepository)
+		assert.Equal(t, "main", req.GitBranch)
+		assert.Equal(t, "nixpacks", req.BuildPack)
+		assert.Equal(t, "3000", req.PortsExposes)
+
+		branch := "main"
+		fqdn := "app.example.com"
+		app := models.Application{
+			UUID:      "new-app-uuid",
+			Name:      "My App",
+			Status:    "starting",
+			GitBranch: &branch,
+			FQDN:      &fqdn,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(app)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreatePublicRequest{
+		ProjectUUID:     "proj-uuid",
+		ServerUUID:      "server-uuid",
+		GitRepository:   "https://github.com/user/repo",
+		GitBranch:       "main",
+		BuildPack:       "nixpacks",
+		PortsExposes:    "3000",
+		EnvironmentName: &envName,
+	}
+
+	result, err := svc.CreatePublic(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "new-app-uuid", result.UUID)
+	assert.Equal(t, "My App", result.Name)
+}
+
+func TestApplicationService_CreatePublic_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"message":"invalid repository URL"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreatePublicRequest{
+		ProjectUUID:     "proj-uuid",
+		ServerUUID:      "server-uuid",
+		GitRepository:   "invalid-repo",
+		GitBranch:       "main",
+		BuildPack:       "nixpacks",
+		PortsExposes:    "3000",
+		EnvironmentName: &envName,
+	}
+
+	result, err := svc.CreatePublic(context.Background(), req)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to create application from public repository")
+}
+
+func TestApplicationService_CreateGitHubApp(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/private-github-app", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ApplicationCreateGitHubAppRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Equal(t, "github-app-uuid", req.GitHubAppUUID)
+		assert.Equal(t, "owner/repo", req.GitRepository)
+
+		branch := "main"
+		app := models.Application{
+			UUID:      "new-app-uuid",
+			Name:      "Private App",
+			Status:    "starting",
+			GitBranch: &branch,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(app)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreateGitHubAppRequest{
+		ProjectUUID:     "proj-uuid",
+		ServerUUID:      "server-uuid",
+		GitHubAppUUID:   "github-app-uuid",
+		GitRepository:   "owner/repo",
+		GitBranch:       "main",
+		BuildPack:       "nixpacks",
+		PortsExposes:    "3000",
+		EnvironmentName: &envName,
+	}
+
+	result, err := svc.CreateGitHubApp(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "new-app-uuid", result.UUID)
+}
+
+func TestApplicationService_CreateDeployKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/private-deploy-key", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ApplicationCreateDeployKeyRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Equal(t, "key-uuid", req.PrivateKeyUUID)
+		assert.Equal(t, "git@github.com:owner/repo.git", req.GitRepository)
+
+		branch := "main"
+		app := models.Application{
+			UUID:      "new-app-uuid",
+			Name:      "Deploy Key App",
+			Status:    "starting",
+			GitBranch: &branch,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(app)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreateDeployKeyRequest{
+		ProjectUUID:     "proj-uuid",
+		ServerUUID:      "server-uuid",
+		PrivateKeyUUID:  "key-uuid",
+		GitRepository:   "git@github.com:owner/repo.git",
+		GitBranch:       "main",
+		BuildPack:       "nixpacks",
+		PortsExposes:    "3000",
+		EnvironmentName: &envName,
+	}
+
+	result, err := svc.CreateDeployKey(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "new-app-uuid", result.UUID)
+}
+
+func TestApplicationService_CreateDockerfile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/dockerfile", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ApplicationCreateDockerfileRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Contains(t, req.Dockerfile, "FROM node:18")
+
+		app := models.Application{
+			UUID:   "new-app-uuid",
+			Name:   "Dockerfile App",
+			Status: "starting",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(app)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreateDockerfileRequest{
+		ProjectUUID:     "proj-uuid",
+		ServerUUID:      "server-uuid",
+		Dockerfile:      "FROM node:18\nCOPY . .\nCMD [\"node\", \"app.js\"]",
+		EnvironmentName: &envName,
+	}
+
+	result, err := svc.CreateDockerfile(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "new-app-uuid", result.UUID)
+}
+
+func TestApplicationService_CreateDockerImage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/dockerimage", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ApplicationCreateDockerImageRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		require.NoError(t, err)
+		assert.Equal(t, "nginx:latest", req.DockerRegistryImageName)
+		assert.Equal(t, "80", req.PortsExposes)
+
+		app := models.Application{
+			UUID:   "new-app-uuid",
+			Name:   "Docker Image App",
+			Status: "starting",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(app)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	envName := "production"
+	req := &models.ApplicationCreateDockerImageRequest{
+		ProjectUUID:             "proj-uuid",
+		ServerUUID:              "server-uuid",
+		DockerRegistryImageName: "nginx:latest",
+		PortsExposes:            "80",
+		EnvironmentName:         &envName,
+	}
+
+	result, err := svc.CreateDockerImage(context.Background(), req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "new-app-uuid", result.UUID)
+}

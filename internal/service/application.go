@@ -197,3 +197,53 @@ func (s *ApplicationService) BulkUpdateEnvs(ctx context.Context, appUUID string,
 	}
 	return &response, nil
 }
+
+// CreatePublic creates an application from a public git repository
+func (s *ApplicationService) CreatePublic(ctx context.Context, req *models.ApplicationCreatePublicRequest) (*models.Application, error) {
+	var app models.Application
+	err := s.client.Post(ctx, "applications/public", req, &app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application from public repository: %w", err)
+	}
+	return &app, nil
+}
+
+// CreateGitHubApp creates an application from a private repository using GitHub App
+func (s *ApplicationService) CreateGitHubApp(ctx context.Context, req *models.ApplicationCreateGitHubAppRequest) (*models.Application, error) {
+	var app models.Application
+	err := s.client.Post(ctx, "applications/private-github-app", req, &app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application from private GitHub repository: %w", err)
+	}
+	return &app, nil
+}
+
+// CreateDeployKey creates an application from a private repository using SSH deploy key
+func (s *ApplicationService) CreateDeployKey(ctx context.Context, req *models.ApplicationCreateDeployKeyRequest) (*models.Application, error) {
+	var app models.Application
+	err := s.client.Post(ctx, "applications/private-deploy-key", req, &app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application from private repository with deploy key: %w", err)
+	}
+	return &app, nil
+}
+
+// CreateDockerfile creates an application from a custom Dockerfile
+func (s *ApplicationService) CreateDockerfile(ctx context.Context, req *models.ApplicationCreateDockerfileRequest) (*models.Application, error) {
+	var app models.Application
+	err := s.client.Post(ctx, "applications/dockerfile", req, &app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application from Dockerfile: %w", err)
+	}
+	return &app, nil
+}
+
+// CreateDockerImage creates an application from a pre-built Docker image
+func (s *ApplicationService) CreateDockerImage(ctx context.Context, req *models.ApplicationCreateDockerImageRequest) (*models.Application, error) {
+	var app models.Application
+	err := s.client.Post(ctx, "applications/dockerimage", req, &app)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create application from Docker image: %w", err)
+	}
+	return &app, nil
+}

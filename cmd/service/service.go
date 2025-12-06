@@ -18,6 +18,7 @@ func NewServiceCommand() *cobra.Command {
 	// Add main service commands
 	cmd.AddCommand(NewListCommand())
 	cmd.AddCommand(NewGetCommand())
+	cmd.AddCommand(NewCreateCommand())
 	cmd.AddCommand(NewStartCommand())
 	cmd.AddCommand(NewStopCommand())
 	cmd.AddCommand(NewRestartCommand())

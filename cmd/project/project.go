@@ -14,6 +14,7 @@ func NewProjectCommand() *cobra.Command {
 	// Add all project subcommands
 	cmd.AddCommand(NewListCommand())
 	cmd.AddCommand(NewGetCommand())
+	cmd.AddCommand(NewCreateCommand())
 
 	return cmd
 }

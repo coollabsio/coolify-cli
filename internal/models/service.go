@@ -51,7 +51,8 @@ type ServiceCreateRequest struct {
 	Description     *string `json:"description,omitempty"`
 	ServerUUID      string  `json:"server_uuid"`
 	ProjectUUID     string  `json:"project_uuid"`
-	EnvironmentName string  `json:"environment_name"`
+	EnvironmentName string  `json:"environment_name,omitempty"`
+	EnvironmentUUID *string `json:"environment,omitempty"`
 	InstantDeploy   *bool   `json:"instant_deploy,omitempty"`
 	DockerCompose   *string `json:"docker_compose,omitempty"`
 	Destination     *string `json:"destination,omitempty"`
