@@ -956,7 +956,7 @@ func TestApplicationService_CreatePublic(t *testing.T) {
 
 		var req models.ApplicationCreatePublicRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "proj-uuid", req.ProjectUUID)
 		assert.Equal(t, "server-uuid", req.ServerUUID)
 		assert.Equal(t, "https://github.com/user/repo", req.GitRepository)
@@ -1034,7 +1034,7 @@ func TestApplicationService_CreateGitHubApp(t *testing.T) {
 
 		var req models.ApplicationCreateGitHubAppRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "github-app-uuid", req.GitHubAppUUID)
 		assert.Equal(t, "owner/repo", req.GitRepository)
 
@@ -1079,7 +1079,7 @@ func TestApplicationService_CreateDeployKey(t *testing.T) {
 
 		var req models.ApplicationCreateDeployKeyRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "key-uuid", req.PrivateKeyUUID)
 		assert.Equal(t, "git@github.com:owner/repo.git", req.GitRepository)
 
@@ -1124,7 +1124,7 @@ func TestApplicationService_CreateDockerfile(t *testing.T) {
 
 		var req models.ApplicationCreateDockerfileRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Contains(t, req.Dockerfile, "FROM node:18")
 
 		app := models.Application{
@@ -1162,7 +1162,7 @@ func TestApplicationService_CreateDockerImage(t *testing.T) {
 
 		var req models.ApplicationCreateDockerImageRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "nginx:latest", req.DockerRegistryImageName)
 		assert.Equal(t, "80", req.PortsExposes)
 

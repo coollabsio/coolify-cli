@@ -89,7 +89,7 @@ func TestProjectService_Create(t *testing.T) {
 
 		var req models.ProjectCreateRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "New Project", req.Name)
 		assert.NotNil(t, req.Description)
 		assert.Equal(t, "New Project Description", *req.Description)
@@ -123,7 +123,7 @@ func TestProjectService_Create_NameOnly(t *testing.T) {
 
 		var req models.ProjectCreateRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "Minimal Project", req.Name)
 		assert.Nil(t, req.Description)
 
