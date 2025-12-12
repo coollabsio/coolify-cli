@@ -74,3 +74,71 @@ func TestProjectService_Get(t *testing.T) {
 	assert.Equal(t, "proj-1", result.UUID)
 	assert.Equal(t, "Test Project", result.Name)
 }
+
+func TestProjectService_Create(t *testing.T) {
+	desc := "New Project Description"
+	project := models.Project{
+		UUID:        "proj-new",
+		Name:        "New Project",
+		Description: &desc,
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/projects", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ProjectCreateRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, "New Project", req.Name)
+		assert.NotNil(t, req.Description)
+		assert.Equal(t, "New Project Description", *req.Description)
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(project)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewProjectService(client)
+
+	result, err := svc.Create(context.Background(), &models.ProjectCreateRequest{
+		Name:        "New Project",
+		Description: &desc,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "proj-new", result.UUID)
+	assert.Equal(t, "New Project", result.Name)
+}
+
+func TestProjectService_Create_NameOnly(t *testing.T) {
+	project := models.Project{
+		UUID: "proj-minimal",
+		Name: "Minimal Project",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/projects", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.ProjectCreateRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		assert.NoError(t, err)
+		assert.Equal(t, "Minimal Project", req.Name)
+		assert.Nil(t, req.Description)
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(project)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewProjectService(client)
+
+	result, err := svc.Create(context.Background(), &models.ProjectCreateRequest{
+		Name: "Minimal Project",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "proj-minimal", result.UUID)
+	assert.Equal(t, "Minimal Project", result.Name)
+}

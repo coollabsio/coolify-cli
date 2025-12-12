@@ -354,3 +354,85 @@ func TestService_DeleteEnv(t *testing.T) {
 
 	require.NoError(t, err)
 }
+
+func TestService_Create(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/services", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{
+			"uuid": "service-new-uuid",
+			"name": "WordPress",
+			"status": "starting"
+		}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewService(client)
+
+	name := "My WordPress"
+	service, err := svc.Create(context.Background(), &models.ServiceCreateRequest{
+		Type:            "wordpress-with-mysql",
+		ServerUUID:      "server-uuid",
+		ProjectUUID:     "project-uuid",
+		EnvironmentName: "production",
+		Name:            &name,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "service-new-uuid", service.UUID)
+	assert.Equal(t, "WordPress", service.Name)
+}
+
+func TestService_Create_WithInstantDeploy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/services", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{
+			"uuid": "service-instant-uuid",
+			"name": "Ghost Blog",
+			"status": "running"
+		}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewService(client)
+
+	instantDeploy := true
+	service, err := svc.Create(context.Background(), &models.ServiceCreateRequest{
+		Type:            "ghost",
+		ServerUUID:      "server-uuid",
+		ProjectUUID:     "project-uuid",
+		EnvironmentName: "production",
+		InstantDeploy:   &instantDeploy,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "service-instant-uuid", service.UUID)
+	assert.Equal(t, "Ghost Blog", service.Name)
+}
+
+func TestService_Create_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error": "invalid service type"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewService(client)
+
+	_, err := svc.Create(context.Background(), &models.ServiceCreateRequest{
+		Type:            "invalid-type",
+		ServerUUID:      "server-uuid",
+		ProjectUUID:     "project-uuid",
+		EnvironmentName: "production",
+	})
+
+	require.Error(t, err)
+}

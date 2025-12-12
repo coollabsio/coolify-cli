@@ -3,6 +3,7 @@ package application
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/application/create"
 	"github.com/coollabsio/coolify-cli/cmd/application/env"
 )
 
@@ -18,6 +19,7 @@ func NewAppCommand() *cobra.Command {
 	// Add main subcommands
 	cmd.AddCommand(NewListCommand())
 	cmd.AddCommand(NewGetCommand())
+	cmd.AddCommand(create.NewCreateCommand())
 	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewStartCommand())
