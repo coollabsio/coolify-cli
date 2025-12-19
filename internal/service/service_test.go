@@ -330,8 +330,7 @@ func TestService_UpdateEnv(t *testing.T) {
 
 	newKey := "UPDATED_VAR"
 	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableUpdateRequest{
-		UUID: "env-123",
-		Key:  &newKey,
+		Key: &newKey,
 	})
 
 	require.NoError(t, err)
