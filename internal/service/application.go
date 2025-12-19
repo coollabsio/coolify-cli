@@ -184,9 +184,7 @@ type BulkUpdateEnvsRequest struct {
 }
 
 // BulkUpdateEnvsResponse represents the response from bulk update
-type BulkUpdateEnvsResponse struct {
-	Message string `json:"message"`
-}
+type BulkUpdateEnvsResponse []models.EnvironmentVariable
 
 // BulkUpdateEnvs updates multiple environment variables in a single request
 func (s *ApplicationService) BulkUpdateEnvs(ctx context.Context, appUUID string, req *BulkUpdateEnvsRequest) (*BulkUpdateEnvsResponse, error) {

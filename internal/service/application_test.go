@@ -1194,3 +1194,37 @@ func TestApplicationService_CreateDockerImage(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "new-app-uuid", result.UUID)
 }
+
+func TestApplicationService_BulkUpdateEnvs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs/bulk", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		// Return array response as per API
+		w.Header().Set("Content-Type", "application/json")
+		resp := []models.EnvironmentVariable{
+			{
+				Key:   "KEY1",
+				Value: "VAL1",
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	req := &BulkUpdateEnvsRequest{
+		Data: []models.EnvironmentVariableCreateRequest{
+			{Key: "KEY1", Value: "VAL1"},
+		},
+	}
+
+	result, err := svc.BulkUpdateEnvs(context.Background(), "app-uuid-123", req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, *result, 1)
+	assert.Equal(t, "KEY1", (*result)[0].Key)
+}
