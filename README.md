@@ -149,7 +149,13 @@ Commands can use `server` or `servers` interchangeably.
   - `--build-time` - Available at build time
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
-- `coolify app env update <app_uuid> <env_uuid>` - Update an environment variable
+- `coolify app env update <app_uuid>`- Update an environment variable
+  - `--key <key>` - Variable key (required)
+  - `--value <value>` - Variable value (required)
+  - `--preview` - Available in preview deployments
+  - `--build-time` - Available at build time
+  - `--is-literal` - Treat value as literal (don't interpolate variables)
+  - `--is-multiline` - Value is multiline
 - `coolify app env delete <app_uuid> <env_uuid>` - Delete an environment variable
 - `coolify app env sync <app_uuid>` - Sync environment variables from a .env file
   - `--file <path>` - Path to .env file (required)

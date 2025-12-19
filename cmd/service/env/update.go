@@ -12,23 +12,20 @@ import (
 
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <service_uuid> <env_uuid>",
+		Use:   "update <service_uuid>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. First UUID is the service, second is the specific environment variable to update.`,
-		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
+		Long:  `Update an existing environment variable. UUID is the service.`,
+		Args:  cli.ExactArgs(1, "<service_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			serviceUUID := args[0]
-			envUUID := args[1]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			req := &models.ServiceEnvironmentVariableUpdateRequest{
-				UUID: envUUID,
-			}
+			req := &models.ServiceEnvironmentVariableUpdateRequest{}
 
 			// Only set fields that were provided
 			if cmd.Flags().Changed("key") {
