@@ -1,0 +1,2155 @@
+Command: coolify
+Description: A CLI tool to interact with the Coolify API.
+Parameters:
+  - name: --token
+    type: string
+    description: Authentication token (overrides context token).
+    required: false
+  - name: --context
+    type: string
+    description: Use a specific context by name.
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table|json|pretty).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+  - name: --debug
+    type: boolean
+    description: Debug mode.
+    required: false
+
+Command: coolify version
+Description: Current version of the Coolify CLI.
+Parameters: (None)
+
+Command: coolify update
+Description: Update the Coolify CLI.
+Parameters: (None)
+
+Command: coolify completion <shell>
+Description: Generate shell completion code for the specified shell.
+Parameters:
+  - name: <shell>
+    type: string
+    description: The shell to generate completion code for (bash|fish|zsh|powershell).
+    required: true
+
+Command: coolify docs man
+Description: Generate man pages for all Coolify CLI commands.
+Parameters:
+  - name: --output-dir
+    type: string
+    description: Output directory for man pages (default: "./man").
+    required: false
+
+Command: coolify docs markdown
+Description: Generate markdown documentation for all Coolify CLI commands.
+Parameters:
+  - name: --output-dir
+    type: string
+    description: Output directory for markdown files (default: "./docs").
+    required: false
+
+Command: coolify application list
+Description: List all applications in Coolify.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify application get <uuid>
+Description: Get detailed information about an application by UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify application delete <uuid>
+Description: Delete an application.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+
+Command: coolify application start <uuid>
+Description: Start an application (initiates a deployment).
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --force
+    type: boolean
+    description: Force rebuild.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately (skip queuing).
+    required: false
+
+Command: coolify application stop <uuid>
+Description: Stop a running application.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+
+Command: coolify application restart <uuid>
+Description: Restart a running application.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+
+Command: coolify application logs <uuid>
+Description: Get logs for an application.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --lines
+    type: integer
+    description: Number of log lines to retrieve.
+    required: false
+  - name: --follow
+    type: boolean
+    description: Continue streaming new logs.
+    required: false
+
+Command: coolify application deployments list <app-uuid>
+Description: List all deployments for an application.
+Parameters:
+  - name: <app-uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify application deployments logs <app-uuid> [deployment-uuid]
+Description: Get logs for a deployment.
+Parameters:
+  - name: <app-uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: [deployment-uuid]
+    type: string
+    description: UUID of the deployment (optional, gets latest deployment if omitted).
+    required: false
+  - name: --lines
+    type: integer
+    description: Number of log lines to display.
+    required: false
+  - name: --follow
+    type: boolean
+    description: Continue streaming new logs.
+    required: false
+  - name: --debuglogs
+    type: boolean
+    description: Show debug logs.
+    required: false
+
+Command: coolify application update <uuid>
+Description: Update the configuration of an application.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --git-branch
+    type: string
+    description: Git branch.
+    required: false
+  - name: --git-repository
+    type: string
+    description: URL of the git repository.
+    required: false
+  - name: --domains
+    type: string
+    description: Domains (comma-separated).
+    required: false
+  - name: --build-command
+    type: string
+    description: Custom build command.
+    required: false
+  - name: --start-command
+    type: string
+    description: Custom start command.
+    required: false
+  - name: --install-command
+    type: string
+    description: Custom install command.
+    required: false
+  - name: --base-directory
+    type: string
+    description: Base directory for the application.
+    required: false
+  - name: --publish-directory
+    type: string
+    description: Publish directory for static builds.
+    required: false
+  - name: --dockerfile
+    type: string
+    description: Content of the Dockerfile.
+    required: false
+  - name: --docker-image
+    type: string
+    description: Docker image name.
+    required: false
+  - name: --docker-tag
+    type: string
+    description: Docker image tag.
+    required: false
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports (e.g., '3000' or '3000,8080').
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application create public
+Description: Create an application from a public git repository.
+Parameters:
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --git-repository
+    type: string
+    description: URL of the git repository (required).
+    required: true
+  - name: --git-branch
+    type: string
+    description: Git branch (required).
+    required: true
+  - name: --build-pack
+    type: string
+    description: Build pack (nixpacks, static, dockerfile, dockercompose) (required).
+    required: true
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports, e.g., '3000' or '3000,8080' (required).
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --domains
+    type: string
+    description: Domain(s) for the application.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --git-commit-sha
+    type: string
+    description: Specific commit SHA to deploy.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --build-command
+    type: string
+    description: Custom build command.
+    required: false
+  - name: --start-command
+    type: string
+    description: Custom start command.
+    required: false
+  - name: --install-command
+    type: string
+    description: Custom install command.
+    required: false
+  - name: --base-directory
+    type: string
+    description: Base directory for the application.
+    required: false
+  - name: --publish-directory
+    type: string
+    description: Publish directory for static builds.
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application create github
+Description: Create an application from a private repository using GitHub App.
+Parameters:
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --github-app-uuid
+    type: string
+    description: UUID of the GitHub App (required).
+    required: true
+  - name: --git-repository
+    type: string
+    description: Repository in the format 'owner/repo' (required).
+    required: true
+  - name: --git-branch
+    type: string
+    description: Git branch (required).
+    required: true
+  - name: --build-pack
+    type: string
+    description: Build pack (nixpacks, static, dockerfile, dockercompose) (required).
+    required: true
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports, e.g., '3000' or '3000,8080' (required).
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --domains
+    type: string
+    description: Domain(s) for the application.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --git-commit-sha
+    type: string
+    description: Specific commit SHA to deploy.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --build-command
+    type: string
+    description: Custom build command.
+    required: false
+  - name: --start-command
+    type: string
+    description: Custom start command.
+    required: false
+  - name: --install-command
+    type: string
+    description: Custom install command.
+    required: false
+  - name: --base-directory
+    type: string
+    description: Base directory for the application.
+    required: false
+  - name: --publish-directory
+    type: string
+    description: Publish directory for static builds.
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application create deploy-key
+Description: Create an application from a private repository using SSH deploy key.
+Parameters:
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --private-key-uuid
+    type: string
+    description: UUID of the private key (required).
+    required: true
+  - name: --git-repository
+    type: string
+    description: SSH URL of the git repository, e.g., 'git@github.com:owner/repo.git' (required).
+    required: true
+  - name: --git-branch
+    type: string
+    description: Git branch (required).
+    required: true
+  - name: --build-pack
+    type: string
+    description: Build pack (nixpacks, static, dockerfile, dockercompose) (required).
+    required: true
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports, e.g., '3000' or '3000,8080' (required).
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --domains
+    type: string
+    description: Domain(s) for the application.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --git-commit-sha
+    type: string
+    description: Specific commit SHA to deploy.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --build-command
+    type: string
+    description: Custom build command.
+    required: false
+  - name: --start-command
+    type: string
+    description: Custom start command.
+    required: false
+  - name: --install-command
+    type: string
+    description: Custom install command.
+    required: false
+  - name: --base-directory
+    type: string
+    description: Base directory for the application.
+    required: false
+  - name: --publish-directory
+    type: string
+    description: Publish directory for static builds.
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application create dockerfile
+Description: Create an application from a custom Dockerfile.
+Parameters:
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --dockerfile
+    type: string
+    description: Content of the Dockerfile (required).
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --domains
+    type: string
+    description: Domain(s) for the application.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports, e.g., '3000' or '3000,8080'.
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application create dockerimage
+Description: Create an application from a pre-built Docker image.
+Parameters:
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --docker-registry-image-name
+    type: string
+    description: Name of the Docker image from the registry (required).
+    required: true
+  - name: --ports-exposes
+    type: string
+    description: Exposed ports, e.g., '80' or '80,443' (required).
+    required: true
+  - name: --name
+    type: string
+    description: Application name.
+    required: false
+  - name: --description
+    type: string
+    description: Application description.
+    required: false
+  - name: --domains
+    type: string
+    description: Domain(s) for the application.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --docker-registry-image-tag
+    type: string
+    description: Docker image tag (defaults to 'latest').
+    required: false
+  - name: --ports-mappings
+    type: string
+    description: Port mappings (host:container).
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --health-check-enabled
+    type: boolean
+    description: Enable health checks.
+    required: false
+  - name: --health-check-path
+    type: string
+    description: Health check path.
+    required: false
+
+Command: coolify application env list <app_uuid>
+Description: List environment variables for an application.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --preview
+    type: boolean
+    description: Show preview environment variables.
+    required: false
+  - name: --all
+    type: boolean
+    description: Show all environment variables.
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive values.
+    required: false
+
+Command: coolify application env get <app_uuid> <env_uuid_or_key>
+Description: Get details of an environment variable.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: <env_uuid_or_key>
+    type: string
+    description: UUID or KEY of the environment variable.
+    required: true
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive values.
+    required: false
+
+Command: coolify application env create <app_uuid>
+Description: Create an environment variable for an application.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --key
+    type: string
+    description: Key of the environment variable (required).
+    required: true
+  - name: --value
+    type: string
+    description: Value of the environment variable (required).
+    required: true
+  - name: --build-time
+    type: boolean
+    description: Available at build time (default: true).
+    required: false
+  - name: --preview
+    type: boolean
+    description: Available in preview deployments.
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat value as a literal (don't interpolate variables).
+    required: false
+  - name: --is-multiline
+    type: boolean
+    description: The value is multiline.
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Available at runtime (default: true).
+    required: false
+
+Command: coolify application env update <app_uuid> <env_uuid>
+Description: Update an environment variable.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: <env_uuid>
+    type: string
+    description: UUID of the environment variable to update.
+    required: true
+  - name: --key
+    type: string
+    description: New key for the environment variable.
+    required: false
+  - name: --value
+    type: string
+    description: New value for the environment variable.
+    required: false
+  - name: --build-time
+    type: boolean
+    description: Available at build time.
+    required: false
+  - name: --preview
+    type: boolean
+    description: Available in preview deployments.
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat value as a literal.
+    required: false
+  - name: --is-multiline
+    type: boolean
+    description: The value is multiline.
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Available at runtime.
+    required: false
+
+Command: coolify application env delete <app_uuid> <env_uuid>
+Description: Delete an environment variable.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: <env_uuid>
+    type: string
+    description: UUID of the environment variable to delete.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation.
+    required: false
+
+Command: coolify application env sync <app_uuid>
+Description: Sync environment variables from a .env file.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the application.
+    required: true
+  - name: --file
+    type: string
+    description: Path to the .env file (required).
+    required: true
+  - name: --build-time
+    type: boolean
+    description: Make all variables available at build time (default: true).
+    required: false
+  - name: --preview
+    type: boolean
+    description: Make all variables available in preview deployments.
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat all values as literals (don't interpolate variables).
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Make all variables available at runtime (default: true).
+    required: false
+
+Command: coolify config
+Description: Show the path to the Coolify CLI configuration file.
+Parameters: (None)
+
+Command: coolify context list
+Description: List all configured contexts.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify context get <context_name>
+Description: Get details of a specific context.
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify context add <context_name> <url> <token>
+Description: Add a new context.
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the new context.
+    required: true
+  - name: <url>
+    type: string
+    description: URL of the Coolify instance.
+    required: true
+  - name: <token>
+    type: string
+    description: API token.
+    required: true
+  - name: --default
+    type: boolean
+    description: Set as the default context.
+    required: false
+  - name: --force
+    type: boolean
+    description: Overwrite if context already exists.
+    required: false
+
+Command: coolify context delete <context_name>
+Description: Delete a context.
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context to delete.
+    required: true
+
+Command: coolify context use <context_name>
+Description: Switch to a different context (set as default).
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context to use.
+    required: true
+
+Command: coolify context set-default <context_name>
+Description: Set a context as the default.
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context to set as default.
+    required: true
+
+Command: coolify context update <context_name>
+Description: Update context properties (name, URL, token).
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context to update.
+    required: true
+  - name: --name
+    type: string
+    description: New name for the context.
+    required: false
+  - name: --url
+    type: string
+    description: New URL for the context.
+    required: false
+  - name: --token
+    type: string
+    description: New token for the context.
+    required: false
+
+Command: coolify context set-token <context_name> <token>
+Description: Update the API token for a context.
+Parameters:
+  - name: <context_name>
+    type: string
+    description: Name of the context.
+    required: true
+  - name: <token>
+    type: string
+    description: The new API token.
+    required: true
+
+Command: coolify context version
+Description: Get the Coolify version of the current context.
+Parameters: (None)
+
+Command: coolify context verify
+Description: Verify the connection and authentication of the current context.
+Parameters: (None)
+
+Command: coolify database list
+Description: List all databases in Coolify.
+Parameters: (None)
+
+Command: coolify database get <uuid>
+Description: Get details of a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify database start <uuid>
+Description: Start a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+
+Command: coolify database stop <uuid>
+Description: Stop a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+
+Command: coolify database restart <uuid>
+Description: Restart a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+
+Command: coolify database delete <uuid>
+Description: Delete a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+  - name: --delete-configurations
+    type: boolean
+    description: Delete configuration files.
+    required: false
+  - name: --delete-volumes
+    type: boolean
+    description: Delete volumes.
+    required: false
+  - name: --docker-cleanup
+    type: boolean
+    description: Run docker cleanup.
+    required: false
+  - name: --delete-connected-networks
+    type: boolean
+    description: Delete connected networks.
+    required: false
+
+Command: coolify database create <type>
+Description: Create a new database.
+Parameters:
+  - name: <type>
+    type: string
+    description: Type of database (postgresql, mysql, mariadb, mongodb, redis, keydb, clickhouse, dragonfly).
+    required: true
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --name
+    type: string
+    description: Name of the database.
+    required: false
+  - name: --description
+    type: string
+    description: Description of the database.
+    required: false
+  - name: --image
+    type: string
+    description: Docker image.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --is-public
+    type: boolean
+    description: Allow public access to the database.
+    required: false
+  - name: --public-port
+    type: integer
+    description: Public port.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit (e.g., '512m', '2g').
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit (e.g., '0.5', '2').
+    required: false
+  - name: --postgres-user
+    type: string
+    description: PostgreSQL user.
+    required: false
+  - name: --postgres-password
+    type: string
+    description: PostgreSQL password.
+    required: false
+  - name: --postgres-db
+    type: string
+    description: PostgreSQL database name.
+    required: false
+  - name: --mysql-root-password
+    type: string
+    description: MySQL root password.
+    required: false
+  - name: --mysql-user
+    type: string
+    description: MySQL user.
+    required: false
+  - name: --mysql-password
+    type: string
+    description: MySQL password.
+    required: false
+  - name: --mysql-database
+    type: string
+    description: MySQL database name.
+    required: false
+  - name: --mariadb-root-password
+    type: string
+    description: MariaDB root password.
+    required: false
+  - name: --mariadb-user
+    type: string
+    description: MariaDB user.
+    required: false
+  - name: --mariadb-password
+    type: string
+    description: MariaDB password.
+    required: false
+  - name: --mariadb-database
+    type: string
+    description: MariaDB database name.
+    required: false
+  - name: --mongo-root-username
+    type: string
+    description: MongoDB root username.
+    required: false
+  - name: --mongo-root-password
+    type: string
+    description: MongoDB root password.
+    required: false
+  - name: --mongo-database
+    type: string
+    description: MongoDB database name.
+    required: false
+  - name: --redis-password
+    type: string
+    description: Redis password.
+    required: false
+  - name: --keydb-password
+    type: string
+    description: KeyDB password.
+    required: false
+  - name: --clickhouse-admin-user
+    type: string
+    description: Clickhouse admin user.
+    required: false
+  - name: --clickhouse-admin-password
+    type: string
+    description: Clickhouse admin password.
+    required: false
+  - name: --dragonfly-password
+    type: string
+    description: Dragonfly password.
+    required: false
+
+Command: coolify database update <uuid>
+Description: Update the configuration of a database.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: --name
+    type: string
+    description: Database name.
+    required: false
+  - name: --description
+    type: string
+    description: Database description.
+    required: false
+  - name: --image
+    type: string
+    description: Docker image.
+    required: false
+  - name: --is-public
+    type: boolean
+    description: Set the database as public.
+    required: false
+  - name: --public-port
+    type: integer
+    description: Public port.
+    required: false
+  - name: --limits-memory
+    type: string
+    description: Memory limit.
+    required: false
+  - name: --limits-cpus
+    type: string
+    description: CPU limit.
+    required: false
+
+Command: coolify database backup list <database_uuid>
+Description: List backup configurations for a database.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify database backup create <database_uuid>
+Description: Create a new scheduled backup configuration.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: --frequency
+    type: string
+    description: Backup frequency (cron expression, e.g., '0 0 * * *' for daily).
+    required: false
+  - name: --enabled
+    type: boolean
+    description: Enable the backup schedule.
+    required: false
+  - name: --save-s3
+    type: boolean
+    description: Save backups to S3.
+    required: false
+  - name: --s3-storage-uuid
+    type: string
+    description: UUID of the S3 storage.
+    required: false
+  - name: --databases-to-backup
+    type: string
+    description: Comma-separated list of databases to backup.
+    required: false
+  - name: --dump-all
+    type: boolean
+    description: Dump all databases.
+    required: false
+  - name: --retention-amount-locally
+    type: integer
+    description: Number of backups to retain locally.
+    required: false
+  - name: --retention-days-locally
+    type: integer
+    description: Days to retain backups locally.
+    required: false
+  - name: --retention-max-storage-locally
+    type: string
+    description: Max storage for local backups (e.g., '1GB', '500MB').
+    required: false
+  - name: --retention-amount-s3
+    type: integer
+    description: Number of backups to retain in S3.
+    required: false
+  - name: --retention-days-s3
+    type: integer
+    description: Days to retain backups in S3.
+    required: false
+  - name: --retention-max-storage-s3
+    type: string
+    description: Max storage for S3 backups (e.g., '1GB', '500MB').
+    required: false
+  - name: --timeout
+    type: integer
+    description: Backup timeout in seconds.
+    required: false
+  - name: --disable-local-backup
+    type: boolean
+    description: Disable local backup storage.
+    required: false
+
+Command: coolify database backup update <database_uuid> <backup_uuid>
+Description: Update a backup configuration.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: <backup_uuid>
+    type: string
+    description: UUID of the backup configuration.
+    required: true
+  - name: --enabled
+    type: boolean
+    description: Enable or disable the backup.
+    required: false
+  - name: --frequency
+    type: string
+    description: Backup frequency (cron expression).
+    required: false
+  - name: --save-s3
+    type: boolean
+    description: Save backups to S3.
+    required: false
+  - name: --s3-storage-uuid
+    type: string
+    description: UUID of the S3 storage.
+    required: false
+  - name: --databases-to-backup
+    type: string
+    description: Comma-separated list of databases to backup.
+    required: false
+  - name: --dump-all
+    type: boolean
+    description: Dump all databases.
+    required: false
+  - name: --retention-amount-locally
+    type: integer
+    description: Number of backups to retain locally.
+    required: false
+  - name: --retention-days-locally
+    type: integer
+    description: Days to retain backups locally.
+    required: false
+  - name: --retention-max-storage-locally
+    type: integer
+    description: Max storage for local backups (MB).
+    required: false
+  - name: --retention-amount-s3
+    type: integer
+    description: Number of backups to retain in S3.
+    required: false
+  - name: --retention-days-s3
+    type: integer
+    description: Days to retain backups in S3.
+    required: false
+  - name: --retention-max-storage-s3
+    type: integer
+    description: Max storage for S3 backups (MB).
+    required: false
+
+Command: coolify database backup delete <database_uuid> <backup_uuid>
+Description: Delete a backup configuration.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: <backup_uuid>
+    type: string
+    description: UUID of the backup configuration.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+  - name: --delete-s3
+    type: boolean
+    description: Delete backup files from S3.
+    required: false
+
+Command: coolify database backup trigger <database_uuid> <backup_uuid>
+Description: Trigger an immediate backup.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: <backup_uuid>
+    type: string
+    description: UUID of the backup configuration.
+    required: true
+
+Command: coolify database backup executions <database_uuid> <backup_uuid>
+Description: List executions for a backup configuration.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: <backup_uuid>
+    type: string
+    description: UUID of the backup configuration.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify database backup delete-execution <database_uuid> <backup_uuid> <execution_uuid>
+Description: Delete a specific backup execution.
+Parameters:
+  - name: <database_uuid>
+    type: string
+    description: UUID of the database.
+    required: true
+  - name: <backup_uuid>
+    type: string
+    description: UUID of the backup configuration.
+    required: true
+  - name: <execution_uuid>
+    type: string
+    description: UUID of the backup execution.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+  - name: --delete-s3
+    type: boolean
+    description: Delete backup file from S3.
+    required: false
+
+Command: coolify deploy list
+Description: List all currently running deployments across all resources.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify deploy get <uuid>
+Description: Get detailed information about a deployment by UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the deployment.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify deploy uuid <uuid>
+Description: Deploy a resource by its UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the resource (e.g., application, database).
+    required: true
+  - name: --force
+    type: boolean
+    description: Force a rebuild.
+    required: false
+
+Command: coolify deploy name <resource_name>
+Description: Deploy a resource by its name.
+Parameters:
+  - name: <resource_name>
+    type: string
+    description: Name of the resource.
+    required: true
+  - name: --force
+    type: boolean
+    description: Force a rebuild.
+    required: false
+
+Command: coolify deploy batch <name1,name2,...>
+Description: Deploy multiple resources at once by name.
+Parameters:
+  - name: <name1,name2,...>
+    type: string
+    description: Comma-separated list of resource names.
+    required: true
+  - name: --force
+    type: boolean
+    description: Force a rebuild.
+    required: false
+
+Command: coolify deploy cancel <uuid>
+Description: Cancel a deployment that is in progress.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the deployment.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+
+Command: coolify github list
+Description: List all GitHub App integrations configured in Coolify.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify github get <app_uuid>
+Description: Get detailed information about a GitHub App integration.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the GitHub App.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify github create
+Description: Create a new GitHub App integration.
+Parameters:
+  - name: --name
+    type: string
+    description: Name of the GitHub App (required).
+    required: true
+  - name: --api-url
+    type: string
+    description: GitHub API URL (required, e.g., https://api.github.com).
+    required: true
+  - name: --html-url
+    type: string
+    description: GitHub HTML URL (required, e.g., https://github.com).
+    required: true
+  - name: --app-id
+    type: integer
+    description: GitHub App ID (required).
+    required: true
+  - name: --installation-id
+    type: integer
+    description: GitHub App installation ID (required).
+    required: true
+  - name: --client-id
+    type: string
+    description: GitHub OAuth Client ID (required).
+    required: true
+  - name: --client-secret
+    type: string
+    description: GitHub OAuth Client Secret (required).
+    required: true
+  - name: --private-key-uuid
+    type: string
+    description: UUID of an existing private key (required).
+    required: true
+  - name: --organization
+    type: string
+    description: GitHub organization.
+    required: false
+  - name: --custom-user
+    type: string
+    description: Custom user for SSH (default: git).
+    required: false
+  - name: --custom-port
+    type: integer
+    description: Custom port for SSH (default: 22).
+    required: false
+  - name: --webhook-secret
+    type: string
+    description: GitHub Webhook Secret.
+    required: false
+  - name: --system-wide
+    type: boolean
+    description: Is this app system-wide (cloud only).
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify github update <app_uuid>
+Description: Update an existing GitHub App integration.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the GitHub App.
+    required: true
+  - name: --name
+    type: string
+    description: Name of the GitHub App.
+    required: false
+  - name: --organization
+    type: string
+    description: GitHub organization.
+    required: false
+  - name: --api-url
+    type: string
+    description: GitHub API URL.
+    required: false
+  - name: --html-url
+    type: string
+    description: GitHub HTML URL.
+    required: false
+  - name: --custom-user
+    type: string
+    description: Custom user for SSH.
+    required: false
+  - name: --custom-port
+    type: integer
+    description: Custom port for SSH.
+    required: false
+  - name: --app-id
+    type: integer
+    description: GitHub App ID.
+    required: false
+  - name: --installation-id
+    type: integer
+    description: GitHub installation ID.
+    required: false
+  - name: --client-id
+    type: string
+    description: GitHub OAuth Client ID.
+    required: false
+  - name: --client-secret
+    type: string
+    description: GitHub OAuth Client Secret.
+    required: false
+  - name: --webhook-secret
+    type: string
+    description: GitHub Webhook Secret.
+    required: false
+  - name: --private-key-uuid
+    type: string
+    description: UUID of the private key.
+    required: false
+  - name: --system-wide
+    type: boolean
+    description: Is this app system-wide.
+    required: false
+
+Command: coolify github delete <app_uuid>
+Description: Delete a GitHub App integration.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the GitHub App.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+
+Command: coolify github repos <app_uuid>
+Description: List repositories accessible by the GitHub App.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the GitHub App.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify github branches <app_uuid> <owner/repo>
+Description: List all branches for a specific repository.
+Parameters:
+  - name: <app_uuid>
+    type: string
+    description: UUID of the GitHub App.
+    required: true
+  - name: <owner/repo>
+    type: string
+    description: Repository in 'owner/repo' format.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify private-key list
+Description: List all configured private keys.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information (the private key).
+    required: false
+
+Command: coolify private-key add <key_name> <private_key_or_file>
+Description: Add a new private key.
+Parameters:
+  - name: <key_name>
+    type: string
+    description: Name of the private key.
+    required: true
+  - name: <private_key_or_file>
+    type: string
+    description: The content of the private key or the path to the file containing it.
+    required: true
+
+Command: coolify private-key remove <uuid>
+Description: Delete a private key.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the private key.
+    required: true
+
+Command: coolify project list
+Description: List all projects in Coolify.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify project get <uuid>
+Description: Get detailed information about a project by UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the project.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify project create
+Description: Create a new project in Coolify.
+Parameters:
+  - name: --name
+    type: string
+    description: Name of the project (required).
+    required: true
+  - name: --description
+    type: string
+    description: Description of the project.
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify resource list
+Description: List all resources (applications, services, databases) in Coolify.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify server list
+Description: List all servers configured in Coolify.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify server get <uuid>
+Description: Get detailed information about a server by UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the server.
+    required: true
+  - name: --resources
+    type: boolean
+    description: Show the server's resources.
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify server domains <uuid>
+Description: Get domain information for a server by UUID.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the server.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify server add <server_name> <ip_address> <private_key_uuid>
+Description: Add a new server.
+Parameters:
+  - name: <server_name>
+    type: string
+    description: Name of the server.
+    required: true
+  - name: <ip_address>
+    type: string
+    description: IP address of the server.
+    required: true
+  - name: <private_key_uuid>
+    type: string
+    description: UUID of the SSH private key for connecting to the server.
+    required: true
+  - name: --port
+    type: integer
+    description: SSH port (default: 22).
+    required: false
+  - name: --user
+    type: string
+    description: SSH user (default: root).
+    required: false
+  - name: --validate
+    type: boolean
+    description: Validate the connection to the server immediately.
+    required: false
+
+Command: coolify server remove <uuid>
+Description: Delete a server.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the server.
+    required: true
+
+Command: coolify server validate <uuid>
+Description: Validate the connection and configuration of a server.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the server.
+    required: true
+
+Command: coolify service list
+Description: List all services in Coolify.
+Parameters: (None)
+
+Command: coolify service get <uuid>
+Description: Get detailed information about a service.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+
+Command: coolify service create <type>
+Description: Create a new one-click service.
+Parameters:
+  - name: <type>
+    type: string
+    description: Type of service (e.g., wordpress-with-mysql, ghost, n8n). Use --list-types to see available types.
+    required: true
+  - name: --list-types
+    type: boolean
+    description: List all available service types.
+    required: false
+  - name: --server-uuid
+    type: string
+    description: UUID of the server (required).
+    required: true
+  - name: --project-uuid
+    type: string
+    description: UUID of the project (required).
+    required: true
+  - name: --environment-name
+    type: string
+    description: Name of the environment.
+    required: false
+  - name: --environment-uuid
+    type: string
+    description: UUID of the environment.
+    required: false
+  - name: --name
+    type: string
+    description: Name of the service.
+    required: false
+  - name: --description
+    type: string
+    description: Description of the service.
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination UUID if server has multiple destinations.
+    required: false
+  - name: --instant-deploy
+    type: boolean
+    description: Deploy immediately after creation.
+    required: false
+  - name: --docker-compose
+    type: string
+    description: Custom Docker Compose content (for advanced customization).
+    required: false
+
+Command: coolify service start <uuid>
+Description: Start a service (deploy all containers).
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+
+Command: coolify service stop <uuid>
+Description: Stop a service (stop all containers).
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+
+Command: coolify service restart <uuid>
+Description: Restart a service (restart all containers).
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+
+Command: coolify service delete <uuid>
+Description: Delete a service.
+Parameters:
+  - name: <uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+  - name: --delete-configurations
+    type: boolean
+    description: Delete configuration files.
+    required: false
+  - name: --delete-volumes
+    type: boolean
+    description: Delete volumes.
+    required: false
+  - name: --docker-cleanup
+    type: boolean
+    description: Run docker cleanup.
+    required: false
+  - name: --delete-connected-networks
+    type: boolean
+    description: Delete connected networks.
+    required: false
+
+Command: coolify service env list <service_uuid>
+Description: List environment variables for a service.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify service env get <service_uuid> <env_uuid_or_key>
+Description: Get detailed information about an environment variable.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: <env_uuid_or_key>
+    type: string
+    description: UUID or key of the environment variable.
+    required: true
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
+
+Command: coolify service env create <service_uuid>
+Description: Create a new environment variable for a service.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: --key
+    type: string
+    description: Key of the environment variable (required).
+    required: true
+  - name: --value
+    type: string
+    description: Value of the environment variable (required).
+    required: true
+  - name: --build-time
+    type: boolean
+    description: Available at build time (default: true).
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat value as a literal (don't interpolate variables).
+    required: false
+  - name: --is-multiline
+    type: boolean
+    description: The value is multiline.
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Available at runtime (default: true).
+    required: false
+
+Command: coolify service env update <service_uuid> <env_uuid>
+Description: Update an environment variable for a service.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: <env_uuid>
+    type: string
+    description: UUID of the environment variable to update.
+    required: true
+  - name: --key
+    type: string
+    description: New key for the environment variable.
+    required: false
+  - name: --value
+    type: string
+    description: New value for the environment variable.
+    required: false
+  - name: --build-time
+    type: boolean
+    description: Available at build time.
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat value as a literal.
+    required: false
+  - name: --is-multiline
+    type: boolean
+    description: The value is multiline.
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Available at runtime.
+    required: false
+
+Command: coolify service env delete <service_uuid> <env_uuid>
+Description: Delete an environment variable from a service.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: <env_uuid>
+    type: string
+    description: UUID of the environment variable to delete.
+    required: true
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt.
+    required: false
+
+Command: coolify service env sync <service_uuid>
+Description: Sync environment variables from a .env file.
+Parameters:
+  - name: <service_uuid>
+    type: string
+    description: UUID of the service.
+    required: true
+  - name: --file
+    type: string
+    description: Path to the .env file (required).
+    required: true
+  - name: --build-time
+    type: boolean
+    description: Make all variables available at build time (default: true).
+    required: false
+  - name: --is-literal
+    type: boolean
+    description: Treat all values as literals (don't interpolate variables).
+    required: false
+  - name: --runtime
+    type: boolean
+    description: Make all variables available at runtime (default: true).
+    required: false
+
+Command: coolify teams list
+Description: List all teams you have access to.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify teams get <team_id>
+Description: Get detailed information about a specific team by ID.
+Parameters:
+  - name: <team_id>
+    type: string
+    description: ID of the team.
+    required: true
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify teams current
+Description: Get details of the team associated with the current authentication token.
+Parameters:
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+
+Command: coolify teams members list [team_id]
+Description: List members of a specific team by ID, or list members of the current team if no ID is provided.
+Parameters:
+  - name: [team_id]
+    type: string
+    description: ID of the team (optional).
+    required: false
+  - name: --format
+    type: string
+    description: Output format (table, json, yaml).
+    required: false
+  - name: --show-sensitive
+    type: boolean
+    description: Show sensitive information.
+    required: false
