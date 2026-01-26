@@ -212,10 +212,10 @@ func TestTableFormatter_BooleanValues(t *testing.T) {
 
 	// Check boolean formatting
 	lines := strings.Split(output, "\n")
-	assert.Contains(t, lines[1], "true")
-	assert.Contains(t, lines[1], "false")
-	assert.Contains(t, lines[2], "false")
-	assert.Contains(t, lines[2], "true")
+	assert.Contains(t, lines[3], "true")
+	assert.Contains(t, lines[3], "false")
+	assert.Contains(t, lines[4], "false")
+	assert.Contains(t, lines[4], "true")
 }
 
 func TestTableFormatter_NilPointer(t *testing.T) {
