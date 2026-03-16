@@ -137,14 +137,58 @@ func (s *Service) CreateEnv(ctx context.Context, uuid string, req *models.Servic
 	return &env, nil
 }
 
-// UpdateEnv updates an environment variable for a service
+// UpdateEnv updates an environment variable for a service.
+// Uses the bulk update endpoint as the single-update endpoint
+// (PATCH /services/{uuid}/envs) returns 404 for services.
+// See: https://github.com/coollabsio/coolify-cli/issues/48
 func (s *Service) UpdateEnv(ctx context.Context, serviceUUID string, req *models.ServiceEnvironmentVariableUpdateRequest) (*models.ServiceEnvironmentVariable, error) {
-	var env models.ServiceEnvironmentVariable
-	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs", serviceUUID), req, &env)
+	// Fetch the current env var to get existing values for fields not being updated
+	existing, err := s.GetEnv(ctx, serviceUUID, req.UUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch environment variable for update: %w", err)
+	}
+
+	// Build the bulk update entry, applying requested changes over existing values
+	entry := models.ServiceEnvironmentVariableCreateRequest{
+		Key:   existing.Key,
+		Value: existing.Value,
+	}
+	if req.Key != nil {
+		entry.Key = *req.Key
+	}
+	if req.Value != nil {
+		entry.Value = *req.Value
+	}
+	isBuildTime := existing.IsBuildTime
+	if req.IsBuildTime != nil {
+		isBuildTime = *req.IsBuildTime
+	}
+	entry.IsBuildTime = &isBuildTime
+	isLiteral := existing.IsLiteralValue
+	if req.IsLiteral != nil {
+		isLiteral = *req.IsLiteral
+	}
+	entry.IsLiteral = &isLiteral
+	isRuntime := existing.IsRuntime
+	if req.IsRuntime != nil {
+		isRuntime = *req.IsRuntime
+	}
+	entry.IsRuntime = &isRuntime
+
+	bulkReq := &models.ServiceEnvBulkUpdateRequest{
+		Data: []models.ServiceEnvironmentVariableCreateRequest{entry},
+	}
+	err = s.client.Patch(ctx, fmt.Sprintf("services/%s/envs/bulk", serviceUUID), bulkReq, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update environment variable for service %s: %w", serviceUUID, err)
 	}
-	return &env, nil
+
+	// Fetch the updated env var to return the current state
+	updated, err := s.GetEnv(ctx, serviceUUID, entry.Key)
+	if err != nil {
+		return nil, fmt.Errorf("environment variable updated but failed to fetch result: %w", err)
+	}
+	return updated, nil
 }
 
 // DeleteEnv deletes an environment variable from a service

@@ -310,18 +310,44 @@ func TestService_CreateEnv(t *testing.T) {
 }
 
 func TestService_UpdateEnv(t *testing.T) {
+	getCount := 0
+	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/services/service-uuid-123/envs", r.URL.Path)
-		assert.Equal(t, "PATCH", r.Method)
-
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{
-			"uuid": "env-123",
-			"key": "UPDATED_VAR",
-			"value": "updated_value",
-			"is_buildtime": true,
-			"is_preview": false
-		}`))
+		requestCount++
+		if r.Method == "GET" && r.URL.Path == "/api/v1/services/service-uuid-123/envs" {
+			getCount++
+			if getCount == 1 {
+				// First GET: list envs to find the one being updated
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`[{
+					"uuid": "env-123",
+					"key": "MY_VAR",
+					"value": "old_value",
+					"is_buildtime": false,
+					"is_literal": false,
+					"is_runtime": true,
+					"is_shared": false
+				}]`))
+			} else {
+				// Second GET: re-fetch after update returns updated env
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`[{
+					"uuid": "env-123",
+					"key": "UPDATED_VAR",
+					"value": "old_value",
+					"is_buildtime": false,
+					"is_literal": false,
+					"is_runtime": true,
+					"is_shared": false
+				}]`))
+			}
+		} else if r.Method == "PATCH" && r.URL.Path == "/api/v1/services/service-uuid-123/envs/bulk" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"message": "success"}`))
+		} else {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}))
 	defer server.Close()
 
@@ -336,6 +362,7 @@ func TestService_UpdateEnv(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "UPDATED_VAR", env.Key)
+	assert.Equal(t, 3, requestCount)
 }
 
 func TestService_DeleteEnv(t *testing.T) {
