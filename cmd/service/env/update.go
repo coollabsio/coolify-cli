@@ -25,6 +25,11 @@ func NewUpdateCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			// Check minimum version requirement
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.469"); err != nil {
+				return err
+			}
+
 			req := &models.ServiceEnvironmentVariableUpdateRequest{}
 
 			// Only set fields that were provided
