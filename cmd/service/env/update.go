@@ -12,23 +12,25 @@ import (
 
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <service_uuid> <env_uuid>",
+		Use:   "update <service_uuid>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. First UUID is the service, second is the specific environment variable to update.`,
-		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
+		Long:  `Update an existing environment variable. UUID is the service.`,
+		Args:  cli.ExactArgs(1, "<service_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			serviceUUID := args[0]
-			envUUID := args[1]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			req := &models.ServiceEnvironmentVariableUpdateRequest{
-				UUID: envUUID,
+			// Check minimum version requirement
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.469"); err != nil {
+				return err
 			}
+
+			req := &models.ServiceEnvironmentVariableUpdateRequest{}
 
 			// Only set fields that were provided
 			if cmd.Flags().Changed("key") {
@@ -56,9 +58,11 @@ func NewUpdateCommand() *cobra.Command {
 				req.IsRuntime = &isRuntime
 			}
 
-			// Check if at least one field is being updated
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
-				return fmt.Errorf("at least one field must be provided to update (--key, --value, --build-time, --is-literal, --is-multiline, or --runtime)")
+			if req.Key == nil {
+				return fmt.Errorf("--key is required")
+			}
+			if req.Value == nil {
+				return fmt.Errorf("--value is required")
 			}
 
 			serviceSvc := service.NewService(client)

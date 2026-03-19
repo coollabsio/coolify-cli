@@ -157,11 +157,11 @@ func (s *Service) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) er
 }
 
 // BulkUpdateEnvs updates multiple environment variables in a single request
-func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *models.ServiceEnvBulkUpdateRequest) (*models.ServiceEnvBulkUpdateResponse, error) {
+func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *models.ServiceEnvBulkUpdateRequest) (models.ServiceEnvBulkUpdateResponse, error) {
 	var response models.ServiceEnvBulkUpdateResponse
 	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/envs/bulk", serviceUUID), req, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bulk update environment variables for service %s: %w", serviceUUID, err)
 	}
-	return &response, nil
+	return response, nil
 }
