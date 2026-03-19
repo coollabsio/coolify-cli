@@ -1206,7 +1206,7 @@ func TestApplicationService_BulkUpdateEnvs(t *testing.T) {
 		// Verify request body was correctly serialized
 		var reqBody BulkUpdateEnvsRequest
 		err := json.NewDecoder(r.Body).Decode(&reqBody)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Len(t, reqBody.Data, 1)
 		assert.Equal(t, "KEY1", reqBody.Data[0].Key)
 		assert.Equal(t, "VAL1", reqBody.Data[0].Value)
@@ -1240,9 +1240,9 @@ func TestApplicationService_BulkUpdateEnvs(t *testing.T) {
 }
 
 func TestApplicationService_BulkUpdateEnvs_APIError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"internal server error"}`))
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
 	}))
 	defer server.Close()
 
@@ -1256,7 +1256,7 @@ func TestApplicationService_BulkUpdateEnvs_APIError(t *testing.T) {
 	}
 
 	result, err := svc.BulkUpdateEnvs(context.Background(), "app-uuid-123", req)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to bulk update environment variables")
 }
