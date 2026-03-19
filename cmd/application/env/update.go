@@ -12,23 +12,20 @@ import (
 
 func NewUpdateEnvCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <app_uuid> <env_uuid>",
+		Use:   "update <app_uuid>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. First UUID is the application, second is the specific environment variable to update.`,
-		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
+		Long:  `Update an existing environment variable. UUID is the application.`,
+		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			appUUID := args[0]
-			envUUID := args[1]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			req := &models.EnvironmentVariableUpdateRequest{
-				UUID: envUUID,
-			}
+			req := &models.EnvironmentVariableUpdateRequest{}
 
 			if cmd.Flags().Changed("key") {
 				key, _ := cmd.Flags().GetString("key")
@@ -59,8 +56,11 @@ func NewUpdateEnvCommand() *cobra.Command {
 				req.IsRuntime = &isRuntime
 			}
 
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsPreview == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
-				return fmt.Errorf("at least one field must be provided to update")
+			if req.Key == nil {
+				return fmt.Errorf("--key is required")
+			}
+			if req.Value == nil {
+				return fmt.Errorf("--value is required")
 			}
 
 			appSvc := service.NewApplicationService(client)

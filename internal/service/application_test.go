@@ -737,9 +737,10 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
+	newKey := "API_KEY"
 	newValue := "newsecret456"
 	req := &models.EnvironmentVariableUpdateRequest{
-		UUID:  "env-uuid-1",
+		Key:   &newKey,
 		Value: &newValue,
 	}
 
@@ -760,9 +761,10 @@ func TestApplicationService_UpdateEnv_Error(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
+	newKey := "API_KEY"
 	newValue := "newsecret456"
 	req := &models.EnvironmentVariableUpdateRequest{
-		UUID:  "env-uuid-1",
+		Key:   &newKey,
 		Value: &newValue,
 	}
 

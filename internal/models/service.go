@@ -114,6 +114,4 @@ type ServiceEnvBulkUpdateRequest struct {
 }
 
 // ServiceEnvBulkUpdateResponse represents the response from service bulk update
-type ServiceEnvBulkUpdateResponse struct {
-	Message string `json:"message,omitempty"`
-}
+type ServiceEnvBulkUpdateResponse []ServiceEnvironmentVariable

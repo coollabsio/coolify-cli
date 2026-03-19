@@ -149,13 +149,14 @@ Commands can use `server` or `servers` interchangeably.
   - `--build-time` - Available at build time
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
-- `coolify app env update <app_uuid>`- Update an environment variable
+- `coolify app env update <app_uuid>` - Update an environment variable
   - `--key <key>` - Variable key (required)
   - `--value <value>` - Variable value (required)
   - `--preview` - Available in preview deployments
   - `--build-time` - Available at build time
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
+  - `--runtime` - Available at runtime
 - `coolify app env delete <app_uuid> <env_uuid>` - Delete an environment variable
 - `coolify app env sync <app_uuid>` - Sync environment variables from a .env file
   - `--file <path>` - Path to .env file (required)
@@ -238,7 +239,13 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service env get <service_uuid> <env_uuid_or_key>` - Get a specific environment variable
 - `coolify service env create <service_uuid>` - Create a new environment variable
   - Same flags as application environment variables
-- `coolify service env update <service_uuid> <env_uuid>` - Update an environment variable
+- `coolify service env update <service_uuid>` - Update an environment variable
+  - `--key <key>` - Variable key (required)
+  - `--value <value>` - Variable value (required)
+  - `--build-time` - Available at build time
+  - `--is-literal` - Treat value as literal (don't interpolate variables)
+  - `--is-multiline` - Value is multiline
+  - `--runtime` - Available at runtime
 - `coolify service env delete <service_uuid> <env_uuid>` - Delete an environment variable
 - `coolify service env sync <service_uuid>` - Sync environment variables from a .env file
   - `--file <path>` - Path to .env file (required)

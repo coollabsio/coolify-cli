@@ -53,9 +53,11 @@ func NewUpdateCommand() *cobra.Command {
 				req.IsRuntime = &isRuntime
 			}
 
-			// Check if at least one field is being updated
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
-				return fmt.Errorf("at least one field must be provided to update (--key, --value, --build-time, --is-literal, --is-multiline, or --runtime)")
+			if req.Key == nil {
+				return fmt.Errorf("--key is required")
+			}
+			if req.Value == nil {
+				return fmt.Errorf("--value is required")
 			}
 
 			serviceSvc := service.NewService(client)
