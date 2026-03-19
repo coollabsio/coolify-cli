@@ -125,7 +125,6 @@ type EnvironmentVariableCreateRequest struct {
 
 // EnvironmentVariableUpdateRequest represents the request to update an environment variable
 type EnvironmentVariableUpdateRequest struct {
-	UUID        string  `json:"uuid"`
 	Key         *string `json:"key,omitempty"`
 	Value       *string `json:"value,omitempty"`
 	IsBuildTime *bool   `json:"is_build_time,omitempty"`
