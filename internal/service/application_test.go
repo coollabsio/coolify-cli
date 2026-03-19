@@ -1203,6 +1203,14 @@ func TestApplicationService_BulkUpdateEnvs(t *testing.T) {
 		assert.Equal(t, "PATCH", r.Method)
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
+		// Verify request body was correctly serialized
+		var reqBody BulkUpdateEnvsRequest
+		err := json.NewDecoder(r.Body).Decode(&reqBody)
+		require.NoError(t, err)
+		assert.Len(t, reqBody.Data, 1)
+		assert.Equal(t, "KEY1", reqBody.Data[0].Key)
+		assert.Equal(t, "VAL1", reqBody.Data[0].Value)
+
 		// Return array response as per API
 		w.Header().Set("Content-Type", "application/json")
 		resp := []models.EnvironmentVariable{
@@ -1229,4 +1237,26 @@ func TestApplicationService_BulkUpdateEnvs(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Len(t, *result, 1)
 	assert.Equal(t, "KEY1", (*result)[0].Key)
+}
+
+func TestApplicationService_BulkUpdateEnvs_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	req := &BulkUpdateEnvsRequest{
+		Data: []models.EnvironmentVariableCreateRequest{
+			{Key: "KEY1", Value: "VAL1"},
+		},
+	}
+
+	result, err := svc.BulkUpdateEnvs(context.Background(), "app-uuid-123", req)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to bulk update environment variables")
 }
