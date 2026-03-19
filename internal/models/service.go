@@ -100,7 +100,6 @@ type ServiceEnvironmentVariableCreateRequest struct {
 
 // ServiceEnvironmentVariableUpdateRequest represents the request to update a service environment variable
 type ServiceEnvironmentVariableUpdateRequest struct {
-	UUID        string  `json:"uuid"`
 	Key         *string `json:"key,omitempty"`
 	Value       *string `json:"value,omitempty"`
 	IsBuildTime *bool   `json:"is_build_time,omitempty"`
@@ -115,6 +114,4 @@ type ServiceEnvBulkUpdateRequest struct {
 }
 
 // ServiceEnvBulkUpdateResponse represents the response from service bulk update
-type ServiceEnvBulkUpdateResponse struct {
-	Message string `json:"message,omitempty"`
-}
+type ServiceEnvBulkUpdateResponse []ServiceEnvironmentVariable
