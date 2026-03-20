@@ -20,16 +20,6 @@ func NewTableFormatter(opts Options) *TableFormatter {
 }
 
 func (f *TableFormatter) Format(data any) (err error) {
-	w := tablewriter.NewWriter(f.opts.Writer)
-	defer func() {
-		if renderErr := w.Render(); renderErr != nil && err == nil {
-			err = fmt.Errorf("failed to render ascii w: %w", renderErr)
-		}
-	}()
-
-	// disable ALL CAPS for column headers
-	w.Options(tablewriter.WithHeaderAutoFormat(tw.Off))
-
 	// Handle different data types
 	val := reflect.ValueOf(data)
 
@@ -37,6 +27,24 @@ func (f *TableFormatter) Format(data any) (err error) {
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+
+	// Check for empty slice/array before creating the table writer
+	if (val.Kind() == reflect.Slice || val.Kind() == reflect.Array) && val.Len() == 0 {
+		if _, writeErr := fmt.Fprintln(f.opts.Writer, "No data"); writeErr != nil {
+			return fmt.Errorf("failed to write no data message: %w", writeErr)
+		}
+		return nil
+	}
+
+	w := tablewriter.NewWriter(f.opts.Writer)
+	defer func() {
+		if renderErr := w.Render(); renderErr != nil && err == nil {
+			err = fmt.Errorf("failed to render table: %w", renderErr)
+		}
+	}()
+
+	// disable ALL CAPS for column headers
+	w.Options(tablewriter.WithHeaderAutoFormat(tw.Off))
 
 	switch val.Kind() {
 	case reflect.Slice, reflect.Array:
@@ -52,13 +60,6 @@ func (f *TableFormatter) Format(data any) (err error) {
 
 // formatSlice formats a slice of structs as a table
 func (f *TableFormatter) formatSlice(w *tablewriter.Table, val reflect.Value) error {
-	if val.Len() == 0 {
-		if _, err := fmt.Fprintln(f.opts.Writer, "No data"); err != nil {
-			return fmt.Errorf("failed to write no data message: %w", err)
-		}
-		return nil
-	}
-
 	// Get the first element to determine columns
 	firstElem := val.Index(0)
 	if firstElem.Kind() == reflect.Ptr {
