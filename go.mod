@@ -1,6 +1,6 @@
 module github.com/coollabsio/coolify-cli
 
-go 1.24.6
+go 1.24.13
 
 require (
 	github.com/adrg/xdg v0.5.3

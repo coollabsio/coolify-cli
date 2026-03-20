@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/cmd/database/backup"
+	"github.com/coollabsio/coolify-cli/cmd/database/env"
 )
 
 // NewDatabaseCommand creates the database parent command with all subcommands
@@ -24,6 +25,19 @@ func NewDatabaseCommand() *cobra.Command {
 	cmd.AddCommand(NewCreateCommand())
 	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewDeleteCommand())
+
+	// Add env subcommand
+	envCmd := &cobra.Command{
+		Use:   "env",
+		Short: "Manage database environment variables",
+	}
+	envCmd.AddCommand(env.NewListCommand())
+	envCmd.AddCommand(env.NewGetCommand())
+	envCmd.AddCommand(env.NewCreateCommand())
+	envCmd.AddCommand(env.NewUpdateCommand())
+	envCmd.AddCommand(env.NewDeleteCommand())
+	envCmd.AddCommand(env.NewSyncCommand())
+	cmd.AddCommand(envCmd)
 
 	// Add backup subcommand
 	backupCmd := &cobra.Command{

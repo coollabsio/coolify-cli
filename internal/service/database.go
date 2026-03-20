@@ -173,6 +173,71 @@ func (s *DatabaseService) DeleteBackupExecution(ctx context.Context, dbUUID, bac
 	return nil
 }
 
+// ListEnvs retrieves all environment variables for a database
+func (s *DatabaseService) ListEnvs(ctx context.Context, uuid string) ([]models.DatabaseEnvironmentVariable, error) {
+	var envs []models.DatabaseEnvironmentVariable
+	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/envs", uuid), &envs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list environment variables for database %s: %w", uuid, err)
+	}
+	return envs, nil
+}
+
+// GetEnv retrieves a single environment variable by UUID or key
+func (s *DatabaseService) GetEnv(ctx context.Context, dbUUID, envIdentifier string) (*models.DatabaseEnvironmentVariable, error) {
+	envs, err := s.ListEnvs(ctx, dbUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, env := range envs {
+		if env.UUID == envIdentifier || env.Key == envIdentifier {
+			return &env, nil
+		}
+	}
+
+	return nil, fmt.Errorf("environment variable '%s' not found in database %s", envIdentifier, dbUUID)
+}
+
+// CreateEnv creates a new environment variable for a database
+func (s *DatabaseService) CreateEnv(ctx context.Context, uuid string, req *models.DatabaseEnvironmentVariableCreateRequest) (*models.DatabaseEnvironmentVariable, error) {
+	var env models.DatabaseEnvironmentVariable
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/envs", uuid), req, &env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create environment variable for database %s: %w", uuid, err)
+	}
+	return &env, nil
+}
+
+// UpdateEnv updates an environment variable for a database
+func (s *DatabaseService) UpdateEnv(ctx context.Context, dbUUID string, req *models.DatabaseEnvironmentVariableUpdateRequest) (*models.DatabaseEnvironmentVariable, error) {
+	var env models.DatabaseEnvironmentVariable
+	err := s.client.Patch(ctx, fmt.Sprintf("databases/%s/envs", dbUUID), req, &env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update environment variable for database %s: %w", dbUUID, err)
+	}
+	return &env, nil
+}
+
+// DeleteEnv deletes an environment variable from a database
+func (s *DatabaseService) DeleteEnv(ctx context.Context, dbUUID, envUUID string) error {
+	err := s.client.Delete(ctx, fmt.Sprintf("databases/%s/envs/%s", dbUUID, envUUID))
+	if err != nil {
+		return fmt.Errorf("failed to delete environment variable %s from database %s: %w", envUUID, dbUUID, err)
+	}
+	return nil
+}
+
+// BulkUpdateEnvs updates multiple environment variables for a database in a single request
+func (s *DatabaseService) BulkUpdateEnvs(ctx context.Context, dbUUID string, req *models.DatabaseEnvBulkUpdateRequest) (models.DatabaseEnvBulkUpdateResponse, error) {
+	var response models.DatabaseEnvBulkUpdateResponse
+	err := s.client.Patch(ctx, fmt.Sprintf("databases/%s/envs/bulk", dbUUID), req, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bulk update environment variables for database %s: %w", dbUUID, err)
+	}
+	return response, nil
+}
+
 // inferDatabaseType determines the database type from available fields
 func inferDatabaseType(db *models.Database) string {
 	// Check for PostgreSQL

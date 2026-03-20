@@ -8,5 +8,6 @@
   "is_literal": false,
   "is_shown_once": false,
   "is_runtime": true,
-  "is_shared": false
+  "is_shared": false,
+  "comment": "Primary database connection string"
 }

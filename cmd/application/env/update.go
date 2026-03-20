@@ -60,6 +60,10 @@ func NewUpdateEnvCommand() *cobra.Command {
 				isRuntime, _ := cmd.Flags().GetBool("runtime")
 				req.IsRuntime = &isRuntime
 			}
+			if cmd.Flags().Changed("comment") {
+				comment, _ := cmd.Flags().GetString("comment")
+				req.Comment = &comment
+			}
 
 			if req.Key == nil {
 				return fmt.Errorf("--key is required")
@@ -86,5 +90,6 @@ func NewUpdateEnvCommand() *cobra.Command {
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
 	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
+	cmd.Flags().String("comment", "", "Comment for the environment variable")
 	return cmd
 }
