@@ -32,15 +32,25 @@ func NewGetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get database: %w", err)
 			}
 
+			format, _ := cmd.Flags().GetString("format")
 			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
-			formatter, err := output.NewFormatter("table", output.Options{
+
+			formatter, err := output.NewFormatter(format, output.Options{
 				ShowSensitive: showSensitive,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create formatter: %w", err)
 			}
 
-			return formatter.Format(database)
+			if err := formatter.Format(database); err != nil {
+				return err
+			}
+
+			if !showSensitive && format == output.FormatTable {
+				fmt.Println("\nNote: Use -s to show sensitive information.")
+			}
+
+			return nil
 		},
 	}
 }
