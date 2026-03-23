@@ -196,6 +196,43 @@ func (s *ApplicationService) BulkUpdateEnvs(ctx context.Context, appUUID string,
 	return &response, nil
 }
 
+// ListStorages retrieves all storages for an application
+func (s *ApplicationService) ListStorages(ctx context.Context, uuid string) ([]models.StorageListItem, error) {
+	var resp models.StoragesResponse
+	err := s.client.Get(ctx, fmt.Sprintf("applications/%s/storages", uuid), &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list storages for application %s: %w", uuid, err)
+	}
+	return models.MergeStorages(resp), nil
+}
+
+// CreateStorage creates a new storage for an application
+func (s *ApplicationService) CreateStorage(ctx context.Context, uuid string, req *models.StorageCreateRequest) error {
+	err := s.client.Post(ctx, fmt.Sprintf("applications/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create storage for application %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// UpdateStorage updates a storage for an application
+func (s *ApplicationService) UpdateStorage(ctx context.Context, uuid string, req *models.StorageUpdateRequest) error {
+	err := s.client.Patch(ctx, fmt.Sprintf("applications/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to update storage for application %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// DeleteStorage deletes a storage from an application
+func (s *ApplicationService) DeleteStorage(ctx context.Context, appUUID, storageUUID string) error {
+	err := s.client.Delete(ctx, fmt.Sprintf("applications/%s/storages/%s", appUUID, storageUUID))
+	if err != nil {
+		return fmt.Errorf("failed to delete storage %s from application %s: %w", storageUUID, appUUID, err)
+	}
+	return nil
+}
+
 // CreatePublic creates an application from a public git repository
 func (s *ApplicationService) CreatePublic(ctx context.Context, req *models.ApplicationCreatePublicRequest) (*models.Application, error) {
 	var app models.Application

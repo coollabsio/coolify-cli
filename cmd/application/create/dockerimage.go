@@ -76,6 +76,7 @@ Examples:
 			setOptionalBoolFlag(cmd, "instant-deploy", &req.InstantDeploy)
 			setOptionalBoolFlag(cmd, "health-check-enabled", &req.HealthCheckEnabled)
 			setOptionalStringFlag(cmd, "health-check-path", &req.HealthCheckPath)
+			setOptionalStringFlag(cmd, "dockerfile-target-build", &req.DockerfileTargetBuild)
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -122,6 +123,7 @@ Examples:
 	cmd.Flags().String("limits-memory", "", "Memory limit")
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health checks")
 	cmd.Flags().String("health-check-path", "", "Health check path")
+	cmd.Flags().String("dockerfile-target-build", "", "Dockerfile target build stage")
 
 	return cmd
 }

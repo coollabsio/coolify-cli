@@ -238,6 +238,43 @@ func (s *DatabaseService) BulkUpdateEnvs(ctx context.Context, dbUUID string, req
 	return response, nil
 }
 
+// ListStorages retrieves all storages for a database
+func (s *DatabaseService) ListStorages(ctx context.Context, uuid string) ([]models.StorageListItem, error) {
+	var resp models.StoragesResponse
+	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/storages", uuid), &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list storages for database %s: %w", uuid, err)
+	}
+	return models.MergeStorages(resp), nil
+}
+
+// CreateStorage creates a new storage for a database
+func (s *DatabaseService) CreateStorage(ctx context.Context, uuid string, req *models.StorageCreateRequest) error {
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create storage for database %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// UpdateStorage updates a storage for a database
+func (s *DatabaseService) UpdateStorage(ctx context.Context, uuid string, req *models.StorageUpdateRequest) error {
+	err := s.client.Patch(ctx, fmt.Sprintf("databases/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to update storage for database %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// DeleteStorage deletes a storage from a database
+func (s *DatabaseService) DeleteStorage(ctx context.Context, dbUUID, storageUUID string) error {
+	err := s.client.Delete(ctx, fmt.Sprintf("databases/%s/storages/%s", dbUUID, storageUUID))
+	if err != nil {
+		return fmt.Errorf("failed to delete storage %s from database %s: %w", storageUUID, dbUUID, err)
+	}
+	return nil
+}
+
 // inferDatabaseType determines the database type from available fields
 func inferDatabaseType(db *models.Database) string {
 	// Check for PostgreSQL

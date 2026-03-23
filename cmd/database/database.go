@@ -5,6 +5,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/database/backup"
 	"github.com/coollabsio/coolify-cli/cmd/database/env"
+	"github.com/coollabsio/coolify-cli/cmd/database/storage"
 )
 
 // NewDatabaseCommand creates the database parent command with all subcommands
@@ -52,6 +53,19 @@ func NewDatabaseCommand() *cobra.Command {
 	backupCmd.AddCommand(backup.NewExecutionCommand())
 	backupCmd.AddCommand(backup.NewDeleteExecutionCommand())
 	cmd.AddCommand(backupCmd)
+
+	// Add storage subcommand
+	storageCmd := &cobra.Command{
+		Use:     "storage",
+		Aliases: []string{"storages"},
+		Short:   "Manage database storages",
+		Long:    `List and manage persistent volumes and file storages for databases.`,
+	}
+	storageCmd.AddCommand(storage.NewListCommand())
+	storageCmd.AddCommand(storage.NewCreateCommand())
+	storageCmd.AddCommand(storage.NewUpdateCommand())
+	storageCmd.AddCommand(storage.NewDeleteCommand())
+	cmd.AddCommand(storageCmd)
 
 	return cmd
 }
