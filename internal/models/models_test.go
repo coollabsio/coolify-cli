@@ -99,6 +99,126 @@ func TestProject_UnmarshalFromFixture(t *testing.T) {
 	assert.Equal(t, "running", project.Environments[0].Applications[0].Status)
 }
 
+func TestApplication_MarshalUnmarshal(t *testing.T) {
+	desc := "Test application"
+	repo := "https://github.com/example/app"
+	branch := "main"
+	fqdn := "https://app.example.com"
+	buildPack := "nixpacks"
+	ports := "3000"
+	installCmd := "npm install"
+	buildCmd := "npm run build"
+	startCmd := "npm start"
+	limitsCPUs := "2"
+	limitsMemory := "512M"
+	healthPath := "/health"
+	isAutoDeployEnabled := true
+
+	app := Application{
+		ID:              1,
+		UUID:            "app-uuid",
+		Name:            "My App",
+		Description:     &desc,
+		Status:          "running",
+		FQDN:            &fqdn,
+		GitRepository:   &repo,
+		GitBranch:       &branch,
+		BuildPack:       &buildPack,
+		PortsExposes:    &ports,
+		InstallCommand:  &installCmd,
+		BuildCommand:    &buildCmd,
+		StartCommand:    &startCmd,
+		LimitsCPUs:      &limitsCPUs,
+		LimitsMemory:    &limitsMemory,
+		HealthCheckPath: &healthPath,
+		Settings: &ApplicationSettings{
+			IsAutoDeployEnabled: &isAutoDeployEnabled,
+		},
+		CreatedAt: "2024-01-01T00:00:00Z",
+		UpdatedAt: "2024-01-02T00:00:00Z",
+	}
+
+	// Marshal
+	data, err := json.Marshal(app)
+	require.NoError(t, err)
+
+	// Unmarshal
+	var unmarshaled Application
+	err = json.Unmarshal(data, &unmarshaled)
+	require.NoError(t, err)
+
+	assert.Equal(t, app.UUID, unmarshaled.UUID)
+	assert.Equal(t, app.Name, unmarshaled.Name)
+	assert.Equal(t, *app.GitRepository, *unmarshaled.GitRepository)
+	assert.Equal(t, *app.BuildPack, *unmarshaled.BuildPack)
+	assert.Equal(t, *app.InstallCommand, *unmarshaled.InstallCommand)
+	assert.Equal(t, *app.LimitsCPUs, *unmarshaled.LimitsCPUs)
+	assert.NotNil(t, unmarshaled.Settings)
+	assert.True(t, *unmarshaled.Settings.IsAutoDeployEnabled)
+}
+
+func TestApplication_UnmarshalFromFixture(t *testing.T) {
+	fixtureData, err := os.ReadFile(filepath.Join("..", "..", "test", "fixtures", "application.json"))
+	require.NoError(t, err)
+
+	var app Application
+	err = json.Unmarshal(fixtureData, &app)
+	require.NoError(t, err)
+
+	assert.Equal(t, "app-fixture-uuid-123", app.UUID)
+	assert.Equal(t, "My Web Application", app.Name)
+	assert.Equal(t, "running", app.Status)
+	assert.Equal(t, "https://app.example.com", *app.FQDN)
+	assert.Equal(t, "https://github.com/example/app", *app.GitRepository)
+	assert.Equal(t, "main", *app.GitBranch)
+	assert.Equal(t, "nixpacks", *app.BuildPack)
+	assert.Equal(t, "3000", *app.PortsExposes)
+	assert.Equal(t, "npm install", *app.InstallCommand)
+	assert.Equal(t, "npm run build", *app.BuildCommand)
+	assert.Equal(t, "npm start", *app.StartCommand)
+	assert.Equal(t, "/health", *app.HealthCheckPath)
+	assert.Equal(t, 200, *app.HealthCheckReturnCode)
+	assert.Equal(t, "2", *app.LimitsCPUs)
+	assert.Equal(t, "512M", *app.LimitsMemory)
+	assert.Equal(t, "npm run migrate", *app.PreDeploymentCommand)
+	assert.Equal(t, 1, *app.SwarmReplicas)
+	assert.Equal(t, "abc123", *app.ConfigHash)
+
+	// Nested settings
+	require.NotNil(t, app.Settings)
+	assert.NotNil(t, app.Settings.IsAutoDeployEnabled)
+	assert.True(t, *app.Settings.IsAutoDeployEnabled)
+	assert.True(t, *app.Settings.IsForceHTTPSEnabled)
+	assert.False(t, *app.Settings.IsStatic)
+}
+
+func TestApplication_JSONExcludesHiddenFields(t *testing.T) {
+	app := Application{
+		ID:            42,
+		UUID:          "app-uuid",
+		Name:          "Test App",
+		Status:        "running",
+		EnvironmentID: intPtr(1),
+		DestinationID: intPtr(2),
+		CreatedAt:     "2024-01-01T00:00:00Z",
+		UpdatedAt:     "2024-01-02T00:00:00Z",
+	}
+
+	data, err := json.Marshal(app)
+	require.NoError(t, err)
+
+	jsonStr := string(data)
+	assert.NotContains(t, jsonStr, `"id"`)
+	assert.NotContains(t, jsonStr, `"environment_id"`)
+	assert.NotContains(t, jsonStr, `"destination_id"`)
+	assert.NotContains(t, jsonStr, `"created_at"`)
+	assert.NotContains(t, jsonStr, `"updated_at"`)
+	assert.Contains(t, jsonStr, `"uuid"`)
+	assert.Contains(t, jsonStr, `"name"`)
+}
+
+func intPtr(v int) *int { return &v }
+
 func TestResource_MarshalUnmarshal(t *testing.T) {
 	resource := Resource{
 		ID:     1,
