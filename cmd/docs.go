@@ -102,7 +102,7 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 		var sb strings.Builder
 		writeLLMsCommand(&sb, rootCmd, "coolify")
 
-		if err := os.WriteFile(outputFile, []byte(sb.String()), 0644); err != nil {
+		if err := os.WriteFile(outputFile, []byte(sb.String()), 0600); err != nil {
 			return fmt.Errorf("failed to write llms.txt: %w", err)
 		}
 
@@ -153,8 +153,8 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 			}
 		}
 
-		sb.WriteString(fmt.Sprintf("Command: %s\n", commandPath))
-		sb.WriteString(fmt.Sprintf("Description: %s\n", description))
+		fmt.Fprintf(sb, "Command: %s\n", commandPath)
+		fmt.Fprintf(sb, "Description: %s\n", description)
 
 		// For root command, show persistent flags; for others, show local flags
 		var flags []*pflag.Flag
@@ -192,10 +192,10 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 				// or via "(required)" in the usage string
 				required := isFlagRequired(f)
 
-				sb.WriteString(fmt.Sprintf("  - name: --%s\n", f.Name))
-				sb.WriteString(fmt.Sprintf("    type: %s\n", flagType))
-				sb.WriteString(fmt.Sprintf("    description: %s\n", f.Usage))
-				sb.WriteString(fmt.Sprintf("    required: %t\n", required))
+				fmt.Fprintf(sb, "  - name: --%s\n", f.Name)
+				fmt.Fprintf(sb, "    type: %s\n", flagType)
+				fmt.Fprintf(sb, "    description: %s\n", f.Usage)
+				fmt.Fprintf(sb, "    required: %t\n", required)
 			}
 		}
 
