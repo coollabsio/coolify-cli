@@ -1144,7 +1144,7 @@ func TestDatabaseService_ListStorages(t *testing.T) {
 	assert.Len(t, result, 2)
 	assert.Equal(t, "persistent", result[0].Type)
 	assert.Equal(t, "data-volume", result[0].Name)
-	assert.Equal(t, true, result[0].IsPreviewSuffixEnabled)
+	assert.True(t, result[0].IsPreviewSuffixEnabled)
 	assert.Equal(t, "file", result[1].Type)
 	assert.Equal(t, "/app/config.yml", result[1].Name)
 }

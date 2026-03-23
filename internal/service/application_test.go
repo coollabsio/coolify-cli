@@ -1356,12 +1356,12 @@ func TestApplicationService_ListStorages(t *testing.T) {
 	assert.Equal(t, "data-volume", result[0].Name)
 	assert.Equal(t, "/data", result[0].MountPath)
 	assert.Equal(t, "/var/data", result[0].HostPath)
-	assert.Equal(t, false, result[0].IsPreviewSuffixEnabled)
+	assert.False(t, result[0].IsPreviewSuffixEnabled)
 	assert.Equal(t, "fs-uuid-1", result[1].UUID)
 	assert.Equal(t, "file", result[1].Type)
 	assert.Equal(t, "/app/config.yml", result[1].Name)
 	assert.Equal(t, "key: value", result[1].Content)
-	assert.Equal(t, true, result[1].IsPreviewSuffixEnabled)
+	assert.True(t, result[1].IsPreviewSuffixEnabled)
 }
 
 func TestApplicationService_ListStorages_Empty(t *testing.T) {

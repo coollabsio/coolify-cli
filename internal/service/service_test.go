@@ -473,7 +473,7 @@ func TestService_ListStorages(t *testing.T) {
 	assert.Len(t, result, 1)
 	assert.Equal(t, "persistent", result[0].Type)
 	assert.Equal(t, "data-volume", result[0].Name)
-	assert.Equal(t, true, result[0].IsPreviewSuffixEnabled)
+	assert.True(t, result[0].IsPreviewSuffixEnabled)
 }
 
 func TestService_CreateStorage(t *testing.T) {
