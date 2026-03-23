@@ -1101,3 +1101,124 @@ func stringPtr(s string) *string {
 func boolPtr(b bool) *bool {
 	return &b
 }
+
+func TestDatabaseService_ListStorages(t *testing.T) {
+	hostPath := "/var/data"
+	content := "key: value"
+	resp := models.StoragesResponse{
+		PersistentStorages: []models.PersistentStorage{
+			{
+				ID:                     1,
+				UUID:                   "ps-uuid-1",
+				Name:                   "data-volume",
+				MountPath:              "/data",
+				HostPath:               &hostPath,
+				IsPreviewSuffixEnabled: true,
+			},
+		},
+		FileStorages: []models.FileStorage{
+			{
+				ID:                     2,
+				UUID:                   "fs-uuid-1",
+				FsPath:                 "/app/config.yml",
+				MountPath:              "/app/config.yml",
+				Content:                &content,
+				IsPreviewSuffixEnabled: false,
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	result, err := svc.ListStorages(context.Background(), "db-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "persistent", result[0].Type)
+	assert.Equal(t, "data-volume", result[0].Name)
+	assert.True(t, result[0].IsPreviewSuffixEnabled)
+	assert.Equal(t, "file", result[1].Type)
+	assert.Equal(t, "/app/config.yml", result[1].Name)
+}
+
+func TestDatabaseService_CreateStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.StorageCreateRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "persistent", req.Type)
+		assert.Equal(t, "/data", req.MountPath)
+
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	name := "my-volume"
+	req := &models.StorageCreateRequest{
+		Type:      "persistent",
+		MountPath: "/data",
+		Name:      &name,
+	}
+
+	err := svc.CreateStorage(context.Background(), "db-uuid-123", req)
+	require.NoError(t, err)
+}
+
+func TestDatabaseService_UpdateStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+
+		var req models.StorageUpdateRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "persistent", req.Type)
+		assert.NotNil(t, req.UUID)
+		assert.Equal(t, "storage-uuid-1", *req.UUID)
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	storageUUID := "storage-uuid-1"
+	name := "new-name"
+	req := &models.StorageUpdateRequest{
+		UUID: &storageUUID,
+		Type: "persistent",
+		Name: &name,
+	}
+
+	err := svc.UpdateStorage(context.Background(), "db-uuid-123", req)
+	require.NoError(t, err)
+}
+
+func TestDatabaseService_DeleteStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/storages/storage-uuid-1", r.URL.Path)
+		assert.Equal(t, "DELETE", r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":"Storage deleted."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	err := svc.DeleteStorage(context.Background(), "db-uuid-123", "storage-uuid-1")
+	require.NoError(t, err)
+}

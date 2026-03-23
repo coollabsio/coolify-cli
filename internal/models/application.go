@@ -143,6 +143,7 @@ type ApplicationUpdateRequest struct {
 
 	// Docker configuration
 	Dockerfile              *string `json:"dockerfile,omitempty"`
+	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
 	DockerRegistryImageName *string `json:"docker_registry_image_name,omitempty"`
 	DockerRegistryImageTag  *string `json:"docker_registry_image_tag,omitempty"`
 	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
@@ -237,6 +238,130 @@ type EnvironmentVariableUpdateRequest struct {
 	Comment     *string `json:"comment,omitempty"`
 }
 
+// StoragesResponse represents the API response for listing storages
+type StoragesResponse struct {
+	PersistentStorages []PersistentStorage `json:"persistent_storages"`
+	FileStorages       []FileStorage       `json:"file_storages"`
+}
+
+// PersistentStorage represents a persistent volume for an application
+type PersistentStorage struct {
+	ID                     int     `json:"id" table:"-"`
+	UUID                   string  `json:"uuid"`
+	Name                   string  `json:"name"`
+	MountPath              string  `json:"mount_path"`
+	HostPath               *string `json:"host_path,omitempty"`
+	IsPreviewSuffixEnabled bool    `json:"is_preview_suffix_enabled"`
+	IsReadOnly             bool    `json:"is_readonly"`
+	ResourceType           string  `json:"resource_type" table:"-"`
+	ResourceID             int     `json:"resource_id" table:"-"`
+}
+
+// FileStorage represents a file storage for an application
+type FileStorage struct {
+	ID                     int     `json:"id"`
+	UUID                   string  `json:"uuid"`
+	FsPath                 string  `json:"fs_path"`
+	MountPath              string  `json:"mount_path"`
+	Content                *string `json:"content,omitempty"`
+	IsDirectory            bool    `json:"is_directory"`
+	IsBasedOnGit           bool    `json:"is_based_on_git"`
+	IsPreviewSuffixEnabled bool    `json:"is_preview_suffix_enabled"`
+	Chown                  *string `json:"chown,omitempty"`
+	Chmod                  *string `json:"chmod,omitempty"`
+	ResourceType           string  `json:"resource_type" table:"-"`
+	ResourceID             int     `json:"resource_id" table:"-"`
+}
+
+// StorageListItem is a unified view of both storage types for table output
+type StorageListItem struct {
+	ID                     int    `json:"id" table:"-"`
+	UUID                   string `json:"uuid"`
+	Type                   string `json:"type"`
+	Name                   string `json:"name"`
+	MountPath              string `json:"mount_path"`
+	HostPath               string `json:"host_path,omitempty"`
+	IsPreviewSuffixEnabled bool   `json:"is_preview_suffix_enabled"`
+	Content                string `json:"content,omitempty" table:"-"`
+}
+
+// MergeStorages converts a StoragesResponse into a unified list of StorageListItem
+func MergeStorages(resp StoragesResponse) []StorageListItem {
+	var items []StorageListItem
+	for _, ps := range resp.PersistentStorages {
+		hostPath := ""
+		if ps.HostPath != nil {
+			hostPath = *ps.HostPath
+		}
+		items = append(items, StorageListItem{
+			ID:                     ps.ID,
+			UUID:                   ps.UUID,
+			Type:                   "persistent",
+			Name:                   ps.Name,
+			MountPath:              ps.MountPath,
+			HostPath:               hostPath,
+			IsPreviewSuffixEnabled: ps.IsPreviewSuffixEnabled,
+		})
+	}
+	for _, fs := range resp.FileStorages {
+		content := ""
+		if fs.Content != nil {
+			content = *fs.Content
+		}
+		items = append(items, StorageListItem{
+			ID:                     fs.ID,
+			UUID:                   fs.UUID,
+			Type:                   "file",
+			Name:                   fs.FsPath,
+			MountPath:              fs.MountPath,
+			IsPreviewSuffixEnabled: fs.IsPreviewSuffixEnabled,
+			Content:                content,
+		})
+	}
+	return items
+}
+
+// StorageCreateRequest represents the request to create a storage for applications and databases
+type StorageCreateRequest struct {
+	Type        string  `json:"type"`       // "persistent" or "file"
+	MountPath   string  `json:"mount_path"` // required
+	Name        *string `json:"name,omitempty"`
+	HostPath    *string `json:"host_path,omitempty"`
+	Content     *string `json:"content,omitempty"`
+	IsDirectory *bool   `json:"is_directory,omitempty"`
+	FsPath      *string `json:"fs_path,omitempty"`
+}
+
+// ServiceStorageCreateRequest represents the request to create a storage for services
+// Services require resource_uuid to identify which sub-resource the storage belongs to
+type ServiceStorageCreateRequest struct {
+	Type         string  `json:"type"`          // "persistent" or "file"
+	MountPath    string  `json:"mount_path"`    // required
+	ResourceUUID string  `json:"resource_uuid"` // required for services
+	Name         *string `json:"name,omitempty"`
+	HostPath     *string `json:"host_path,omitempty"`
+	Content      *string `json:"content,omitempty"`
+	IsDirectory  *bool   `json:"is_directory,omitempty"`
+	FsPath       *string `json:"fs_path,omitempty"`
+}
+
+// StorageUpdateRequest represents the request to update a storage
+type StorageUpdateRequest struct {
+	// Required fields
+	Type string `json:"type"` // "persistent" or "file"
+
+	// Identifier (uuid preferred, id deprecated)
+	UUID *string `json:"uuid,omitempty"`
+	ID   *int    `json:"id,omitempty"`
+
+	// Optional fields
+	IsPreviewSuffixEnabled *bool   `json:"is_preview_suffix_enabled,omitempty"`
+	Name                   *string `json:"name,omitempty"`
+	MountPath              *string `json:"mount_path,omitempty"`
+	HostPath               *string `json:"host_path,omitempty"`
+	Content                *string `json:"content,omitempty"`
+}
+
 // ApplicationCreatePublicRequest for POST /applications/public
 // Creates an application from a public git repository
 type ApplicationCreatePublicRequest struct {
@@ -267,6 +392,7 @@ type ApplicationCreatePublicRequest struct {
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
 	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 
 	// Health checks
 	HealthCheckEnabled *bool   `json:"health_check_enabled,omitempty"`
@@ -310,6 +436,7 @@ type ApplicationCreateGitHubAppRequest struct {
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
 	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string `json:"health_check_port,omitempty"`
@@ -349,6 +476,7 @@ type ApplicationCreateDeployKeyRequest struct {
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
 	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string `json:"health_check_port,omitempty"`
@@ -379,6 +507,7 @@ type ApplicationCreateDockerfileRequest struct {
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
 	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string `json:"health_check_port,omitempty"`
@@ -410,6 +539,7 @@ type ApplicationCreateDockerImageRequest struct {
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
 	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string `json:"health_check_port,omitempty"`

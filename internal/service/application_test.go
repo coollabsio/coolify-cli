@@ -1301,3 +1301,264 @@ func TestApplicationService_BulkUpdateEnvs_APIError(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to bulk update environment variables")
 }
+
+func TestApplicationService_ListStorages(t *testing.T) {
+	hostPath := "/var/data"
+	content := "key: value"
+	resp := models.StoragesResponse{
+		PersistentStorages: []models.PersistentStorage{
+			{
+				ID:                     1,
+				UUID:                   "ps-uuid-1",
+				Name:                   "data-volume",
+				MountPath:              "/data",
+				HostPath:               &hostPath,
+				IsPreviewSuffixEnabled: false,
+				IsReadOnly:             false,
+				ResourceType:           "App\\Models\\Application",
+				ResourceID:             10,
+			},
+		},
+		FileStorages: []models.FileStorage{
+			{
+				ID:                     2,
+				UUID:                   "fs-uuid-1",
+				FsPath:                 "/app/config.yml",
+				MountPath:              "/app/config.yml",
+				Content:                &content,
+				IsDirectory:            false,
+				IsBasedOnGit:           false,
+				IsPreviewSuffixEnabled: true,
+				ResourceType:           "App\\Models\\Application",
+				ResourceID:             10,
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListStorages(context.Background(), "app-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, "ps-uuid-1", result[0].UUID)
+	assert.Equal(t, "persistent", result[0].Type)
+	assert.Equal(t, "data-volume", result[0].Name)
+	assert.Equal(t, "/data", result[0].MountPath)
+	assert.Equal(t, "/var/data", result[0].HostPath)
+	assert.False(t, result[0].IsPreviewSuffixEnabled)
+	assert.Equal(t, "fs-uuid-1", result[1].UUID)
+	assert.Equal(t, "file", result[1].Type)
+	assert.Equal(t, "/app/config.yml", result[1].Name)
+	assert.Equal(t, "key: value", result[1].Content)
+	assert.True(t, result[1].IsPreviewSuffixEnabled)
+}
+
+func TestApplicationService_ListStorages_Empty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"persistent_storages":[],"file_storages":[]}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListStorages(context.Background(), "app-uuid-123")
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestApplicationService_ListStorages_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	result, err := svc.ListStorages(context.Background(), "app-uuid-123")
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to list storages")
+}
+
+func TestApplicationService_UpdateStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		var req models.StorageUpdateRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		assert.NotNil(t, req.UUID)
+		assert.Equal(t, "storage-uuid-1", *req.UUID)
+		assert.Equal(t, "persistent", req.Type)
+		assert.NotNil(t, req.Name)
+		assert.Equal(t, "new-name", *req.Name)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"Storage updated."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	name := "new-name"
+	storageUUID := "storage-uuid-1"
+	req := &models.StorageUpdateRequest{
+		UUID: &storageUUID,
+		Type: "persistent",
+		Name: &name,
+	}
+
+	err := svc.UpdateStorage(context.Background(), "app-uuid-123", req)
+	require.NoError(t, err)
+}
+
+func TestApplicationService_UpdateStorage_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"application not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	name := "new-name"
+	storageUUID := "storage-uuid-1"
+	req := &models.StorageUpdateRequest{
+		UUID: &storageUUID,
+		Type: "persistent",
+		Name: &name,
+	}
+
+	err := svc.UpdateStorage(context.Background(), "non-existent-uuid", req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update storage")
+}
+
+func TestApplicationService_UpdateStorage_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	name := "new-name"
+	storageUUID := "storage-uuid-1"
+	req := &models.StorageUpdateRequest{
+		UUID: &storageUUID,
+		Type: "persistent",
+		Name: &name,
+	}
+
+	err := svc.UpdateStorage(context.Background(), "app-uuid-123", req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update storage")
+}
+
+func TestApplicationService_CreateStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/storages", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		var req models.StorageCreateRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "persistent", req.Type)
+		assert.Equal(t, "/data", req.MountPath)
+		assert.NotNil(t, req.Name)
+		assert.Equal(t, "my-volume", *req.Name)
+
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	name := "my-volume"
+	req := &models.StorageCreateRequest{
+		Type:      "persistent",
+		MountPath: "/data",
+		Name:      &name,
+	}
+
+	err := svc.CreateStorage(context.Background(), "app-uuid-123", req)
+	require.NoError(t, err)
+}
+
+func TestApplicationService_CreateStorage_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"message":"invalid request"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	req := &models.StorageCreateRequest{
+		Type:      "persistent",
+		MountPath: "/data",
+	}
+
+	err := svc.CreateStorage(context.Background(), "app-uuid-123", req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create storage")
+}
+
+func TestApplicationService_DeleteStorage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/storages/storage-uuid-1", r.URL.Path)
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":"Storage deleted."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	err := svc.DeleteStorage(context.Background(), "app-uuid-123", "storage-uuid-1")
+	require.NoError(t, err)
+}
+
+func TestApplicationService_DeleteStorage_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"storage not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	err := svc.DeleteStorage(context.Background(), "app-uuid-123", "nonexistent-uuid")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete storage")
+}

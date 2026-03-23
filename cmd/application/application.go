@@ -5,6 +5,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/application/create"
 	"github.com/coollabsio/coolify-cli/cmd/application/env"
+	"github.com/coollabsio/coolify-cli/cmd/application/storage"
 )
 
 // NewAppCommand creates the app parent command
@@ -42,6 +43,19 @@ func NewAppCommand() *cobra.Command {
 	envCmd.AddCommand(env.NewDeleteEnvCommand())
 	envCmd.AddCommand(env.NewSyncEnvCommand())
 	cmd.AddCommand(envCmd)
+
+	// Add storage subcommand with its children
+	storageCmd := &cobra.Command{
+		Use:     "storage",
+		Aliases: []string{"storages"},
+		Short:   "Manage application storages",
+		Long:    `List and manage persistent volumes and file storages for applications.`,
+	}
+	storageCmd.AddCommand(storage.NewListCommand())
+	storageCmd.AddCommand(storage.NewCreateCommand())
+	storageCmd.AddCommand(storage.NewUpdateCommand())
+	storageCmd.AddCommand(storage.NewDeleteCommand())
+	cmd.AddCommand(storageCmd)
 
 	return cmd
 }

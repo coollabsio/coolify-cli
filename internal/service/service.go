@@ -156,6 +156,43 @@ func (s *Service) DeleteEnv(ctx context.Context, serviceUUID, envUUID string) er
 	return nil
 }
 
+// ListStorages retrieves all storages for a service
+func (s *Service) ListStorages(ctx context.Context, uuid string) ([]models.StorageListItem, error) {
+	var resp models.StoragesResponse
+	err := s.client.Get(ctx, fmt.Sprintf("services/%s/storages", uuid), &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list storages for service %s: %w", uuid, err)
+	}
+	return models.MergeStorages(resp), nil
+}
+
+// CreateStorage creates a new storage for a service
+func (s *Service) CreateStorage(ctx context.Context, uuid string, req *models.ServiceStorageCreateRequest) error {
+	err := s.client.Post(ctx, fmt.Sprintf("services/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create storage for service %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// UpdateStorage updates a storage for a service
+func (s *Service) UpdateStorage(ctx context.Context, uuid string, req *models.StorageUpdateRequest) error {
+	err := s.client.Patch(ctx, fmt.Sprintf("services/%s/storages", uuid), req, nil)
+	if err != nil {
+		return fmt.Errorf("failed to update storage for service %s: %w", uuid, err)
+	}
+	return nil
+}
+
+// DeleteStorage deletes a storage from a service
+func (s *Service) DeleteStorage(ctx context.Context, svcUUID, storageUUID string) error {
+	err := s.client.Delete(ctx, fmt.Sprintf("services/%s/storages/%s", svcUUID, storageUUID))
+	if err != nil {
+		return fmt.Errorf("failed to delete storage %s from service %s: %w", storageUUID, svcUUID, err)
+	}
+	return nil
+}
+
 // BulkUpdateEnvs updates multiple environment variables in a single request
 func (s *Service) BulkUpdateEnvs(ctx context.Context, serviceUUID string, req *models.ServiceEnvBulkUpdateRequest) (models.ServiceEnvBulkUpdateResponse, error) {
 	var response models.ServiceEnvBulkUpdateResponse

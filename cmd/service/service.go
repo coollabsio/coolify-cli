@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/cmd/service/env"
+	"github.com/coollabsio/coolify-cli/cmd/service/storage"
 )
 
 // NewServiceCommand creates the service parent command with all subcommands
@@ -36,6 +37,19 @@ func NewServiceCommand() *cobra.Command {
 	envCmd.AddCommand(env.NewDeleteCommand())
 	envCmd.AddCommand(env.NewSyncCommand())
 	cmd.AddCommand(envCmd)
+
+	// Add storage subcommand
+	storageCmd := &cobra.Command{
+		Use:     "storage",
+		Aliases: []string{"storages"},
+		Short:   "Manage service storages",
+		Long:    `List and manage persistent volumes and file storages for services.`,
+	}
+	storageCmd.AddCommand(storage.NewListCommand())
+	storageCmd.AddCommand(storage.NewCreateCommand())
+	storageCmd.AddCommand(storage.NewUpdateCommand())
+	storageCmd.AddCommand(storage.NewDeleteCommand())
+	cmd.AddCommand(storageCmd)
 
 	return cmd
 }
