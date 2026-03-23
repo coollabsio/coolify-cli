@@ -585,14 +585,6 @@ Parameters:
 Command: coolify app env update <app_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
 Parameters:
-  - name: --value
-    type: string
-    description: New environment variable value (required)
-    required: true
-  - name: --key
-    type: string
-    description: New environment variable key (optional, for renaming)
-    required: false
   - name: --build-time
     type: boolean
     description: Available at build time (default: true)
@@ -609,6 +601,10 @@ Parameters:
     type: boolean
     description: Value is multiline
     required: false
+  - name: --key
+    type: string
+    description: New environment variable key (rename)
+    required: false
   - name: --preview
     type: boolean
     description: Available in preview deployments
@@ -617,6 +613,10 @@ Parameters:
     type: boolean
     description: Available at runtime (default: true)
     required: false
+  - name: --value
+    type: string
+    description: New environment variable value (required)
+    required: true
 
 Command: coolify app get <uuid>
 Description: Retrieve detailed information about a specific application.
@@ -1149,14 +1149,6 @@ Parameters:
 Command: coolify database env update <database_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
 Parameters:
-  - name: --value
-    type: string
-    description: New environment variable value (required)
-    required: true
-  - name: --key
-    type: string
-    description: New environment variable key (optional, for renaming)
-    required: false
   - name: --comment
     type: string
     description: Comment for the environment variable
@@ -1173,6 +1165,14 @@ Parameters:
     type: boolean
     description: Only show value once
     required: false
+  - name: --key
+    type: string
+    description: New environment variable key (rename)
+    required: false
+  - name: --value
+    type: string
+    description: New environment variable value (required)
+    required: true
 
 Command: coolify database get <uuid>
 Description: Get detailed information about a specific database by UUID.
@@ -1617,14 +1617,6 @@ Parameters:
 Command: coolify service env update <service_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
 Parameters:
-  - name: --value
-    type: string
-    description: New environment variable value (required)
-    required: true
-  - name: --key
-    type: string
-    description: New environment variable key (optional, for renaming)
-    required: false
   - name: --build-time
     type: boolean
     description: Available at build time (default: true)
@@ -1641,10 +1633,18 @@ Parameters:
     type: boolean
     description: Value is multiline
     required: false
+  - name: --key
+    type: string
+    description: New environment variable key (rename)
+    required: false
   - name: --runtime
     type: boolean
     description: Available at runtime (default: true)
     required: false
+  - name: --value
+    type: string
+    description: New environment variable value (required)
+    required: true
 
 Command: coolify service get <uuid>
 Description: Get detailed information about a specific service.
