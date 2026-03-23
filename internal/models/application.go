@@ -1,16 +1,116 @@
 package models
 
+// ApplicationSettings represents the settings for a Coolify application
+type ApplicationSettings struct {
+	ID                          int    `json:"-" table:"-"`
+	ApplicationID               int    `json:"-" table:"-"`
+	IsStatic                    *bool  `json:"is_static,omitempty"`
+	IsBuildServerEnabled        *bool  `json:"is_build_server_enabled,omitempty"`
+	IsPreserveRepositoryEnabled *bool  `json:"is_preserve_repository_enabled,omitempty"`
+	IsAutoDeployEnabled         *bool  `json:"is_auto_deploy_enabled,omitempty"`
+	IsForceHTTPSEnabled         *bool  `json:"is_force_https_enabled,omitempty"`
+	IsDebugEnabled              *bool  `json:"is_debug_enabled,omitempty"`
+	IsPreviewDeploymentsEnabled *bool  `json:"is_preview_deployments_enabled,omitempty"`
+	IsGitSubmodulesEnabled      *bool  `json:"is_git_submodules_enabled,omitempty"`
+	IsGitLFSEnabled             *bool  `json:"is_git_lfs_enabled,omitempty"`
+	CreatedAt                   string `json:"-" table:"-"`
+	UpdatedAt                   string `json:"-" table:"-"`
+}
+
 // Application represents a Coolify application
 type Application struct {
-	ID          int     `json:"-" table:"-"`
-	UUID        string  `json:"uuid"`
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-	Status      string  `json:"status"`
-	GitBranch   *string `json:"git_branch,omitempty"`
-	FQDN        *string `json:"fqdn,omitempty"`
-	CreatedAt   string  `json:"-" table:"-"`
-	UpdatedAt   string  `json:"-" table:"-"`
+	// Table-visible fields
+	UUID          string  `json:"uuid"`
+	Name          string  `json:"name"`
+	Description   *string `json:"description,omitempty"`
+	Status        string  `json:"status"`
+	FQDN          *string `json:"fqdn,omitempty"`
+	GitRepository *string `json:"git_repository,omitempty"`
+	GitBranch     *string `json:"git_branch,omitempty"`
+	BuildPack     *string `json:"build_pack,omitempty"`
+	PortsExposes  *string `json:"ports_exposes,omitempty"`
+
+	// Git extended (JSON-only)
+	GitCommitSHA *string `json:"git_commit_sha,omitempty" table:"-"`
+	GitFullURL   *string `json:"git_full_url,omitempty" table:"-"`
+
+	// Build configuration (JSON-only)
+	InstallCommand   *string `json:"install_command,omitempty" table:"-"`
+	BuildCommand     *string `json:"build_command,omitempty" table:"-"`
+	StartCommand     *string `json:"start_command,omitempty" table:"-"`
+	BaseDirectory    *string `json:"base_directory,omitempty" table:"-"`
+	PublishDirectory *string `json:"publish_directory,omitempty" table:"-"`
+	StaticImage      *string `json:"static_image,omitempty" table:"-"`
+
+	// Docker configuration (JSON-only)
+	Dockerfile               *string `json:"dockerfile,omitempty" table:"-"`
+	DockerfileLocation       *string `json:"dockerfile_location,omitempty" table:"-"`
+	DockerRegistryImageName  *string `json:"docker_registry_image_name,omitempty" table:"-"`
+	DockerRegistryImageTag   *string `json:"docker_registry_image_tag,omitempty" table:"-"`
+	DockerCompose            *string `json:"docker_compose,omitempty" table:"-"`
+	DockerComposeRaw         *string `json:"docker_compose_raw,omitempty" table:"-"`
+	DockerComposeLocation    *string `json:"docker_compose_location,omitempty" table:"-"`
+	CustomDockerRunOptions   *string `json:"custom_docker_run_options,omitempty" table:"-"`
+	CustomLabels             *string `json:"custom_labels,omitempty" table:"-"`
+	CustomNginxConfiguration *string `json:"custom_nginx_configuration,omitempty" table:"-"`
+
+	// Networking (JSON-only)
+	PortsMappings      *string `json:"ports_mappings,omitempty" table:"-"`
+	Domains            *string `json:"domains,omitempty" table:"-"`
+	Redirect           *string `json:"redirect,omitempty" table:"-"`
+	PreviewURLTemplate *string `json:"preview_url_template,omitempty" table:"-"`
+
+	// Health checks (JSON-only)
+	HealthCheckEnabled      *bool   `json:"health_check_enabled,omitempty" table:"-"`
+	HealthCheckPath         *string `json:"health_check_path,omitempty" table:"-"`
+	HealthCheckPort         *string `json:"health_check_port,omitempty" table:"-"`
+	HealthCheckHost         *string `json:"health_check_host,omitempty" table:"-"`
+	HealthCheckMethod       *string `json:"health_check_method,omitempty" table:"-"`
+	HealthCheckScheme       *string `json:"health_check_scheme,omitempty" table:"-"`
+	HealthCheckReturnCode   *int    `json:"health_check_return_code,omitempty" table:"-"`
+	HealthCheckResponseText *string `json:"health_check_response_text,omitempty" table:"-"`
+	HealthCheckInterval     *int    `json:"health_check_interval,omitempty" table:"-"`
+	HealthCheckTimeout      *int    `json:"health_check_timeout,omitempty" table:"-"`
+	HealthCheckRetries      *int    `json:"health_check_retries,omitempty" table:"-"`
+	HealthCheckStartPeriod  *int    `json:"health_check_start_period,omitempty" table:"-"`
+
+	// Resource limits (JSON-only)
+	LimitsCPUs              *string `json:"limits_cpus,omitempty" table:"-"`
+	LimitsCPUShares         *int    `json:"limits_cpu_shares,omitempty" table:"-"`
+	LimitsCPUSet            *string `json:"limits_cpuset,omitempty" table:"-"`
+	LimitsMemory            *string `json:"limits_memory,omitempty" table:"-"`
+	LimitsMemoryReservation *string `json:"limits_memory_reservation,omitempty" table:"-"`
+	LimitsMemorySwap        *string `json:"limits_memory_swap,omitempty" table:"-"`
+	LimitsMemorySwappiness  *int    `json:"limits_memory_swappiness,omitempty" table:"-"`
+
+	// Deployment hooks (JSON-only)
+	PreDeploymentCommand           *string `json:"pre_deployment_command,omitempty" table:"-"`
+	PreDeploymentCommandContainer  *string `json:"pre_deployment_command_container,omitempty" table:"-"`
+	PostDeploymentCommand          *string `json:"post_deployment_command,omitempty" table:"-"`
+	PostDeploymentCommandContainer *string `json:"post_deployment_command_container,omitempty" table:"-"`
+
+	// Webhook secrets (JSON-only)
+	ManualWebhookSecretGitHub    *string `json:"manual_webhook_secret_github,omitempty" table:"-" sensitive:"true"`
+	ManualWebhookSecretGitLab    *string `json:"manual_webhook_secret_gitlab,omitempty" table:"-" sensitive:"true"`
+	ManualWebhookSecretBitbucket *string `json:"manual_webhook_secret_bitbucket,omitempty" table:"-" sensitive:"true"`
+	ManualWebhookSecretGitea     *string `json:"manual_webhook_secret_gitea,omitempty" table:"-" sensitive:"true"`
+
+	// Misc (JSON-only)
+	WatchPaths    *string `json:"watch_paths,omitempty" table:"-"`
+	SwarmReplicas *int    `json:"swarm_replicas,omitempty" table:"-"`
+	ConfigHash    *string `json:"config_hash,omitempty" table:"-"`
+
+	// Nested settings (JSON-only)
+	Settings *ApplicationSettings `json:"settings,omitempty" table:"-"`
+
+	// Hidden fields (not in JSON or table output)
+	ID            int    `json:"-" table:"-"`
+	EnvironmentID *int   `json:"-" table:"-"`
+	DestinationID *int   `json:"-" table:"-"`
+	SourceID      *int   `json:"-" table:"-"`
+	PrivateKeyID  *int   `json:"-" table:"-"`
+	CreatedAt     string `json:"-" table:"-"`
+	UpdatedAt     string `json:"-" table:"-"`
 }
 
 // ApplicationListItem represents a simplified application for list view
