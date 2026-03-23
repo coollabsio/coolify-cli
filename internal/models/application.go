@@ -106,6 +106,7 @@ type EnvironmentVariable struct {
 	IsShownOnce    bool    `json:"is_shown_once"`
 	IsRuntime      bool    `json:"is_runtime"`
 	IsShared       bool    `json:"is_shared"`
+	Comment        *string `json:"comment,omitempty"`
 	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
 	ApplicationID  *int    `json:"-" table:"-"`
 	CreatedAt      string  `json:"-" table:"-"`
@@ -114,18 +115,18 @@ type EnvironmentVariable struct {
 
 // EnvironmentVariableCreateRequest represents the request to create an environment variable
 type EnvironmentVariableCreateRequest struct {
-	Key         string `json:"key"`
-	Value       string `json:"value"`
-	IsBuildTime *bool  `json:"is_build_time,omitempty"`
-	IsPreview   *bool  `json:"is_preview,omitempty"`
-	IsLiteral   *bool  `json:"is_literal,omitempty"`
-	IsMultiline *bool  `json:"is_multiline,omitempty"`
-	IsRuntime   *bool  `json:"is_runtime,omitempty"`
+	Key         string  `json:"key"`
+	Value       string  `json:"value"`
+	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsPreview   *bool   `json:"is_preview,omitempty"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsRuntime   *bool   `json:"is_runtime,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
 }
 
 // EnvironmentVariableUpdateRequest represents the request to update an environment variable
 type EnvironmentVariableUpdateRequest struct {
-	UUID        string  `json:"uuid"`
 	Key         *string `json:"key,omitempty"`
 	Value       *string `json:"value,omitempty"`
 	IsBuildTime *bool   `json:"is_build_time,omitempty"`
@@ -133,6 +134,7 @@ type EnvironmentVariableUpdateRequest struct {
 	IsLiteral   *bool   `json:"is_literal,omitempty"`
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
 	IsRuntime   *bool   `json:"is_runtime,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
 }
 
 // ApplicationCreatePublicRequest for POST /applications/public

@@ -12,23 +12,25 @@ import (
 
 func NewUpdateEnvCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <app_uuid> <env_uuid>",
+		Use:   "update <app_uuid>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. First UUID is the application, second is the specific environment variable to update.`,
-		Args:  cli.ExactArgs(2, "<uuid1> <uuid2>"),
+		Long:  `Update an existing environment variable. UUID is the application.`,
+		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			appUUID := args[0]
-			envUUID := args[1]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
-			req := &models.EnvironmentVariableUpdateRequest{
-				UUID: envUUID,
+			// Check minimum version requirement
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.469"); err != nil {
+				return err
 			}
+
+			req := &models.EnvironmentVariableUpdateRequest{}
 
 			if cmd.Flags().Changed("key") {
 				key, _ := cmd.Flags().GetString("key")
@@ -58,9 +60,16 @@ func NewUpdateEnvCommand() *cobra.Command {
 				isRuntime, _ := cmd.Flags().GetBool("runtime")
 				req.IsRuntime = &isRuntime
 			}
+			if cmd.Flags().Changed("comment") {
+				comment, _ := cmd.Flags().GetString("comment")
+				req.Comment = &comment
+			}
 
-			if req.Key == nil && req.Value == nil && req.IsBuildTime == nil && req.IsPreview == nil && req.IsLiteral == nil && req.IsMultiline == nil && req.IsRuntime == nil {
-				return fmt.Errorf("at least one field must be provided to update")
+			if req.Key == nil {
+				return fmt.Errorf("--key is required")
+			}
+			if req.Value == nil {
+				return fmt.Errorf("--value is required")
 			}
 
 			appSvc := service.NewApplicationService(client)
@@ -81,5 +90,6 @@ func NewUpdateEnvCommand() *cobra.Command {
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
 	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
+	cmd.Flags().String("comment", "", "Comment for the environment variable")
 	return cmd
 }

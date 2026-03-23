@@ -57,6 +57,10 @@ func NewCreateCommand() *cobra.Command {
 			if cmd.Flags().Changed("runtime") {
 				req.IsRuntime = &isRuntime
 			}
+			if cmd.Flags().Changed("comment") {
+				comment, _ := cmd.Flags().GetString("comment")
+				req.Comment = &comment
+			}
 
 			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.CreateEnv(ctx, uuid, req)
@@ -75,6 +79,7 @@ func NewCreateCommand() *cobra.Command {
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal (don't interpolate variables)")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
 	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
+	cmd.Flags().String("comment", "", "Comment for the environment variable")
 
 	return cmd
 }

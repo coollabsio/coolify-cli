@@ -12,13 +12,13 @@ import (
 
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <service_uuid>",
+		Use:   "update <database_uuid>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. UUID is the service.`,
-		Args:  cli.ExactArgs(1, "<service_uuid>"),
+		Long:  `Update an existing environment variable. UUID is the database.`,
+		Args:  cli.ExactArgs(1, "<database_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			serviceUUID := args[0]
+			dbUUID := args[0]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -30,9 +30,8 @@ func NewUpdateCommand() *cobra.Command {
 				return err
 			}
 
-			req := &models.ServiceEnvironmentVariableUpdateRequest{}
+			req := &models.DatabaseEnvironmentVariableUpdateRequest{}
 
-			// Only set fields that were provided
 			if cmd.Flags().Changed("key") {
 				key, _ := cmd.Flags().GetString("key")
 				req.Key = &key
@@ -40,10 +39,6 @@ func NewUpdateCommand() *cobra.Command {
 			if cmd.Flags().Changed("value") {
 				value, _ := cmd.Flags().GetString("value")
 				req.Value = &value
-			}
-			if cmd.Flags().Changed("build-time") {
-				isBuildTime, _ := cmd.Flags().GetBool("build-time")
-				req.IsBuildTime = &isBuildTime
 			}
 			if cmd.Flags().Changed("is-literal") {
 				isLiteral, _ := cmd.Flags().GetBool("is-literal")
@@ -53,9 +48,9 @@ func NewUpdateCommand() *cobra.Command {
 				isMultiline, _ := cmd.Flags().GetBool("is-multiline")
 				req.IsMultiline = &isMultiline
 			}
-			if cmd.Flags().Changed("runtime") {
-				isRuntime, _ := cmd.Flags().GetBool("runtime")
-				req.IsRuntime = &isRuntime
+			if cmd.Flags().Changed("is-shown-once") {
+				isShownOnce, _ := cmd.Flags().GetBool("is-shown-once")
+				req.IsShownOnce = &isShownOnce
 			}
 			if cmd.Flags().Changed("comment") {
 				comment, _ := cmd.Flags().GetString("comment")
@@ -69,8 +64,8 @@ func NewUpdateCommand() *cobra.Command {
 				return fmt.Errorf("--value is required")
 			}
 
-			serviceSvc := service.NewService(client)
-			env, err := serviceSvc.UpdateEnv(ctx, serviceUUID, req)
+			dbSvc := service.NewDatabaseService(client)
+			env, err := dbSvc.UpdateEnv(ctx, dbUUID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update environment variable: %w", err)
 			}
@@ -82,10 +77,9 @@ func NewUpdateCommand() *cobra.Command {
 
 	cmd.Flags().String("key", "", "New environment variable key")
 	cmd.Flags().String("value", "", "New environment variable value")
-	cmd.Flags().Bool("build-time", true, "Available at build time (default: true)")
-	cmd.Flags().Bool("is-literal", false, "Treat value as literal (don't interpolate variables)")
+	cmd.Flags().Bool("is-literal", false, "Treat value as literal")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")
-	cmd.Flags().Bool("runtime", true, "Available at runtime (default: true)")
+	cmd.Flags().Bool("is-shown-once", false, "Only show value once")
 	cmd.Flags().String("comment", "", "Comment for the environment variable")
 
 	return cmd

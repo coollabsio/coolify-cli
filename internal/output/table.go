@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"text/tabwriter"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 // TableFormatter formats output as a table
@@ -18,21 +20,6 @@ func NewTableFormatter(opts Options) *TableFormatter {
 }
 
 func (f *TableFormatter) Format(data any) (err error) {
-	w := tabwriter.NewWriter(f.opts.Writer, 0, 0, 2, ' ', tabwriter.Debug)
-	defer func() {
-		if flushErr := w.Flush(); flushErr != nil {
-			if err == nil {
-				err = fmt.Errorf("failed to flush table writer: %w", flushErr)
-			}
-		}
-		// Add a final newline nach table output, but only if no error occurred
-		if err == nil {
-			if _, nlErr := fmt.Fprintln(f.opts.Writer); nlErr != nil {
-				err = fmt.Errorf("failed to write trailing newline: %w", nlErr)
-			}
-		}
-	}()
-
 	// Handle different data types
 	val := reflect.ValueOf(data)
 
@@ -40,6 +27,24 @@ func (f *TableFormatter) Format(data any) (err error) {
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+
+	// Check for empty slice/array before creating the table writer
+	if (val.Kind() == reflect.Slice || val.Kind() == reflect.Array) && val.Len() == 0 {
+		if _, writeErr := fmt.Fprintln(f.opts.Writer, "No data"); writeErr != nil {
+			return fmt.Errorf("failed to write no data message: %w", writeErr)
+		}
+		return nil
+	}
+
+	w := tablewriter.NewWriter(f.opts.Writer)
+	defer func() {
+		if renderErr := w.Render(); renderErr != nil && err == nil {
+			err = fmt.Errorf("failed to render table: %w", renderErr)
+		}
+	}()
+
+	// disable ALL CAPS for column headers
+	w.Options(tablewriter.WithHeaderAutoFormat(tw.Off))
 
 	switch val.Kind() {
 	case reflect.Slice, reflect.Array:
@@ -54,14 +59,7 @@ func (f *TableFormatter) Format(data any) (err error) {
 }
 
 // formatSlice formats a slice of structs as a table
-func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) error {
-	if val.Len() == 0 {
-		if _, err := fmt.Fprintln(w, "No data"); err != nil {
-			return fmt.Errorf("failed to write no data message: %w", err)
-		}
-		return nil
-	}
-
+func (f *TableFormatter) formatSlice(w *tablewriter.Table, val reflect.Value) error {
 	// Get the first element to determine columns
 	firstElem := val.Index(0)
 	if firstElem.Kind() == reflect.Ptr {
@@ -71,7 +69,9 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 	if firstElem.Kind() != reflect.Struct {
 		// Simple slice (e.g., []string)
 		for i := 0; i < val.Len(); i++ {
-			if _, err := fmt.Fprintf(w, "%v\n", val.Index(i).Interface()); err != nil {
+			elem := val.Index(i)
+			row := []string{f.formatValue(elem)}
+			if err := w.Append(row); err != nil {
 				return fmt.Errorf("failed to write slice element: %w", err)
 			}
 		}
@@ -82,9 +82,7 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 	headers := f.getHeaders(firstElem.Type())
 	// Add # as first column header
 	headersWithNum := append([]string{"#"}, headers...)
-	if _, err := fmt.Fprintln(w, strings.Join(headersWithNum, "\t")); err != nil {
-		return fmt.Errorf("failed to write table headers: %w", err)
-	}
+	w.Header(headersWithNum)
 
 	// Print rows
 	for i := 0; i < val.Len(); i++ {
@@ -95,7 +93,7 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 		row := f.formatStructRow(elem)
 		// Add row number (1-indexed) as first column
 		rowWithNum := append([]string{fmt.Sprintf("%d", i+1)}, row...)
-		if _, err := fmt.Fprintln(w, strings.Join(rowWithNum, "\t")); err != nil {
+		if err := w.Append(rowWithNum); err != nil {
 			return fmt.Errorf("failed to write table row: %w", err)
 		}
 	}
@@ -104,16 +102,14 @@ func (f *TableFormatter) formatSlice(w *tabwriter.Writer, val reflect.Value) err
 }
 
 // formatStruct formats a single struct as a table (horizontal layout with headers)
-func (f *TableFormatter) formatStruct(w *tabwriter.Writer, val reflect.Value) error {
+func (f *TableFormatter) formatStruct(w *tablewriter.Table, val reflect.Value) error {
 	// Get headers
 	headers := f.getHeaders(val.Type())
-	if _, err := fmt.Fprintln(w, strings.Join(headers, "\t")); err != nil {
-		return fmt.Errorf("failed to write struct headers: %w", err)
-	}
+	w.Header(headers)
 
 	// Get row data
 	row := f.formatStructRow(val)
-	if _, err := fmt.Fprintln(w, strings.Join(row, "\t")); err != nil {
+	if err := w.Append(row); err != nil {
 		return fmt.Errorf("failed to write struct row: %w", err)
 	}
 
@@ -121,16 +117,15 @@ func (f *TableFormatter) formatStruct(w *tabwriter.Writer, val reflect.Value) er
 }
 
 // formatMap formats a map as a table
-func (f *TableFormatter) formatMap(w *tabwriter.Writer, val reflect.Value) error {
-	if _, err := fmt.Fprintln(w, "Key\tValue"); err != nil {
-		return fmt.Errorf("failed to write map headers: %w", err)
-	}
+func (f *TableFormatter) formatMap(w *tablewriter.Table, val reflect.Value) error {
+	w.Header([]string{"Key", "Value"})
 
 	iter := val.MapRange()
 	for iter.Next() {
 		key := iter.Key()
 		value := iter.Value()
-		if _, err := fmt.Fprintf(w, "%v\t%v\n", key.Interface(), f.formatValue(value)); err != nil {
+		row := []string{f.formatValue(key), f.formatValue(value)}
+		if err := w.Append(row); err != nil {
 			return fmt.Errorf("failed to write map entry: %w", err)
 		}
 	}

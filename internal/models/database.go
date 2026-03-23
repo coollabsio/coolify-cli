@@ -164,6 +164,52 @@ type DatabaseLifecycleResponse struct {
 	Message string `json:"message"`
 }
 
+// DatabaseEnvironmentVariable represents an environment variable for a database
+type DatabaseEnvironmentVariable struct {
+	ID             int     `json:"-" table:"-"`
+	UUID           string  `json:"uuid"`
+	Key            string  `json:"key"`
+	Value          string  `json:"value" sensitive:"true"`
+	IsBuildTime    bool    `json:"is_buildtime"`
+	IsLiteralValue bool    `json:"is_literal"`
+	IsShownOnce    bool    `json:"is_shown_once"`
+	IsRuntime      bool    `json:"is_runtime"`
+	IsShared       bool    `json:"is_shared"`
+	Comment        *string `json:"comment,omitempty"`
+	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
+	DatabaseID     *int    `json:"-" table:"-"`
+	CreatedAt      string  `json:"-" table:"-"`
+	UpdatedAt      string  `json:"-" table:"-"`
+}
+
+// DatabaseEnvironmentVariableCreateRequest represents the request to create a database environment variable
+type DatabaseEnvironmentVariableCreateRequest struct {
+	Key         string  `json:"key"`
+	Value       string  `json:"value"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsShownOnce *bool   `json:"is_shown_once,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
+}
+
+// DatabaseEnvironmentVariableUpdateRequest represents the request to update a database environment variable
+type DatabaseEnvironmentVariableUpdateRequest struct {
+	Key         *string `json:"key,omitempty"`
+	Value       *string `json:"value,omitempty"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsShownOnce *bool   `json:"is_shown_once,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
+}
+
+// DatabaseEnvBulkUpdateRequest represents the request to bulk update database environment variables
+type DatabaseEnvBulkUpdateRequest struct {
+	Data []DatabaseEnvironmentVariableCreateRequest `json:"data"`
+}
+
+// DatabaseEnvBulkUpdateResponse represents the response from database bulk update
+type DatabaseEnvBulkUpdateResponse []DatabaseEnvironmentVariable
+
 // DatabaseBackup represents a scheduled database backup configuration
 type DatabaseBackup struct {
 	ID                                       int     `json:"-" table:"-"`

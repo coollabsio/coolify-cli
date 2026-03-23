@@ -848,6 +848,252 @@ func TestDatabaseService_DeleteBackupExecution(t *testing.T) {
 	}
 }
 
+// --- Environment Variable Tests ---
+
+func TestDatabaseService_ListEnvs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"uuid": "env-1", "key": "DB_HOST", "value": "localhost", "is_literal": false},
+			{"uuid": "env-2", "key": "DB_PORT", "value": "5432", "is_literal": true}
+		]`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	envs, err := svc.ListEnvs(context.Background(), "db-uuid-123")
+	require.NoError(t, err)
+	assert.Len(t, envs, 2)
+	assert.Equal(t, "DB_HOST", envs[0].Key)
+	assert.Equal(t, "DB_PORT", envs[1].Key)
+}
+
+func TestDatabaseService_ListEnvs_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"database not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	envs, err := svc.ListEnvs(context.Background(), "db-uuid-123")
+	require.Error(t, err)
+	assert.Nil(t, envs)
+	assert.Contains(t, err.Error(), "failed to list environment variables")
+}
+
+func TestDatabaseService_GetEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs", r.URL.Path)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"uuid": "env-1", "key": "DB_HOST", "value": "localhost"},
+			{"uuid": "env-2", "key": "DB_PORT", "value": "5432"}
+		]`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	// Find by UUID
+	env, err := svc.GetEnv(context.Background(), "db-uuid-123", "env-2")
+	require.NoError(t, err)
+	assert.Equal(t, "DB_PORT", env.Key)
+
+	// Find by key
+	env, err = svc.GetEnv(context.Background(), "db-uuid-123", "DB_HOST")
+	require.NoError(t, err)
+	assert.Equal(t, "env-1", env.UUID)
+
+	// Not found
+	env, err = svc.GetEnv(context.Background(), "db-uuid-123", "NONEXISTENT")
+	require.Error(t, err)
+	assert.Nil(t, env)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestDatabaseService_CreateEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+
+		var req models.DatabaseEnvironmentVariableCreateRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		assert.Equal(t, "NEW_VAR", req.Key)
+		assert.Equal(t, "new_value", req.Value)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"uuid": "env-new",
+			"key": "NEW_VAR",
+			"value": "new_value",
+			"comment": "test comment"
+		}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	comment := "test comment"
+	env, err := svc.CreateEnv(context.Background(), "db-uuid-123", &models.DatabaseEnvironmentVariableCreateRequest{
+		Key:     "NEW_VAR",
+		Value:   "new_value",
+		Comment: &comment,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "NEW_VAR", env.Key)
+	assert.Equal(t, "new_value", env.Value)
+	assert.Equal(t, "test comment", *env.Comment)
+}
+
+func TestDatabaseService_CreateEnv_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"validation failed"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	env, err := svc.CreateEnv(context.Background(), "db-uuid-123", &models.DatabaseEnvironmentVariableCreateRequest{
+		Key:   "NEW_VAR",
+		Value: "new_value",
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, env)
+	assert.Contains(t, err.Error(), "failed to create environment variable")
+}
+
+func TestDatabaseService_UpdateEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+
+		comment := "updated comment"
+		env := models.DatabaseEnvironmentVariable{
+			UUID:    "env-1",
+			Key:     "DB_HOST",
+			Value:   "newhost",
+			Comment: &comment,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(env)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	newKey := "DB_HOST"
+	newValue := "newhost"
+	newComment := "updated comment"
+	req := &models.DatabaseEnvironmentVariableUpdateRequest{
+		Key:     &newKey,
+		Value:   &newValue,
+		Comment: &newComment,
+	}
+
+	result, err := svc.UpdateEnv(context.Background(), "db-uuid-123", req)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "DB_HOST", result.Key)
+	assert.Equal(t, "newhost", result.Value)
+	assert.Equal(t, "updated comment", *result.Comment)
+}
+
+func TestDatabaseService_UpdateEnv_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"environment variable not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	newKey := "DB_HOST"
+	newValue := "newhost"
+	result, err := svc.UpdateEnv(context.Background(), "db-uuid-123", &models.DatabaseEnvironmentVariableUpdateRequest{
+		Key:   &newKey,
+		Value: &newValue,
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to update environment variable")
+}
+
+func TestDatabaseService_DeleteEnv(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs/env-1", r.URL.Path)
+		assert.Equal(t, "DELETE", r.Method)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	err := svc.DeleteEnv(context.Background(), "db-uuid-123", "env-1")
+	require.NoError(t, err)
+}
+
+func TestDatabaseService_DeleteEnv_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	err := svc.DeleteEnv(context.Background(), "db-uuid-123", "env-1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete environment variable")
+}
+
+func TestDatabaseService_BulkUpdateEnvs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-uuid-123/envs/bulk", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"uuid": "env-1", "key": "DB_HOST", "value": "localhost"},
+			{"uuid": "env-2", "key": "DB_PORT", "value": "5432"}
+		]`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewDatabaseService(client)
+
+	req := &models.DatabaseEnvBulkUpdateRequest{
+		Data: []models.DatabaseEnvironmentVariableCreateRequest{
+			{Key: "DB_HOST", Value: "localhost"},
+			{Key: "DB_PORT", Value: "5432"},
+		},
+	}
+
+	result, err := svc.BulkUpdateEnvs(context.Background(), "db-uuid-123", req)
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+}
+
 func stringPtr(s string) *string {
 	return &s
 }

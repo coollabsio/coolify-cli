@@ -82,6 +82,7 @@ type ServiceEnvironmentVariable struct {
 	IsShownOnce    bool    `json:"is_shown_once"`
 	IsRuntime      bool    `json:"is_runtime"`
 	IsShared       bool    `json:"is_shared"`
+	Comment        *string `json:"comment,omitempty"`
 	RealValue      *string `json:"real_value,omitempty" sensitive:"true"`
 	ServiceID      *int    `json:"-" table:"-"`
 	CreatedAt      string  `json:"-" table:"-"`
@@ -90,23 +91,24 @@ type ServiceEnvironmentVariable struct {
 
 // ServiceEnvironmentVariableCreateRequest represents the request to create a service environment variable
 type ServiceEnvironmentVariableCreateRequest struct {
-	Key         string `json:"key"`
-	Value       string `json:"value"`
-	IsBuildTime *bool  `json:"is_build_time,omitempty"`
-	IsLiteral   *bool  `json:"is_literal,omitempty"`
-	IsMultiline *bool  `json:"is_multiline,omitempty"`
-	IsRuntime   *bool  `json:"is_runtime,omitempty"`
+	Key         string  `json:"key"`
+	Value       string  `json:"value"`
+	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsLiteral   *bool   `json:"is_literal,omitempty"`
+	IsMultiline *bool   `json:"is_multiline,omitempty"`
+	IsRuntime   *bool   `json:"is_runtime,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
 }
 
 // ServiceEnvironmentVariableUpdateRequest represents the request to update a service environment variable
 type ServiceEnvironmentVariableUpdateRequest struct {
-	UUID        string  `json:"uuid"`
 	Key         *string `json:"key,omitempty"`
 	Value       *string `json:"value,omitempty"`
 	IsBuildTime *bool   `json:"is_build_time,omitempty"`
 	IsLiteral   *bool   `json:"is_literal,omitempty"`
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
 	IsRuntime   *bool   `json:"is_runtime,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
 }
 
 // ServiceEnvBulkUpdateRequest represents the request to bulk update service environment variables
@@ -115,6 +117,4 @@ type ServiceEnvBulkUpdateRequest struct {
 }
 
 // ServiceEnvBulkUpdateResponse represents the response from service bulk update
-type ServiceEnvBulkUpdateResponse struct {
-	Message string `json:"message,omitempty"`
-}
+type ServiceEnvBulkUpdateResponse []ServiceEnvironmentVariable

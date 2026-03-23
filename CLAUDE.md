@@ -9,6 +9,7 @@ This is a CLI tool for interacting with the Coolify API, built with Go using the
 ### API Specification
 This CLI is a client for the Coolify API. The API specification is defined in the OpenAPI schema:
 - **Source**: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+- **Raw JSON**: https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/v4.x/openapi.json
 - **Base Path**: `/api/v1/`
 - **Authentication**: Bearer token (API tokens from Coolify dashboard at `/security/api-tokens`)
 

@@ -724,10 +724,12 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 		assert.Equal(t, "/api/v1/applications/app-uuid-123/envs", r.URL.Path)
 		assert.Equal(t, "PATCH", r.Method)
 
+		comment := "API key for external service"
 		env := models.EnvironmentVariable{
-			UUID:  "env-uuid-1",
-			Key:   "API_KEY",
-			Value: "newsecret456",
+			UUID:    "env-uuid-1",
+			Key:     "API_KEY",
+			Value:   "newsecret456",
+			Comment: &comment,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(env)
@@ -737,10 +739,13 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
+	newKey := "API_KEY"
 	newValue := "newsecret456"
+	newComment := "API key for external service"
 	req := &models.EnvironmentVariableUpdateRequest{
-		UUID:  "env-uuid-1",
-		Value: &newValue,
+		Key:     &newKey,
+		Value:   &newValue,
+		Comment: &newComment,
 	}
 
 	result, err := svc.UpdateEnv(context.Background(), "app-uuid-123", req)
@@ -748,6 +753,7 @@ func TestApplicationService_UpdateEnv(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "API_KEY", result.Key)
 	assert.Equal(t, "newsecret456", result.Value)
+	assert.Equal(t, "API key for external service", *result.Comment)
 }
 
 func TestApplicationService_UpdateEnv_Error(t *testing.T) {
@@ -760,9 +766,10 @@ func TestApplicationService_UpdateEnv_Error(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
+	newKey := "API_KEY"
 	newValue := "newsecret456"
 	req := &models.EnvironmentVariableUpdateRequest{
-		UUID:  "env-uuid-1",
+		Key:   &newKey,
 		Value: &newValue,
 	}
 

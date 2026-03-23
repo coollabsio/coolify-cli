@@ -320,7 +320,8 @@ func TestService_UpdateEnv(t *testing.T) {
 			"key": "UPDATED_VAR",
 			"value": "updated_value",
 			"is_buildtime": true,
-			"is_preview": false
+			"is_preview": false,
+			"comment": "updated comment"
 		}`))
 	}))
 	defer server.Close()
@@ -329,13 +330,15 @@ func TestService_UpdateEnv(t *testing.T) {
 	svc := NewService(client)
 
 	newKey := "UPDATED_VAR"
+	newComment := "updated comment"
 	env, err := svc.UpdateEnv(context.Background(), "service-uuid-123", &models.ServiceEnvironmentVariableUpdateRequest{
-		UUID: "env-123",
-		Key:  &newKey,
+		Key:     &newKey,
+		Comment: &newComment,
 	})
 
 	require.NoError(t, err)
 	assert.Equal(t, "UPDATED_VAR", env.Key)
+	assert.Equal(t, "updated comment", *env.Comment)
 }
 
 func TestService_DeleteEnv(t *testing.T) {
