@@ -210,12 +210,23 @@ func TestTableFormatter_BooleanValues(t *testing.T) {
 
 	output := buf.String()
 
-	// Check boolean formatting
-	lines := strings.Split(output, "\n")
-	assert.Contains(t, lines[1], "true")
-	assert.Contains(t, lines[1], "false")
-	assert.Contains(t, lines[2], "false")
-	assert.Contains(t, lines[2], "true")
+	// Check boolean formatting - verify both rows contain expected values
+	// Row 1: test1, true, false
+	assert.Contains(t, output, "test1")
+	assert.Contains(t, output, "test2")
+
+	// Find lines containing test data (not headers/borders)
+	var dataLines []string
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "test1") || strings.Contains(line, "test2") {
+			dataLines = append(dataLines, line)
+		}
+	}
+	require.Len(t, dataLines, 2, "expected exactly 2 data rows")
+	assert.Contains(t, dataLines[0], "true")
+	assert.Contains(t, dataLines[0], "false")
+	assert.Contains(t, dataLines[1], "true")
+	assert.Contains(t, dataLines[1], "false")
 }
 
 func TestTableFormatter_NilPointer(t *testing.T) {
