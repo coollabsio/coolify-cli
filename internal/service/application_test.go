@@ -110,17 +110,41 @@ func TestApplicationService_Get(t *testing.T) {
 	desc := "Test Application"
 	branch := "main"
 	fqdn := "test.example.com"
+	repo := "https://github.com/example/app"
+	buildPack := "nixpacks"
+	ports := "3000"
+	installCmd := "npm install"
+	buildCmd := "npm run build"
+	startCmd := "npm start"
+	healthPath := "/health"
+	limitsCPUs := "2"
+	limitsMemory := "512M"
+	preDeployCmd := "npm run migrate"
+	isAutoDeployEnabled := true
 
 	application := models.Application{
-		ID:          1,
-		UUID:        "app-uuid-123",
-		Name:        "Test App",
-		Description: &desc,
-		Status:      "running",
-		GitBranch:   &branch,
-		FQDN:        &fqdn,
-		CreatedAt:   "2024-01-01T00:00:00Z",
-		UpdatedAt:   "2024-01-02T00:00:00Z",
+		ID:                   1,
+		UUID:                 "app-uuid-123",
+		Name:                 "Test App",
+		Description:          &desc,
+		Status:               "running",
+		GitBranch:            &branch,
+		FQDN:                 &fqdn,
+		GitRepository:        &repo,
+		BuildPack:            &buildPack,
+		PortsExposes:         &ports,
+		InstallCommand:       &installCmd,
+		BuildCommand:         &buildCmd,
+		StartCommand:         &startCmd,
+		HealthCheckPath:      &healthPath,
+		LimitsCPUs:           &limitsCPUs,
+		LimitsMemory:         &limitsMemory,
+		PreDeploymentCommand: &preDeployCmd,
+		Settings: &models.ApplicationSettings{
+			IsAutoDeployEnabled: &isAutoDeployEnabled,
+		},
+		CreatedAt: "2024-01-01T00:00:00Z",
+		UpdatedAt: "2024-01-02T00:00:00Z",
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +168,18 @@ func TestApplicationService_Get(t *testing.T) {
 	assert.Equal(t, "running", result.Status)
 	assert.Equal(t, "main", *result.GitBranch)
 	assert.Equal(t, "test.example.com", *result.FQDN)
+	assert.Equal(t, "https://github.com/example/app", *result.GitRepository)
+	assert.Equal(t, "nixpacks", *result.BuildPack)
+	assert.Equal(t, "3000", *result.PortsExposes)
+	assert.Equal(t, "npm install", *result.InstallCommand)
+	assert.Equal(t, "npm run build", *result.BuildCommand)
+	assert.Equal(t, "npm start", *result.StartCommand)
+	assert.Equal(t, "/health", *result.HealthCheckPath)
+	assert.Equal(t, "2", *result.LimitsCPUs)
+	assert.Equal(t, "512M", *result.LimitsMemory)
+	assert.Equal(t, "npm run migrate", *result.PreDeploymentCommand)
+	require.NotNil(t, result.Settings)
+	assert.True(t, *result.Settings.IsAutoDeployEnabled)
 }
 
 func TestApplicationService_Get_NotFound(t *testing.T) {
