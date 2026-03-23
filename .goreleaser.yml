@@ -37,3 +37,18 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+
+brews:
+  - name: coolify-cli
+    repository:
+      owner: coollabsio
+      name: homebrew-coolify-cli
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://coolify.io"
+    description: "CLI tool for interacting with the Coolify API"
+    license: "MIT"
+    install: |
+      bin.install "coolify"
+    test: |
+      system "#{bin}/coolify", "version"

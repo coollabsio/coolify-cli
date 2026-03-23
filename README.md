@@ -12,6 +12,12 @@ curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts
 
 It will install the CLI in `/usr/local/bin/coolify` and the configuration file in `~/.config/coolify/config.json`
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew install coollabsio/coolify-cli/coolify-cli
+```
+
 #### Windows (PowerShell)
 
 ```powershell
