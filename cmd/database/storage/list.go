@@ -25,6 +25,10 @@ func NewListCommand() *cobra.Command {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.470"); err != nil {
+				return err
+			}
+
 			dbSvc := service.NewDatabaseService(client)
 			storages, err := dbSvc.ListStorages(ctx, args[0])
 			if err != nil {

@@ -390,9 +390,9 @@ type ApplicationCreatePublicRequest struct {
 	BaseDirectory          *string `json:"base_directory,omitempty"`
 	PublishDirectory       *string `json:"publish_directory,omitempty"`
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels            *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
 
 	// Health checks
 	HealthCheckEnabled *bool   `json:"health_check_enabled,omitempty"`
@@ -434,15 +434,15 @@ type ApplicationCreateGitHubAppRequest struct {
 	BaseDirectory          *string `json:"base_directory,omitempty"`
 	PublishDirectory       *string `json:"publish_directory,omitempty"`
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels            *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled      *bool   `json:"health_check_enabled,omitempty"`
-	HealthCheckPath         *string `json:"health_check_path,omitempty"`
-	HealthCheckPort         *string `json:"health_check_port,omitempty"`
-	HealthCheckMethod       *string `json:"health_check_method,omitempty"`
-	LimitsCPUs              *string `json:"limits_cpus,omitempty"`
-	LimitsMemory            *string `json:"limits_memory,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
 }
 
 // ApplicationCreateDeployKeyRequest for POST /applications/private-deploy-key
@@ -474,15 +474,15 @@ type ApplicationCreateDeployKeyRequest struct {
 	BaseDirectory          *string `json:"base_directory,omitempty"`
 	PublishDirectory       *string `json:"publish_directory,omitempty"`
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels            *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled      *bool   `json:"health_check_enabled,omitempty"`
-	HealthCheckPath         *string `json:"health_check_path,omitempty"`
-	HealthCheckPort         *string `json:"health_check_port,omitempty"`
-	HealthCheckMethod       *string `json:"health_check_method,omitempty"`
-	LimitsCPUs              *string `json:"limits_cpus,omitempty"`
-	LimitsMemory            *string `json:"limits_memory,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
 }
 
 // ApplicationCreateDockerfileRequest for POST /applications/dockerfile
@@ -505,15 +505,15 @@ type ApplicationCreateDockerfileRequest struct {
 	DestinationUUID        *string `json:"destination_uuid,omitempty"`
 	PortsExposes           *string `json:"ports_exposes,omitempty"`
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels            *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled      *bool   `json:"health_check_enabled,omitempty"`
-	HealthCheckPath         *string `json:"health_check_path,omitempty"`
-	HealthCheckPort         *string `json:"health_check_port,omitempty"`
-	HealthCheckMethod       *string `json:"health_check_method,omitempty"`
-	LimitsCPUs              *string `json:"limits_cpus,omitempty"`
-	LimitsMemory            *string `json:"limits_memory,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
 }
 
 // ApplicationCreateDockerImageRequest for POST /applications/dockerimage
@@ -537,13 +537,13 @@ type ApplicationCreateDockerImageRequest struct {
 	DestinationUUID        *string `json:"destination_uuid,omitempty"`
 	DockerRegistryImageTag *string `json:"docker_registry_image_tag,omitempty"`
 	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels            *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled      *bool   `json:"health_check_enabled,omitempty"`
-	HealthCheckPath         *string `json:"health_check_path,omitempty"`
-	HealthCheckPort         *string `json:"health_check_port,omitempty"`
-	HealthCheckMethod       *string `json:"health_check_method,omitempty"`
-	LimitsCPUs              *string `json:"limits_cpus,omitempty"`
-	LimitsMemory            *string `json:"limits_memory,omitempty"`
+	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool   `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string `json:"limits_memory,omitempty"`
 }

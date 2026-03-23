@@ -87,6 +87,10 @@ Examples:
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.470"); err != nil {
+				return err
+			}
+
 			svcSvc := service.NewService(client)
 			if err := svcSvc.UpdateStorage(ctx, args[0], req); err != nil {
 				return fmt.Errorf("failed to update storage: %w", err)

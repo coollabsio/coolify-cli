@@ -45,6 +45,10 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
+    required: false
   - name: --domains
     type: string
     description: Domain(s) for the application
@@ -141,6 +145,10 @@ Parameters:
     type: string
     description: Dockerfile content (required)
     required: true
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
+    required: false
   - name: --domains
     type: string
     description: Domain(s) for the application
@@ -212,6 +220,10 @@ Parameters:
   - name: --docker-registry-image-tag
     type: string
     description: Docker image tag (defaults to 'latest')
+    required: false
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
     required: false
   - name: --domains
     type: string
@@ -288,6 +300,10 @@ Parameters:
   - name: --destination-uuid
     type: string
     description: Destination UUID if server has multiple destinations
+    required: false
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
     required: false
   - name: --domains
     type: string
@@ -392,6 +408,10 @@ Parameters:
   - name: --destination-uuid
     type: string
     description: Destination UUID if server has multiple destinations
+    required: false
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
     required: false
   - name: --domains
     type: string
@@ -658,6 +678,82 @@ Command: coolify app stop <uuid>
 Description: Stop a running application.
 Parameters: (None)
 
+Command: coolify app storage create <app_uuid>
+Description: Create a storage for an application
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --fs-path
+    type: string
+    description: Host directory path (file only, required when --is-directory is set)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --is-directory
+    type: boolean
+    description: Whether this is a directory mount (file only)
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container (required)
+    required: true
+  - name: --name
+    type: string
+    description: Volume name (persistent only)
+    required: false
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+
+Command: coolify app storage delete <app_uuid> <storage_uuid>
+Description: Delete a storage from an application
+Parameters: (None)
+
+Command: coolify app storage list <app_uuid>
+Description: List all persistent volumes and file storages for a specific application.
+Parameters: (None)
+
+Command: coolify app storage update <app_uuid>
+Description: Update a storage for an application
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --id
+    type: integer
+    description: Storage ID (deprecated, use --uuid instead)
+    required: false
+  - name: --is-preview-suffix-enabled
+    type: boolean
+    description: Enable preview suffix for this storage
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container
+    required: false
+  - name: --name
+    type: string
+    description: Storage name (persistent only)
+    required: false
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+  - name: --uuid
+    type: string
+    description: Storage UUID (required, use 'storage list' to find)
+    required: false
+
 Command: coolify app update <uuid>
 Description: Update configuration for a specific application. Only specified fields will be updated.
 Parameters:
@@ -684,6 +780,10 @@ Parameters:
   - name: --dockerfile
     type: string
     description: Dockerfile content
+    required: false
+  - name: --dockerfile-target-build
+    type: string
+    description: Dockerfile target build stage
     required: false
   - name: --domains
     type: string
@@ -1194,6 +1294,82 @@ Command: coolify database stop <uuid>
 Description: Stop a database by UUID.
 Parameters: (None)
 
+Command: coolify database storage create <db_uuid>
+Description: Create a storage for a database
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --fs-path
+    type: string
+    description: Host directory path (file only, required when --is-directory is set)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --is-directory
+    type: boolean
+    description: Whether this is a directory mount (file only)
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container (required)
+    required: true
+  - name: --name
+    type: string
+    description: Volume name (persistent only)
+    required: false
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+
+Command: coolify database storage delete <db_uuid> <storage_uuid>
+Description: Delete a storage from a database
+Parameters: (None)
+
+Command: coolify database storage list <db_uuid>
+Description: List all persistent volumes and file storages for a specific database.
+Parameters: (None)
+
+Command: coolify database storage update <db_uuid>
+Description: Update a storage for a database
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --id
+    type: integer
+    description: Storage ID (deprecated, use --uuid instead)
+    required: false
+  - name: --is-preview-suffix-enabled
+    type: boolean
+    description: Enable preview suffix for this storage
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container
+    required: false
+  - name: --name
+    type: string
+    description: Storage name (persistent only)
+    required: false
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+  - name: --uuid
+    type: string
+    description: Storage UUID (required, use 'storage list' to find)
+    required: false
+
 Command: coolify database update <uuid>
 Description: Update a database's configuration by UUID.
 Parameters:
@@ -1665,6 +1841,86 @@ Parameters: (None)
 Command: coolify service stop <uuid>
 Description: Stop a service (stop all containers).
 Parameters: (None)
+
+Command: coolify service storage create <service_uuid>
+Description: Create a storage for a service
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --fs-path
+    type: string
+    description: Host directory path (file only, required when --is-directory is set)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --is-directory
+    type: boolean
+    description: Whether this is a directory mount (file only)
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container (required)
+    required: true
+  - name: --name
+    type: string
+    description: Volume name (persistent only)
+    required: false
+  - name: --resource-uuid
+    type: string
+    description: UUID of the service sub-resource (required)
+    required: true
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+
+Command: coolify service storage delete <service_uuid> <storage_uuid>
+Description: Delete a storage from a service
+Parameters: (None)
+
+Command: coolify service storage list <service_uuid>
+Description: List all persistent volumes and file storages for a specific service.
+Parameters: (None)
+
+Command: coolify service storage update <service_uuid>
+Description: Update a storage for a service
+Parameters:
+  - name: --content
+    type: string
+    description: File content (file only)
+    required: false
+  - name: --host-path
+    type: string
+    description: Host path (persistent only)
+    required: false
+  - name: --id
+    type: integer
+    description: Storage ID (deprecated, use --uuid instead)
+    required: false
+  - name: --is-preview-suffix-enabled
+    type: boolean
+    description: Enable preview suffix for this storage
+    required: false
+  - name: --mount-path
+    type: string
+    description: Mount path inside the container
+    required: false
+  - name: --name
+    type: string
+    description: Storage name (persistent only)
+    required: false
+  - name: --type
+    type: string
+    description: Storage type: 'persistent' or 'file' (required)
+    required: true
+  - name: --uuid
+    type: string
+    description: Storage UUID (required, use 'storage list' to find)
+    required: false
 
 Command: coolify teams current
 Description: Get details of the team associated with the current authentication token.

@@ -27,6 +27,10 @@ Examples:
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
 
+			if err := cli.CheckMinimumVersion(ctx, client, "4.0.0-beta.470"); err != nil {
+				return err
+			}
+
 			svcSvc := service.NewService(client)
 			if err := svcSvc.DeleteStorage(ctx, args[0], args[1]); err != nil {
 				return fmt.Errorf("failed to delete storage: %w", err)
