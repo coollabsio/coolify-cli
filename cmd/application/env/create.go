@@ -71,7 +71,7 @@ func NewCreateEnvCommand() *cobra.Command {
 				return fmt.Errorf("failed to create environment variable: %w", err)
 			}
 
-			fmt.Printf("Environment variable '%s' created successfully.\n", env.Key)
+			fmt.Printf("Environment variable '%s' created successfully.\n", key)
 			fmt.Printf("UUID: %s\n", env.UUID)
 			return nil
 		},

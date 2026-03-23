@@ -12,13 +12,14 @@ import (
 
 func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "update <service_uuid>",
+		Use:   "update <service_uuid> <env_uuid_or_key>",
 		Short: "Update an environment variable",
-		Long:  `Update an existing environment variable. UUID is the service.`,
-		Args:  cli.ExactArgs(1, "<service_uuid>"),
+		Long:  `Update an existing environment variable. Identify it by UUID or key name.`,
+		Args:  cli.ExactArgs(2, "<service_uuid> <env_uuid_or_key>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			serviceUUID := args[0]
+			envIdentifier := args[1]
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -30,13 +31,24 @@ func NewUpdateCommand() *cobra.Command {
 				return err
 			}
 
+			serviceSvc := service.NewService(client)
+
+			// Look up the env var to resolve its key
+			existingEnv, err := serviceSvc.GetEnv(ctx, serviceUUID, envIdentifier)
+			if err != nil {
+				return fmt.Errorf("failed to find environment variable '%s': %w", envIdentifier, err)
+			}
+
 			req := &models.ServiceEnvironmentVariableUpdateRequest{}
 
-			// Only set fields that were provided
+			// Use existing key unless --key flag explicitly provides a new one
 			if cmd.Flags().Changed("key") {
 				key, _ := cmd.Flags().GetString("key")
 				req.Key = &key
+			} else {
+				req.Key = &existingEnv.Key
 			}
+
 			if cmd.Flags().Changed("value") {
 				value, _ := cmd.Flags().GetString("value")
 				req.Value = &value
@@ -62,14 +74,10 @@ func NewUpdateCommand() *cobra.Command {
 				req.Comment = &comment
 			}
 
-			if req.Key == nil {
-				return fmt.Errorf("--key is required")
-			}
 			if req.Value == nil {
 				return fmt.Errorf("--value is required")
 			}
 
-			serviceSvc := service.NewService(client)
 			env, err := serviceSvc.UpdateEnv(ctx, serviceUUID, req)
 			if err != nil {
 				return fmt.Errorf("failed to update environment variable: %w", err)
@@ -80,8 +88,8 @@ func NewUpdateCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().String("key", "", "New environment variable key")
-	cmd.Flags().String("value", "", "New environment variable value")
+	cmd.Flags().String("key", "", "New environment variable key (rename)")
+	cmd.Flags().String("value", "", "New environment variable value (required)")
 	cmd.Flags().Bool("build-time", true, "Available at build time (default: true)")
 	cmd.Flags().Bool("is-literal", false, "Treat value as literal (don't interpolate variables)")
 	cmd.Flags().Bool("is-multiline", false, "Value is multiline")

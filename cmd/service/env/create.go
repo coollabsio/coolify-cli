@@ -63,12 +63,12 @@ func NewCreateCommand() *cobra.Command {
 			}
 
 			serviceSvc := service.NewService(client)
-			env, err := serviceSvc.CreateEnv(ctx, uuid, req)
+			_, err = serviceSvc.CreateEnv(ctx, uuid, req)
 			if err != nil {
 				return fmt.Errorf("failed to create environment variable: %w", err)
 			}
 
-			fmt.Printf("Environment variable '%s' created successfully.\n", env.Key)
+			fmt.Printf("Environment variable '%s' created successfully.\n", key)
 			return nil
 		},
 	}
