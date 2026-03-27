@@ -100,6 +100,7 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 		outputFile, _ := cmd.Flags().GetString("output")
 
 		var sb strings.Builder
+		sb.WriteString(llmsHeader)
 		writeLLMsCommand(&sb, rootCmd, "coolify")
 
 		if err := os.WriteFile(outputFile, []byte(sb.String()), 0600); err != nil {
@@ -112,6 +113,213 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 		return nil
 	},
 }
+
+// llmsHeader contains the static overview section prepended to the generated command reference.
+const llmsHeader = `# Coolify CLI - llms.txt
+
+> A CLI tool for interacting with the Coolify API, built with Go.
+> Manage Coolify instances (cloud and self-hosted), servers, projects, applications, databases, services, deployments, domains, and private keys.
+> Source: https://github.com/coollabsio/coolify-cli
+> API Spec: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+
+## Installation
+
+` + "```bash" + `
+# Linux/macOS (recommended)
+curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
+
+# Homebrew (macOS/Linux)
+brew install coollabsio/coolify-cli/coolify-cli
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+
+# Go install
+go install github.com/coollabsio/coolify-cli/coolify@latest
+` + "```" + `
+
+## Authentication
+
+1. Get an API token from your Coolify dashboard at ` + "`/security/api-tokens`" + `
+2. For Coolify Cloud: ` + "`coolify context set-token cloud <token>`" + `
+3. For self-hosted: ` + "`coolify context add -d <context_name> <url> <token>`" + `
+
+## Configuration
+
+Config file location:
+- Linux/macOS: ` + "`~/.config/coolify/config.json`" + `
+- Windows: ` + "`%APPDATA%\\coolify\\config.json`" + `
+
+Supports multiple contexts (instances) with ` + "`coolify context`" + ` commands.
+
+## Output Formats
+
+All commands support ` + "`--format`" + ` flag:
+- ` + "`table`" + ` (default) - human-readable tabular output
+- ` + "`json`" + ` - compact JSON for scripting
+- ` + "`pretty`" + ` - indented JSON for debugging
+
+## Command Aliases
+
+Commands accept multiple aliases for convenience:
+- ` + "`app` | `apps` | `application` | `applications`" + `
+- ` + "`database` | `databases` | `db` | `dbs`" + `
+- ` + "`service` | `services` | `svc`" + `
+- ` + "`server` | `servers`" + `
+- ` + "`project` | `projects`" + `
+- ` + "`resource` | `resources`" + `
+- ` + "`private-key` | `private-keys` | `key` | `keys`" + `
+- ` + "`teams` | `team`" + `
+- ` + "`teams members` | `teams member`" + `
+- ` + "`github` | `gh` | `github-app` | `github-apps`" + `
+- ` + "`app start`" + ` also aliased as ` + "`app deploy`" + `
+- ` + "`server domains`" + ` also aliased as ` + "`server domain`" + `
+
+## Supported Database Types
+
+When using ` + "`coolify database create <type>`" + `:
+- ` + "`postgresql`" + `
+- ` + "`mysql`" + `
+- ` + "`mariadb`" + `
+- ` + "`mongodb`" + `
+- ` + "`redis`" + `
+- ` + "`keydb`" + `
+- ` + "`clickhouse`" + `
+- ` + "`dragonfly`" + `
+
+## Usage Examples
+
+` + "```bash" + `
+# Multi-context workflow
+coolify context add prod https://prod.coolify.io <token>
+coolify context add staging https://staging.coolify.io <token>
+coolify context use prod
+coolify --context=staging server list
+
+# Application lifecycle
+coolify app list
+coolify app get <uuid>
+coolify app start <uuid>
+coolify app stop <uuid>
+coolify app restart <uuid>
+coolify app logs <uuid> --follow
+
+# Environment variable management
+coolify app env list <uuid>
+coolify app env create <uuid> --key API_KEY --value secret123
+coolify app env sync <uuid> --file .env.production --build-time --preview
+
+# Deploy workflows
+coolify deploy name my-application
+coolify deploy batch api,worker,frontend --force
+coolify deploy list
+coolify deploy cancel <uuid>
+
+# Database backup
+coolify database backup create <db-uuid> --frequency "0 2 * * *" --enabled --save-s3
+coolify database backup trigger <db-uuid> <backup-uuid>
+
+# Application creation
+coolify app create public --project-uuid <uuid> --server-uuid <uuid> --git-repository https://github.com/user/repo --git-branch main --build-pack nixpacks --ports-exposes 3000
+coolify app create dockerfile --project-uuid <uuid> --server-uuid <uuid> --dockerfile "FROM node:18\nCOPY . .\nRUN npm install\nCMD [\"node\", \"index.js\"]"
+coolify app create dockerimage --project-uuid <uuid> --server-uuid <uuid> --docker-registry-image-name nginx --ports-exposes 80
+
+# Service creation (one-click services)
+coolify service create <type> --project-uuid <uuid> --server-uuid <uuid> --instant-deploy
+coolify service create --list-types  # list all available service types
+
+# Storage management
+coolify app storage create <app-uuid> --type persistent --mount-path /data --name my-volume
+coolify app storage create <app-uuid> --type file --mount-path /app/config.yml --content "key: value"
+
+# GitHub App integration
+coolify github list
+coolify github repos <app-uuid>
+coolify github branches <app-uuid> owner/repo
+
+# Team management
+coolify team list
+coolify team current
+coolify team members list
+` + "```" + `
+
+## API Notes
+
+- All resource identifiers use UUIDs (not internal database IDs)
+- API base path: ` + "`/api/v1/`" + `
+- Authentication: Bearer token via ` + "`--token`" + ` flag or context configuration
+- ` + "`app env sync`" + ` behavior: updates existing variables, creates missing ones, does NOT delete variables not in the file
+- ` + "`app start`" + ` aliases to ` + "`app deploy`" + ` and also accepts ` + "`--force`" + ` and ` + "`--instant-deploy`" + ` flags
+- Deployment logs support ` + "`--follow`" + ` for real-time streaming and ` + "`--debuglogs`" + ` for internal operations
+- ` + "`app logs`" + ` defaults to 100 lines; ` + "`app deployments logs`" + ` defaults to 0 (all lines)
+- Short flag ` + "`-n`" + ` can be used instead of ` + "`--lines`" + ` for log commands
+- ` + "`completion`" + ` command supports shells: ` + "`bash`" + `, ` + "`zsh`" + `, ` + "`fish`" + `, ` + "`powershell`" + `
+- Resource statuses: ` + "`running`" + `, ` + "`stopped`" + `, ` + "`error`" + `
+- Teams use numeric IDs (not UUIDs) - this is the only resource that uses IDs
+- Fields marked ` + "`sensitive:\"true\"`" + ` (tokens, passwords, IPs, emails) are hidden by default; use ` + "`--show-sensitive`" + ` to reveal
+
+## Data Models (JSON Response Fields)
+
+### Application
+Table columns: uuid, name, description, status, fqdn, git_repository, git_branch, build_pack, ports_exposes
+JSON-only fields: git_commit_sha, git_full_url, install_command, build_command, start_command, base_directory, publish_directory, static_image, dockerfile, dockerfile_location, docker_registry_image_name, docker_registry_image_tag, docker_compose, ports_mappings, domains, redirect, preview_url_template, health_check_enabled, health_check_path, health_check_port, health_check_host, health_check_method, health_check_scheme, health_check_return_code, health_check_response_text, health_check_interval, health_check_timeout, health_check_retries, health_check_start_period, limits_cpus, limits_cpu_shares, limits_cpuset, limits_memory, limits_memory_reservation, limits_memory_swap, limits_memory_swappiness, pre_deployment_command, post_deployment_command, watch_paths, swarm_replicas, config_hash, settings (nested: is_static, is_build_server_enabled, is_auto_deploy_enabled, is_force_https_enabled, is_debug_enabled, is_preview_deployments_enabled, is_git_submodules_enabled, is_git_lfs_enabled)
+
+### Database
+Table columns: uuid, name, description, image, status, type, is_public, public_port
+Supported types: postgresql, mysql, mariadb, mongodb, redis, keydb, clickhouse, dragonfly
+JSON-only fields: limits_memory, limits_cpus, and database-specific fields (postgres_user, postgres_password, postgres_db, mysql_root_password, mysql_user, mysql_database, mariadb_root_password, mariadb_user, mariadb_database, mongo_initdb_root_username, mongo_initdb_root_password, etc.)
+
+### Service
+Table columns: uuid, name, description, status
+JSON-only fields: docker_compose, docker_compose_raw
+Nested resources: applications (uuid, name, status, fqdn), databases (uuid, name, type, status)
+
+### Server
+Table columns: uuid, name, ip (sensitive), user (sensitive), port (sensitive)
+JSON-only fields: settings (is_reachable, is_usable)
+
+### Project
+Table columns: uuid, name, description
+Nested: environments (uuid, name, description, applications)
+
+### Deployment
+Table columns: deployment_uuid, application_name, server_name, status, commit
+JSON-only fields: commit_message, deployment_url, finished_at, logs, created_at
+
+### Resource
+Table columns: uuid, name, type, status
+
+### Private Key
+Table columns: uuid, name, public_key (sensitive), private_key (sensitive)
+
+### Team
+Table columns: id, name, description, personal_team, show_boarding
+JSON-only fields: custom_server_limit, created_at
+
+### Team Member
+Table columns: id, name, email (sensitive), role, force_password_reset, marketing_emails
+
+### GitHub App
+Table columns: uuid, name, organization, api_url, html_url, custom_user, custom_port
+JSON-only fields: app_id, installation_id, client_id, private_key_id, is_system_wide, team_id
+
+### Environment Variable (Application)
+Fields: uuid, key, value (sensitive), is_buildtime, is_preview, is_literal, is_shown_once, is_runtime, is_shared, comment, real_value (sensitive)
+
+### Environment Variable (Service/Database)
+Same as application but without is_preview field
+
+### Storage (Persistent Volume)
+Fields: uuid, name, mount_path, host_path, is_preview_suffix_enabled, is_readonly
+
+### Storage (File)
+Fields: uuid, fs_path, mount_path, content, is_directory, is_based_on_git, is_preview_suffix_enabled, chown, chmod
+
+---
+
+## Command Reference
+
+`
 
 // writeLLMsCommand recursively writes command documentation in llms.txt format.
 func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
@@ -192,10 +400,17 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 				// or via "(required)" in the usage string
 				required := isFlagRequired(f)
 
-				fmt.Fprintf(sb, "  - name: --%s\n", f.Name)
+				if f.Shorthand != "" {
+					fmt.Fprintf(sb, "  - name: --%s (-%s)\n", f.Name, f.Shorthand)
+				} else {
+					fmt.Fprintf(sb, "  - name: --%s\n", f.Name)
+				}
 				fmt.Fprintf(sb, "    type: %s\n", flagType)
 				fmt.Fprintf(sb, "    description: %s\n", f.Usage)
 				fmt.Fprintf(sb, "    required: %t\n", required)
+				if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" && f.DefValue != "[]" {
+					fmt.Fprintf(sb, "    default: %s\n", f.DefValue)
+				}
 			}
 		}
 
