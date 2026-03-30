@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,21 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestDeploymentService_Deploy(t *testing.T) {
 	tests := []struct {
-		name         string
-		uuid         string
-		force        bool
-		expectedPath string
-		response     DeployResponse
+		name           string
+		request        models.DeployRequest
+		expectedPath   string
+		expectedMethod string
+		expectedBody   string
+		response       DeployResponse
 	}{
 		{
-			name:         "deploy without force",
-			uuid:         "res-123",
-			force:        false,
-			expectedPath: "/api/v1/deploy?uuid=res-123",
+			name:           "deploy without optional fields",
+			request:        models.DeployRequest{UUID: "res-123"},
+			expectedPath:   "/api/v1/deploy",
+			expectedMethod: "POST",
+			expectedBody:   `{"uuid":"res-123"}`,
 			response: DeployResponse{
 				Deployments: []DeploymentInfo{
 					{
@@ -37,10 +41,16 @@ func TestDeploymentService_Deploy(t *testing.T) {
 			},
 		},
 		{
-			name:         "deploy with force",
-			uuid:         "res-789",
-			force:        true,
-			expectedPath: "/api/v1/deploy?uuid=res-789&force=true",
+			name: "deploy with force and extra payload fields",
+			request: models.DeployRequest{
+				UUID:          "res-789",
+				Force:         deployBoolPtr(true),
+				PullRequestID: deployIntPtr(2345),
+				DockerTag:     deployStringPtr("1.28.3"),
+			},
+			expectedPath:   "/api/v1/deploy",
+			expectedMethod: "POST",
+			expectedBody:   `{"uuid":"res-789","force":true,"pull_request_id":2345,"docker_tag":"1.28.3"}`,
 			response: DeployResponse{
 				Deployments: []DeploymentInfo{
 					{
@@ -56,8 +66,12 @@ func TestDeploymentService_Deploy(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, tt.expectedPath, r.URL.Path+"?"+r.URL.RawQuery)
-				assert.Equal(t, "GET", r.Method)
+				assert.Equal(t, tt.expectedPath, r.URL.Path)
+				assert.Equal(t, tt.expectedMethod, r.Method)
+
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				assert.JSONEq(t, tt.expectedBody, string(body))
 
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(tt.response)
@@ -67,7 +81,7 @@ func TestDeploymentService_Deploy(t *testing.T) {
 			client := api.NewClient(server.URL, "test-token")
 			svc := NewDeploymentService(client)
 
-			result, err := svc.Deploy(context.Background(), tt.uuid, tt.force)
+			result, err := svc.Deploy(context.Background(), tt.request)
 			require.NoError(t, err)
 			assert.Len(t, result.Deployments, len(tt.response.Deployments))
 			if len(result.Deployments) > 0 {
@@ -76,6 +90,18 @@ func TestDeploymentService_Deploy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func deployBoolPtr(v bool) *bool {
+	return &v
+}
+
+func deployIntPtr(v int) *int {
+	return &v
+}
+
+func deployStringPtr(v string) *string {
+	return &v
 }
 
 func TestDeploymentService_ListByApplication(t *testing.T) {

@@ -27,6 +27,9 @@ Example: coolify deploy batch app1,app2,app3`,
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
+			if err := validateDeployFlags(ctx, cmd, client); err != nil {
+				return err
+			}
 
 			// Parse comma-separated names
 			names := make([]string, 0)
@@ -66,7 +69,6 @@ Example: coolify deploy batch app1,app2,app3`,
 			}
 
 			// Deploy all resources
-			force, _ := cmd.Flags().GetBool("force")
 			deploySvc := service.NewDeploymentService(client)
 
 			type result struct {
@@ -83,7 +85,7 @@ Example: coolify deploy batch app1,app2,app3`,
 				uuid := nameToUUID[name]
 				fmt.Printf("Deploying %s...\n", name)
 
-				res, err := deploySvc.Deploy(ctx, uuid, force)
+				res, err := deploySvc.Deploy(ctx, getDeployRequest(cmd, uuid))
 				if err != nil {
 					results = append(results, result{
 						Name:    name,
@@ -126,6 +128,6 @@ Example: coolify deploy batch app1,app2,app3`,
 		},
 	}
 
-	cmd.Flags().Bool("force", false, "Force deployment")
+	addDeployFlags(cmd)
 	return cmd
 }

@@ -263,10 +263,16 @@ Commands can use `server` or `servers` interchangeably.
 ### Deployments
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
   - `-f, --force` - Force deployment
+  - `--pull-request-id <id>` - Pull request ID for preview deployments
+  - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy name <name>` - Deploy a resource by name
   - `-f, --force` - Force deployment
+  - `--pull-request-id <id>` - Pull request ID for preview deployments
+  - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy batch <name1,name2,...>` - Deploy multiple resources at once
   - `-f, --force` - Force all deployments
+  - `--pull-request-id <id>` - Pull request ID for preview deployments
+  - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy list` - List all deployments
 - `coolify deploy get <uuid>` - Get deployment details
 - `coolify deploy cancel <uuid>` - Cancel a deployment
@@ -426,6 +432,9 @@ coolify deploy batch api,worker,frontend
 
 # Force deploy with specific context
 coolify --context=prod deploy batch api,worker --force
+
+# Deploy a preview with an explicit docker tag
+coolify deploy uuid u5ualfp30j27qtfpgcen8p03 --pull-request-id 2345 --docker-tag 1.28.3
 
 # Traditional UUID deployment still works
 coolify deploy uuid abc123-def456-...
