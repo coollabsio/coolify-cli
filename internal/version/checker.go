@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sort"
 	"time"
 
@@ -101,7 +102,7 @@ func CheckLatestVersionOfCli(_ bool) (string, error) {
 	}
 
 	if latestVersion.GreaterThan(currentVersion) {
-		fmt.Printf("A new version (%s) is available. Update with: coolify update\n", latestVersion.String())
+		_, _ = fmt.Fprintf(os.Stderr, "A new version (%s) is available. Update with: coolify update\n", latestVersion.String())
 	}
 	return latestVersion.String(), nil
 }
