@@ -70,7 +70,7 @@ func TestDeploymentService_Deploy(t *testing.T) {
 				assert.Equal(t, tt.expectedMethod, r.Method)
 
 				body, err := io.ReadAll(r.Body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.JSONEq(t, tt.expectedBody, string(body))
 
 				w.Header().Set("Content-Type", "application/json")
