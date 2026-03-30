@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -100,7 +101,9 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 		outputFile, _ := cmd.Flags().GetString("output")
 
 		var sb strings.Builder
-		sb.WriteString(llmsHeader)
+		sb.WriteString(llmsIntro)
+		writeLLMsAliases(&sb, rootCmd, "coolify")
+		sb.WriteString(llmsBody)
 		writeLLMsCommand(&sb, rootCmd, "coolify")
 
 		if err := os.WriteFile(outputFile, []byte(sb.String()), 0600); err != nil {
@@ -114,8 +117,8 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 	},
 }
 
-// llmsHeader contains the static overview section prepended to the generated command reference.
-const llmsHeader = `# Coolify CLI - llms.txt
+// llmsIntro contains the static overview section prepended to the generated command reference.
+const llmsIntro = `# Coolify CLI - llms.txt
 
 > A CLI tool for interacting with the Coolify API, built with Go.
 > Manage Coolify instances (cloud and self-hosted), servers, projects, applications, databases, services, deployments, domains, and private keys.
@@ -158,22 +161,9 @@ All commands support ` + "`--format`" + ` flag:
 - ` + "`table`" + ` (default) - human-readable tabular output
 - ` + "`json`" + ` - compact JSON for scripting
 - ` + "`pretty`" + ` - indented JSON for debugging
+`
 
-## Command Aliases
-
-Commands accept multiple aliases for convenience:
-- ` + "`app` | `apps` | `application` | `applications`" + `
-- ` + "`database` | `databases` | `db` | `dbs`" + `
-- ` + "`service` | `services` | `svc`" + `
-- ` + "`server` | `servers`" + `
-- ` + "`project` | `projects`" + `
-- ` + "`resource` | `resources`" + `
-- ` + "`private-key` | `private-keys` | `key` | `keys`" + `
-- ` + "`teams` | `team`" + `
-- ` + "`teams members` | `teams member`" + `
-- ` + "`github` | `gh` | `github-app` | `github-apps`" + `
-- ` + "`app start`" + ` also aliased as ` + "`app deploy`" + `
-- ` + "`server domains`" + ` also aliased as ` + "`server domain`" + `
+const llmsBody = `
 
 ## Supported Database Types
 
@@ -258,81 +248,73 @@ coolify team members list
 - Teams use numeric IDs (not UUIDs) - this is the only resource that uses IDs
 - Fields marked ` + "`sensitive:\"true\"`" + ` (tokens, passwords, IPs, emails) are hidden by default; use ` + "`--show-sensitive`" + ` to reveal
 
-## Data Models (JSON Response Fields)
-
-### Application
-Table columns: uuid, name, description, status, fqdn, git_repository, git_branch, build_pack, ports_exposes
-JSON-only fields: git_commit_sha, git_full_url, install_command, build_command, start_command, base_directory, publish_directory, static_image, dockerfile, dockerfile_location, docker_registry_image_name, docker_registry_image_tag, docker_compose, ports_mappings, domains, redirect, preview_url_template, health_check_enabled, health_check_path, health_check_port, health_check_host, health_check_method, health_check_scheme, health_check_return_code, health_check_response_text, health_check_interval, health_check_timeout, health_check_retries, health_check_start_period, limits_cpus, limits_cpu_shares, limits_cpuset, limits_memory, limits_memory_reservation, limits_memory_swap, limits_memory_swappiness, pre_deployment_command, post_deployment_command, watch_paths, swarm_replicas, config_hash, settings (nested: is_static, is_build_server_enabled, is_auto_deploy_enabled, is_force_https_enabled, is_debug_enabled, is_preview_deployments_enabled, is_git_submodules_enabled, is_git_lfs_enabled)
-
-### Database
-Table columns: uuid, name, description, image, status, type, is_public, public_port
-Supported types: postgresql, mysql, mariadb, mongodb, redis, keydb, clickhouse, dragonfly
-JSON-only fields: limits_memory, limits_cpus, and database-specific fields (postgres_user, postgres_password, postgres_db, mysql_root_password, mysql_user, mysql_database, mariadb_root_password, mariadb_user, mariadb_database, mongo_initdb_root_username, mongo_initdb_root_password, etc.)
-
-### Service
-Table columns: uuid, name, description, status
-JSON-only fields: docker_compose, docker_compose_raw
-Nested resources: applications (uuid, name, status, fqdn), databases (uuid, name, type, status)
-
-### Server
-Table columns: uuid, name, ip (sensitive), user (sensitive), port (sensitive)
-JSON-only fields: settings (is_reachable, is_usable)
-
-### Project
-Table columns: uuid, name, description
-Nested: environments (uuid, name, description, applications)
-
-### Deployment
-Table columns: deployment_uuid, application_name, server_name, status, commit
-JSON-only fields: commit_message, deployment_url, finished_at, logs, created_at
-
-### Resource
-Table columns: uuid, name, type, status
-
-### Private Key
-Table columns: uuid, name, public_key (sensitive), private_key (sensitive)
-
-### Team
-Table columns: id, name, description, personal_team, show_boarding
-JSON-only fields: custom_server_limit, created_at
-
-### Team Member
-Table columns: id, name, email (sensitive), role, force_password_reset, marketing_emails
-
-### GitHub App
-Table columns: uuid, name, organization, api_url, html_url, custom_user, custom_port
-JSON-only fields: app_id, installation_id, client_id, private_key_id, is_system_wide, team_id
-
-### Environment Variable (Application)
-Fields: uuid, key, value (sensitive), is_buildtime, is_preview, is_literal, is_shown_once, is_runtime, is_shared, comment, real_value (sensitive)
-
-### Environment Variable (Service/Database)
-Same as application but without is_preview field
-
-### Storage (Persistent Volume)
-Fields: uuid, name, mount_path, host_path, is_preview_suffix_enabled, is_readonly
-
-### Storage (File)
-Fields: uuid, fs_path, mount_path, content, is_directory, is_based_on_git, is_preview_suffix_enabled, chown, chmod
-
 ---
 
 ## Command Reference
 
 `
 
+// writeLLMsAliases writes aliases derived from the Cobra command tree.
+func writeLLMsAliases(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
+	aliases := collectLLMsAliases(cmd, parentPath)
+	if len(aliases) == 0 {
+		return
+	}
+
+	sb.WriteString("\n## Command Aliases\n\n")
+	sb.WriteString("Aliases are derived from the CLI command tree:\n")
+	for _, aliasLine := range aliases {
+		fmt.Fprintf(sb, "- %s\n", aliasLine)
+	}
+}
+
+func collectLLMsAliases(cmd *cobra.Command, parentPath string) []string {
+	var aliases []string
+	if cmd.Name() != "docs" && cmd.Name() != "help" {
+		if len(cmd.Aliases) > 0 {
+			aliasNames := append([]string{cmd.Name()}, cmd.Aliases...)
+			for i := range aliasNames {
+				aliasNames[i] = fmt.Sprintf("`%s`", commandPathPrefix(parentPath, cmd)+aliasNames[i])
+			}
+			aliases = append(aliases, strings.Join(aliasNames, " | "))
+		}
+	}
+
+	for _, child := range cmd.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		aliases = append(aliases, collectLLMsAliases(child, llmsCommandName(parentPath, cmd))...)
+	}
+
+	slices.Sort(aliases)
+	return slices.Compact(aliases)
+}
+
+func llmsCommandName(parentPath string, cmd *cobra.Command) string {
+	if !cmd.HasParent() {
+		return parentPath
+	}
+
+	parts := strings.Fields(cmd.Use)
+	commandPath := parentPath + " " + parts[0]
+	if len(parts) > 1 {
+		commandPath += " " + strings.Join(parts[1:], " ")
+	}
+	return commandPath
+}
+
+func commandPathPrefix(parentPath string, cmd *cobra.Command) string {
+	if cmd.HasParent() {
+		return parentPath + " "
+	}
+	return ""
+}
+
 // writeLLMsCommand recursively writes command documentation in llms.txt format.
 func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
 	// Build the full command path including args from Use field
-	commandPath := parentPath
-	if cmd.HasParent() {
-		parts := strings.Fields(cmd.Use)
-		commandPath = parentPath + " " + parts[0]
-		// Append positional args from the Use field (e.g., "<uuid>", "[optional]")
-		if len(parts) > 1 {
-			commandPath += " " + strings.Join(parts[1:], " ")
-		}
-	}
+	commandPath := llmsCommandName(parentPath, cmd)
 
 	// Skip the docs command itself and help command
 	if cmd.Name() == "docs" || cmd.Name() == "help" {
@@ -408,7 +390,7 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 				fmt.Fprintf(sb, "    type: %s\n", flagType)
 				fmt.Fprintf(sb, "    description: %s\n", f.Usage)
 				fmt.Fprintf(sb, "    required: %t\n", required)
-				if f.DefValue != "" && f.DefValue != "false" && f.DefValue != "0" && f.DefValue != "[]" {
+				if f.DefValue != "" && f.DefValue != "[]" {
 					fmt.Fprintf(sb, "    default: %s\n", f.DefValue)
 				}
 			}
@@ -424,8 +406,7 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 		}
 		childPath := parentPath
 		if cmd.HasParent() {
-			parts := strings.Fields(cmd.Use)
-			childPath = parentPath + " " + parts[0]
+			childPath = llmsCommandName(parentPath, cmd)
 		}
 		writeLLMsCommand(sb, child, childPath)
 	}
