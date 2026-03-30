@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -100,6 +101,9 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 		outputFile, _ := cmd.Flags().GetString("output")
 
 		var sb strings.Builder
+		sb.WriteString(llmsIntro)
+		writeLLMsAliases(&sb, rootCmd, "coolify")
+		sb.WriteString(llmsBody)
 		writeLLMsCommand(&sb, rootCmd, "coolify")
 
 		if err := os.WriteFile(outputFile, []byte(sb.String()), 0600); err != nil {
@@ -113,18 +117,204 @@ The output file will be written to the specified path (default: ./llms.txt).`,
 	},
 }
 
+// llmsIntro contains the static overview section prepended to the generated command reference.
+const llmsIntro = `# Coolify CLI - llms.txt
+
+> A CLI tool for interacting with the Coolify API, built with Go.
+> Manage Coolify instances (cloud and self-hosted), servers, projects, applications, databases, services, deployments, domains, and private keys.
+> Source: https://github.com/coollabsio/coolify-cli
+> API Spec: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+
+## Installation
+
+` + "```bash" + `
+# Linux/macOS (recommended)
+curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
+
+# Homebrew (macOS/Linux)
+brew install coollabsio/coolify-cli/coolify-cli
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+
+# Go install
+go install github.com/coollabsio/coolify-cli/coolify@latest
+` + "```" + `
+
+## Authentication
+
+1. Get an API token from your Coolify dashboard at ` + "`/security/api-tokens`" + `
+2. For Coolify Cloud: ` + "`coolify context set-token cloud <token>`" + `
+3. For self-hosted: ` + "`coolify context add -d <context_name> <url> <token>`" + `
+
+## Configuration
+
+Config file location:
+- Linux/macOS: ` + "`~/.config/coolify/config.json`" + `
+- Windows: ` + "`%APPDATA%\\coolify\\config.json`" + `
+
+Supports multiple contexts (instances) with ` + "`coolify context`" + ` commands.
+
+## Output Formats
+
+All commands support ` + "`--format`" + ` flag:
+- ` + "`table`" + ` (default) - human-readable tabular output
+- ` + "`json`" + ` - compact JSON for scripting
+- ` + "`pretty`" + ` - indented JSON for debugging
+`
+
+const llmsBody = `
+
+## Supported Database Types
+
+When using ` + "`coolify database create <type>`" + `:
+- ` + "`postgresql`" + `
+- ` + "`mysql`" + `
+- ` + "`mariadb`" + `
+- ` + "`mongodb`" + `
+- ` + "`redis`" + `
+- ` + "`keydb`" + `
+- ` + "`clickhouse`" + `
+- ` + "`dragonfly`" + `
+
+## Usage Examples
+
+` + "```bash" + `
+# Multi-context workflow
+coolify context add prod https://prod.coolify.io <token>
+coolify context add staging https://staging.coolify.io <token>
+coolify context use prod
+coolify --context=staging server list
+
+# Application lifecycle
+coolify app list
+coolify app get <uuid>
+coolify app start <uuid>
+coolify app stop <uuid>
+coolify app restart <uuid>
+coolify app logs <uuid> --follow
+
+# Environment variable management
+coolify app env list <uuid>
+coolify app env create <uuid> --key API_KEY --value secret123
+coolify app env sync <uuid> --file .env.production --build-time --preview
+
+# Deploy workflows
+coolify deploy name my-application
+coolify deploy batch api,worker,frontend --force
+coolify deploy list
+coolify deploy cancel <uuid>
+
+# Database backup
+coolify database backup create <db-uuid> --frequency "0 2 * * *" --enabled --save-s3
+coolify database backup trigger <db-uuid> <backup-uuid>
+
+# Application creation
+coolify app create public --project-uuid <uuid> --server-uuid <uuid> --git-repository https://github.com/user/repo --git-branch main --build-pack nixpacks --ports-exposes 3000
+coolify app create dockerfile --project-uuid <uuid> --server-uuid <uuid> --dockerfile "FROM node:18\nCOPY . .\nRUN npm install\nCMD [\"node\", \"index.js\"]"
+coolify app create dockerimage --project-uuid <uuid> --server-uuid <uuid> --docker-registry-image-name nginx --ports-exposes 80
+
+# Service creation (one-click services)
+coolify service create <type> --project-uuid <uuid> --server-uuid <uuid> --instant-deploy
+coolify service create --list-types  # list all available service types
+
+# Storage management
+coolify app storage create <app-uuid> --type persistent --mount-path /data --name my-volume
+coolify app storage create <app-uuid> --type file --mount-path /app/config.yml --content "key: value"
+
+# GitHub App integration
+coolify github list
+coolify github repos <app-uuid>
+coolify github branches <app-uuid> owner/repo
+
+# Team management
+coolify team list
+coolify team current
+coolify team members list
+` + "```" + `
+
+## API Notes
+
+- All resource identifiers use UUIDs (not internal database IDs)
+- API base path: ` + "`/api/v1/`" + `
+- Authentication: Bearer token via ` + "`--token`" + ` flag or context configuration
+- ` + "`app env sync`" + ` behavior: updates existing variables, creates missing ones, does NOT delete variables not in the file
+- ` + "`app start`" + ` aliases to ` + "`app deploy`" + ` and also accepts ` + "`--force`" + ` and ` + "`--instant-deploy`" + ` flags
+- Deployment logs support ` + "`--follow`" + ` for real-time streaming and ` + "`--debuglogs`" + ` for internal operations
+- ` + "`app logs`" + ` defaults to 100 lines; ` + "`app deployments logs`" + ` defaults to 0 (all lines)
+- Short flag ` + "`-n`" + ` can be used instead of ` + "`--lines`" + ` for log commands
+- ` + "`completion`" + ` command supports shells: ` + "`bash`" + `, ` + "`zsh`" + `, ` + "`fish`" + `, ` + "`powershell`" + `
+- Resource statuses: ` + "`running`" + `, ` + "`stopped`" + `, ` + "`error`" + `
+- Teams use numeric IDs (not UUIDs) - this is the only resource that uses IDs
+- Fields marked ` + "`sensitive:\"true\"`" + ` (tokens, passwords, IPs, emails) are hidden by default; use ` + "`--show-sensitive`" + ` to reveal
+
+---
+
+## Command Reference
+
+`
+
+// writeLLMsAliases writes aliases derived from the Cobra command tree.
+func writeLLMsAliases(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
+	aliases := collectLLMsAliases(cmd, parentPath)
+	if len(aliases) == 0 {
+		return
+	}
+
+	sb.WriteString("\n## Command Aliases\n\n")
+	sb.WriteString("Aliases are derived from the CLI command tree:\n")
+	for _, aliasLine := range aliases {
+		fmt.Fprintf(sb, "- %s\n", aliasLine)
+	}
+}
+
+func collectLLMsAliases(cmd *cobra.Command, parentPath string) []string {
+	var aliases []string
+	if cmd.Name() != "docs" && cmd.Name() != "help" {
+		if len(cmd.Aliases) > 0 {
+			aliasNames := append([]string{cmd.Name()}, cmd.Aliases...)
+			for i := range aliasNames {
+				aliasNames[i] = fmt.Sprintf("`%s`", commandPathPrefix(parentPath, cmd)+aliasNames[i])
+			}
+			aliases = append(aliases, strings.Join(aliasNames, " | "))
+		}
+	}
+
+	for _, child := range cmd.Commands() {
+		if child.Hidden || child.Name() == "help" {
+			continue
+		}
+		aliases = append(aliases, collectLLMsAliases(child, llmsCommandName(parentPath, cmd))...)
+	}
+
+	slices.Sort(aliases)
+	return slices.Compact(aliases)
+}
+
+func llmsCommandName(parentPath string, cmd *cobra.Command) string {
+	if !cmd.HasParent() {
+		return parentPath
+	}
+
+	parts := strings.Fields(cmd.Use)
+	commandPath := parentPath + " " + parts[0]
+	if len(parts) > 1 {
+		commandPath += " " + strings.Join(parts[1:], " ")
+	}
+	return commandPath
+}
+
+func commandPathPrefix(parentPath string, cmd *cobra.Command) string {
+	if cmd.HasParent() {
+		return parentPath + " "
+	}
+	return ""
+}
+
 // writeLLMsCommand recursively writes command documentation in llms.txt format.
 func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
 	// Build the full command path including args from Use field
-	commandPath := parentPath
-	if cmd.HasParent() {
-		parts := strings.Fields(cmd.Use)
-		commandPath = parentPath + " " + parts[0]
-		// Append positional args from the Use field (e.g., "<uuid>", "[optional]")
-		if len(parts) > 1 {
-			commandPath += " " + strings.Join(parts[1:], " ")
-		}
-	}
+	commandPath := llmsCommandName(parentPath, cmd)
 
 	// Skip the docs command itself and help command
 	if cmd.Name() == "docs" || cmd.Name() == "help" {
@@ -192,10 +382,17 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 				// or via "(required)" in the usage string
 				required := isFlagRequired(f)
 
-				fmt.Fprintf(sb, "  - name: --%s\n", f.Name)
+				if f.Shorthand != "" {
+					fmt.Fprintf(sb, "  - name: --%s (-%s)\n", f.Name, f.Shorthand)
+				} else {
+					fmt.Fprintf(sb, "  - name: --%s\n", f.Name)
+				}
 				fmt.Fprintf(sb, "    type: %s\n", flagType)
 				fmt.Fprintf(sb, "    description: %s\n", f.Usage)
 				fmt.Fprintf(sb, "    required: %t\n", required)
+				if f.DefValue != "" && f.DefValue != "[]" {
+					fmt.Fprintf(sb, "    default: %s\n", f.DefValue)
+				}
 			}
 		}
 
@@ -209,8 +406,7 @@ func writeLLMsCommand(sb *strings.Builder, cmd *cobra.Command, parentPath string
 		}
 		childPath := parentPath
 		if cmd.HasParent() {
-			parts := strings.Fields(cmd.Use)
-			childPath = parentPath + " " + parts[0]
+			childPath = llmsCommandName(parentPath, cmd)
 		}
 		writeLLMsCommand(sb, child, childPath)
 	}

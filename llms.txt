@@ -1,3 +1,155 @@
+# Coolify CLI - llms.txt
+
+> A CLI tool for interacting with the Coolify API, built with Go.
+> Manage Coolify instances (cloud and self-hosted), servers, projects, applications, databases, services, deployments, domains, and private keys.
+> Source: https://github.com/coollabsio/coolify-cli
+> API Spec: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+
+## Installation
+
+```bash
+# Linux/macOS (recommended)
+curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
+
+# Homebrew (macOS/Linux)
+brew install coollabsio/coolify-cli/coolify-cli
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+
+# Go install
+go install github.com/coollabsio/coolify-cli/coolify@latest
+```
+
+## Authentication
+
+1. Get an API token from your Coolify dashboard at `/security/api-tokens`
+2. For Coolify Cloud: `coolify context set-token cloud <token>`
+3. For self-hosted: `coolify context add -d <context_name> <url> <token>`
+
+## Configuration
+
+Config file location:
+- Linux/macOS: `~/.config/coolify/config.json`
+- Windows: `%APPDATA%\coolify\config.json`
+
+Supports multiple contexts (instances) with `coolify context` commands.
+
+## Output Formats
+
+All commands support `--format` flag:
+- `table` (default) - human-readable tabular output
+- `json` - compact JSON for scripting
+- `pretty` - indented JSON for debugging
+
+## Command Aliases
+
+Aliases are derived from the CLI command tree:
+- `coolify app env` | `coolify app envs` | `coolify app environment`
+- `coolify app start` | `coolify app deploy`
+- `coolify app storage` | `coolify app storages`
+- `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
+- `coolify database storage` | `coolify database storages`
+- `coolify database` | `coolify databases` | `coolify db` | `coolify dbs`
+- `coolify github` | `coolify gh` | `coolify github-app` | `coolify github-apps`
+- `coolify private-key` | `coolify private-keys` | `coolify key` | `coolify keys`
+- `coolify project` | `coolify projects`
+- `coolify resource` | `coolify resources`
+- `coolify server domains` | `coolify server domain`
+- `coolify server` | `coolify servers`
+- `coolify service storage` | `coolify service storages`
+- `coolify service` | `coolify services` | `coolify svc`
+- `coolify teams members` | `coolify teams member`
+- `coolify teams` | `coolify team`
+
+
+## Supported Database Types
+
+When using `coolify database create <type>`:
+- `postgresql`
+- `mysql`
+- `mariadb`
+- `mongodb`
+- `redis`
+- `keydb`
+- `clickhouse`
+- `dragonfly`
+
+## Usage Examples
+
+```bash
+# Multi-context workflow
+coolify context add prod https://prod.coolify.io <token>
+coolify context add staging https://staging.coolify.io <token>
+coolify context use prod
+coolify --context=staging server list
+
+# Application lifecycle
+coolify app list
+coolify app get <uuid>
+coolify app start <uuid>
+coolify app stop <uuid>
+coolify app restart <uuid>
+coolify app logs <uuid> --follow
+
+# Environment variable management
+coolify app env list <uuid>
+coolify app env create <uuid> --key API_KEY --value secret123
+coolify app env sync <uuid> --file .env.production --build-time --preview
+
+# Deploy workflows
+coolify deploy name my-application
+coolify deploy batch api,worker,frontend --force
+coolify deploy list
+coolify deploy cancel <uuid>
+
+# Database backup
+coolify database backup create <db-uuid> --frequency "0 2 * * *" --enabled --save-s3
+coolify database backup trigger <db-uuid> <backup-uuid>
+
+# Application creation
+coolify app create public --project-uuid <uuid> --server-uuid <uuid> --git-repository https://github.com/user/repo --git-branch main --build-pack nixpacks --ports-exposes 3000
+coolify app create dockerfile --project-uuid <uuid> --server-uuid <uuid> --dockerfile "FROM node:18\nCOPY . .\nRUN npm install\nCMD [\"node\", \"index.js\"]"
+coolify app create dockerimage --project-uuid <uuid> --server-uuid <uuid> --docker-registry-image-name nginx --ports-exposes 80
+
+# Service creation (one-click services)
+coolify service create <type> --project-uuid <uuid> --server-uuid <uuid> --instant-deploy
+coolify service create --list-types  # list all available service types
+
+# Storage management
+coolify app storage create <app-uuid> --type persistent --mount-path /data --name my-volume
+coolify app storage create <app-uuid> --type file --mount-path /app/config.yml --content "key: value"
+
+# GitHub App integration
+coolify github list
+coolify github repos <app-uuid>
+coolify github branches <app-uuid> owner/repo
+
+# Team management
+coolify team list
+coolify team current
+coolify team members list
+```
+
+## API Notes
+
+- All resource identifiers use UUIDs (not internal database IDs)
+- API base path: `/api/v1/`
+- Authentication: Bearer token via `--token` flag or context configuration
+- `app env sync` behavior: updates existing variables, creates missing ones, does NOT delete variables not in the file
+- `app start` aliases to `app deploy` and also accepts `--force` and `--instant-deploy` flags
+- Deployment logs support `--follow` for real-time streaming and `--debuglogs` for internal operations
+- `app logs` defaults to 100 lines; `app deployments logs` defaults to 0 (all lines)
+- Short flag `-n` can be used instead of `--lines` for log commands
+- `completion` command supports shells: `bash`, `zsh`, `fish`, `powershell`
+- Resource statuses: `running`, `stopped`, `error`
+- Teams use numeric IDs (not UUIDs) - this is the only resource that uses IDs
+- Fields marked `sensitive:"true"` (tokens, passwords, IPs, emails) are hidden by default; use `--show-sensitive` to reveal
+
+---
+
+## Command Reference
+
 Command: coolify
 Description: Coolify CLI
 Parameters:
@@ -9,14 +161,17 @@ Parameters:
     type: boolean
     description: Debug mode
     required: false
+    default: false
   - name: --format
     type: string
     description: Format output (table|json|pretty)
     required: false
-  - name: --show-sensitive
+    default: table
+  - name: --show-sensitive (-s)
     type: boolean
     description: Show sensitive information
     required: false
+    default: false
   - name: --token
     type: string
     description: Token for authentication (override context token)
@@ -77,6 +232,7 @@ Parameters:
     type: boolean
     description: Enable health checks
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -89,6 +245,7 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -165,6 +322,7 @@ Parameters:
     type: boolean
     description: Enable health checks
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -173,6 +331,7 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -241,6 +400,7 @@ Parameters:
     type: boolean
     description: Enable health checks
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -249,6 +409,7 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -337,6 +498,7 @@ Parameters:
     type: boolean
     description: Enable health checks
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -349,6 +511,7 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -441,6 +604,7 @@ Parameters:
     type: boolean
     description: Enable health checks
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -453,6 +617,7 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -493,10 +658,11 @@ Parameters:
 Command: coolify app delete <uuid>
 Description: Delete an application. This action cannot be undone.
 Parameters:
-  - name: --force
+  - name: --force (-f)
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify app deployments list <app-uuid>
 Description: Retrieve a list of all deployments for a specific application.
@@ -509,14 +675,17 @@ Parameters:
     type: boolean
     description: Show debug logs (includes hidden commands and internal operations)
     required: false
-  - name: --follow
+    default: false
+  - name: --follow (-f)
     type: boolean
     description: Follow log output (like tail -f)
     required: false
-  - name: --lines
+    default: false
+  - name: --lines (-n)
     type: integer
     description: Number of log lines to display (0 = all)
     required: false
+    default: 0
 
 Command: coolify app env create <app_uuid>
 Description: Create a new environment variable for a specific application. Use --key and --value flags to specify the variable.
@@ -525,6 +694,7 @@ Parameters:
     type: boolean
     description: Available at build time (default: true)
     required: false
+    default: true
   - name: --comment
     type: string
     description: Comment for the environment variable
@@ -533,10 +703,12 @@ Parameters:
     type: boolean
     description: Treat value as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --key
     type: string
     description: Environment variable key (required)
@@ -545,10 +717,12 @@ Parameters:
     type: boolean
     description: Available in preview deployments
     required: false
+    default: false
   - name: --runtime
     type: boolean
     description: Available at runtime (default: true)
     required: false
+    default: true
   - name: --value
     type: string
     description: Environment variable value (required)
@@ -561,6 +735,7 @@ Parameters:
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify app env get <app_uuid> <env_uuid_or_key>
 Description: Get detailed information about a specific environment variable by UUID or key name.
@@ -573,10 +748,12 @@ Parameters:
     type: boolean
     description: Show all environment variables (non-preview first, then preview)
     required: false
+    default: false
   - name: --preview
     type: boolean
     description: Show preview environment variables instead of regular ones
     required: false
+    default: false
 
 Command: coolify app env sync <app_uuid>
 Description: Sync environment variables from a .env file
@@ -585,7 +762,8 @@ Parameters:
     type: boolean
     description: Make all variables available at build time (default: true)
     required: false
-  - name: --file
+    default: true
+  - name: --file (-f)
     type: string
     description: Path to .env file (required)
     required: true
@@ -593,14 +771,17 @@ Parameters:
     type: boolean
     description: Treat all values as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --preview
     type: boolean
     description: Make all variables available in preview deployments
     required: false
+    default: false
   - name: --runtime
     type: boolean
     description: Make all variables available at runtime (default: true)
     required: false
+    default: true
 
 Command: coolify app env update <app_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
@@ -609,6 +790,7 @@ Parameters:
     type: boolean
     description: Available at build time (default: true)
     required: false
+    default: true
   - name: --comment
     type: string
     description: Comment for the environment variable
@@ -617,10 +799,12 @@ Parameters:
     type: boolean
     description: Treat value as literal
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --key
     type: string
     description: New environment variable key (rename)
@@ -629,10 +813,12 @@ Parameters:
     type: boolean
     description: Available in preview deployments
     required: false
+    default: false
   - name: --runtime
     type: boolean
     description: Available at runtime (default: true)
     required: false
+    default: true
   - name: --value
     type: string
     description: New environment variable value (required)
@@ -649,14 +835,16 @@ Parameters: (None)
 Command: coolify app logs <uuid>
 Description: Retrieve logs for an application. Use --follow to continuously stream new logs.
 Parameters:
-  - name: --follow
+  - name: --follow (-f)
     type: boolean
     description: Follow log output (like tail -f)
     required: false
-  - name: --lines
+    default: false
+  - name: --lines (-n)
     type: integer
     description: Number of log lines to retrieve
     required: false
+    default: 100
 
 Command: coolify app restart <uuid>
 Description: Restart a running application.
@@ -669,10 +857,12 @@ Parameters:
     type: boolean
     description: Force rebuild
     required: false
+    default: false
   - name: --instant-deploy
     type: boolean
     description: Instant deploy (skip queuing)
     required: false
+    default: false
 
 Command: coolify app stop <uuid>
 Description: Stop a running application.
@@ -697,6 +887,7 @@ Parameters:
     type: boolean
     description: Whether this is a directory mount (file only)
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container (required)
@@ -733,10 +924,12 @@ Parameters:
     type: integer
     description: Storage ID (deprecated, use --uuid instead)
     required: false
+    default: 0
   - name: --is-preview-suffix-enabled
     type: boolean
     description: Enable preview suffix for this storage
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container
@@ -801,6 +994,7 @@ Parameters:
     type: boolean
     description: Enable health check
     required: false
+    default: false
   - name: --health-check-path
     type: string
     description: Health check path
@@ -841,14 +1035,16 @@ Parameters: (None)
 Command: coolify context add <context_name> <url> <token>
 Description: Add a new context
 Parameters:
-  - name: --default
+  - name: --default (-d)
     type: boolean
     description: Set as default context
     required: false
-  - name: --force
+    default: false
+  - name: --force (-f)
     type: boolean
     description: Force overwrite if context already exists
     required: false
+    default: false
 
 Command: coolify context delete <context_name>
 Description: Delete a context
@@ -873,15 +1069,15 @@ Parameters: (None)
 Command: coolify context update <context_name>
 Description: Update a context's properties (name, URL, token)
 Parameters:
-  - name: --name
+  - name: --name (-n)
     type: string
     description: New name for the context
     required: false
-  - name: --token
+  - name: --token (-t)
     type: string
     description: New token for the context
     required: false
-  - name: --url
+  - name: --url (-u)
     type: string
     description: New URL for the context
     required: false
@@ -909,14 +1105,17 @@ Parameters:
     type: boolean
     description: Disable local backup storage
     required: false
+    default: false
   - name: --dump-all
     type: boolean
     description: Dump all databases
     required: false
+    default: false
   - name: --enabled
     type: boolean
     description: Enable backup schedule
     required: false
+    default: false
   - name: --frequency
     type: string
     description: Backup frequency (cron expression, e.g., '0 0 * * *' for daily)
@@ -925,18 +1124,22 @@ Parameters:
     type: integer
     description: Number of backups to retain locally
     required: false
+    default: 0
   - name: --retention-amount-s3
     type: integer
     description: Number of backups to retain in S3
     required: false
+    default: 0
   - name: --retention-days-locally
     type: integer
     description: Days to retain backups locally
     required: false
+    default: 0
   - name: --retention-days-s3
     type: integer
     description: Days to retain backups in S3
     required: false
+    default: 0
   - name: --retention-max-storage-locally
     type: string
     description: Max storage for local backups (e.g., '1GB', '500MB')
@@ -953,10 +1156,12 @@ Parameters:
     type: boolean
     description: Save backups to S3
     required: false
+    default: false
   - name: --timeout
     type: integer
     description: Backup timeout in seconds
     required: false
+    default: 0
 
 Command: coolify database backup delete <database_uuid> <backup_uuid>
 Description: Delete a backup configuration and optionally all its executions from S3. First UUID is the database, second is the specific backup configuration.
@@ -965,6 +1170,7 @@ Parameters:
     type: boolean
     description: Delete backup files from S3
     required: false
+    default: false
 
 Command: coolify database backup delete-execution <database_uuid> <backup_uuid> <execution_uuid>
 Description: Delete a specific backup execution and optionally from S3. First UUID is the database, second is the backup configuration, third is the specific execution.
@@ -973,6 +1179,7 @@ Parameters:
     type: boolean
     description: Delete backup file from S3
     required: false
+    default: false
 
 Command: coolify database backup executions <database_uuid> <backup_uuid>
 Description: List all executions for a backup configuration. First UUID is the database, second is the specific backup configuration.
@@ -997,10 +1204,12 @@ Parameters:
     type: boolean
     description: Dump all databases
     required: false
+    default: false
   - name: --enabled
     type: boolean
     description: Enable or disable backup
     required: false
+    default: false
   - name: --frequency
     type: string
     description: Backup frequency (cron expression)
@@ -1009,26 +1218,32 @@ Parameters:
     type: integer
     description: Number of backups to retain locally
     required: false
+    default: 0
   - name: --retention-amount-s3
     type: integer
     description: Number of backups to retain in S3
     required: false
+    default: 0
   - name: --retention-days-locally
     type: integer
     description: Days to retain backups locally
     required: false
+    default: 0
   - name: --retention-days-s3
     type: integer
     description: Days to retain backups in S3
     required: false
+    default: 0
   - name: --retention-max-storage-locally
     type: integer
     description: Max storage for local backups (MB)
     required: false
+    default: 0
   - name: --retention-max-storage-s3
     type: integer
     description: Max storage for S3 backups (MB)
     required: false
+    default: 0
   - name: --s3-storage-uuid
     type: string
     description: S3 storage UUID
@@ -1037,6 +1252,7 @@ Parameters:
     type: boolean
     description: Save backups to S3
     required: false
+    default: false
 
 Command: coolify database create <type>
 Description: Create a new database
@@ -1077,10 +1293,12 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --is-public
     type: boolean
     description: Make database publicly accessible
     required: false
+    default: false
   - name: --keydb-password
     type: string
     description: KeyDB password
@@ -1161,6 +1379,7 @@ Parameters:
     type: integer
     description: Public port
     required: false
+    default: 0
   - name: --redis-password
     type: string
     description: Redis password
@@ -1177,18 +1396,22 @@ Parameters:
     type: boolean
     description: Delete configurations
     required: false
+    default: true
   - name: --delete-connected-networks
     type: boolean
     description: Delete connected networks
     required: false
+    default: true
   - name: --delete-volumes
     type: boolean
     description: Delete volumes
     required: false
+    default: true
   - name: --docker-cleanup
     type: boolean
     description: Run docker cleanup
     required: false
+    default: true
 
 Command: coolify database env create <database_uuid>
 Description: Create a new environment variable for a specific database. Use --key and --value flags to specify the variable.
@@ -1201,14 +1424,17 @@ Parameters:
     type: boolean
     description: Treat value as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --is-shown-once
     type: boolean
     description: Only show value once
     required: false
+    default: false
   - name: --key
     type: string
     description: Environment variable key (required)
@@ -1225,6 +1451,7 @@ Parameters:
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify database env get <database_uuid> <env_uuid_or_key>
 Description: Get detailed information about a specific environment variable. First UUID is the database, second is the environment variable UUID or key name.
@@ -1237,7 +1464,7 @@ Parameters: (None)
 Command: coolify database env sync <database_uuid>
 Description: Sync environment variables from a .env file
 Parameters:
-  - name: --file
+  - name: --file (-f)
     type: string
     description: Path to .env file (required)
     required: true
@@ -1245,6 +1472,7 @@ Parameters:
     type: boolean
     description: Treat all values as literal (don't interpolate variables)
     required: false
+    default: false
 
 Command: coolify database env update <database_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
@@ -1257,14 +1485,17 @@ Parameters:
     type: boolean
     description: Treat value as literal
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --is-shown-once
     type: boolean
     description: Only show value once
     required: false
+    default: false
   - name: --key
     type: string
     description: New environment variable key (rename)
@@ -1313,6 +1544,7 @@ Parameters:
     type: boolean
     description: Whether this is a directory mount (file only)
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container (required)
@@ -1349,10 +1581,12 @@ Parameters:
     type: integer
     description: Storage ID (deprecated, use --uuid instead)
     required: false
+    default: 0
   - name: --is-preview-suffix-enabled
     type: boolean
     description: Enable preview suffix for this storage
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container
@@ -1385,6 +1619,7 @@ Parameters:
     type: boolean
     description: Make database publicly accessible
     required: false
+    default: false
   - name: --limits-cpus
     type: string
     description: CPU limit
@@ -1401,22 +1636,34 @@ Parameters:
     type: integer
     description: Public port
     required: false
+    default: 0
 
 Command: coolify deploy batch <name1,name2,...>
 Description: Deploy multiple resources by name
 Parameters:
+  - name: --docker-tag
+    type: string
+    description: Docker image tag override for the deployment
+    required: false
   - name: --force
     type: boolean
     description: Force deployment
     required: false
+    default: false
+  - name: --pull-request-id
+    type: integer
+    description: Pull request ID for preview deployments
+    required: false
+    default: 0
 
 Command: coolify deploy cancel <uuid>
 Description: Cancel an in-progress deployment. This will stop the deployment process and clean up any temporary resources.
 Parameters:
-  - name: --force
+  - name: --force (-f)
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify deploy get <uuid>
 Description: Get detailed information about a specific deployment by its UUID.
@@ -1429,18 +1676,38 @@ Parameters: (None)
 Command: coolify deploy name <resource_name>
 Description: Deploy by resource name
 Parameters:
+  - name: --docker-tag
+    type: string
+    description: Docker image tag override for the deployment
+    required: false
   - name: --force
     type: boolean
     description: Force deployment
     required: false
+    default: false
+  - name: --pull-request-id
+    type: integer
+    description: Pull request ID for preview deployments
+    required: false
+    default: 0
 
 Command: coolify deploy uuid <uuid>
 Description: Deploy by uuid
 Parameters:
+  - name: --docker-tag
+    type: string
+    description: Docker image tag override for the deployment
+    required: false
   - name: --force
     type: boolean
     description: Force deployment
     required: false
+    default: false
+  - name: --pull-request-id
+    type: integer
+    description: Pull request ID for preview deployments
+    required: false
+    default: 0
 
 Command: coolify github branches <app_uuid> <owner/repo>
 Description: List branches for a repository
@@ -1457,6 +1724,7 @@ Parameters:
     type: integer
     description: GitHub App ID (required)
     required: true
+    default: 0
   - name: --client-id
     type: string
     description: GitHub OAuth Client ID (required)
@@ -1469,6 +1737,7 @@ Parameters:
     type: integer
     description: Custom port for SSH (default: 22)
     required: false
+    default: 0
   - name: --custom-user
     type: string
     description: Custom user for SSH (default: git)
@@ -1481,6 +1750,7 @@ Parameters:
     type: integer
     description: GitHub Installation ID (required)
     required: true
+    default: 0
   - name: --name
     type: string
     description: GitHub App name (required)
@@ -1497,6 +1767,7 @@ Parameters:
     type: boolean
     description: Is this app system-wide (cloud only)
     required: false
+    default: false
   - name: --webhook-secret
     type: string
     description: GitHub Webhook Secret
@@ -1505,10 +1776,11 @@ Parameters:
 Command: coolify github delete <app_uuid>
 Description: Delete a GitHub App integration. The app must not be used by any applications.
 Parameters:
-  - name: --force
+  - name: --force (-f)
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify github get <app_uuid>
 Description: Get detailed information about a specific GitHub App integration.
@@ -1533,6 +1805,7 @@ Parameters:
     type: integer
     description: GitHub App ID
     required: false
+    default: 0
   - name: --client-id
     type: string
     description: GitHub OAuth Client ID
@@ -1545,6 +1818,7 @@ Parameters:
     type: integer
     description: Custom port for SSH
     required: false
+    default: 0
   - name: --custom-user
     type: string
     description: Custom user for SSH
@@ -1557,6 +1831,7 @@ Parameters:
     type: integer
     description: GitHub Installation ID
     required: false
+    default: 0
   - name: --name
     type: string
     description: GitHub App name
@@ -1573,6 +1848,7 @@ Parameters:
     type: boolean
     description: Is this app system-wide
     required: false
+    default: false
   - name: --webhook-secret
     type: string
     description: GitHub Webhook Secret
@@ -1617,18 +1893,21 @@ Parameters: (None)
 Command: coolify server add <server_name> <ip_address> <private_key_uuid>
 Description: Add a server
 Parameters:
-  - name: --port
+  - name: --port (-p)
     type: integer
     description: Port
     required: false
-  - name: --user
+    default: 22
+  - name: --user (-u)
     type: string
     description: User
     required: false
+    default: root
   - name: --validate
     type: boolean
     description: Validate the server
     required: false
+    default: false
 
 Command: coolify server domains <uuid>
 Description: Get server domains by uuid
@@ -1641,6 +1920,7 @@ Parameters:
     type: boolean
     description: With resources
     required: false
+    default: false
 
 Command: coolify server list
 Description: List all servers
@@ -1681,10 +1961,12 @@ Parameters:
     type: boolean
     description: Deploy immediately after creation
     required: false
+    default: false
   - name: --list-types
     type: boolean
     description: List all available service types
     required: false
+    default: false
   - name: --name
     type: string
     description: Service name
@@ -1705,22 +1987,27 @@ Parameters:
     type: boolean
     description: Delete configurations
     required: false
+    default: true
   - name: --delete-connected-networks
     type: boolean
     description: Delete connected networks
     required: false
+    default: true
   - name: --delete-volumes
     type: boolean
     description: Delete volumes
     required: false
+    default: true
   - name: --docker-cleanup
     type: boolean
     description: Run docker cleanup
     required: false
-  - name: --force
+    default: true
+  - name: --force (-f)
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify service env create <service_uuid>
 Description: Create a new environment variable for a specific service. Use --key and --value flags to specify the variable.
@@ -1729,6 +2016,7 @@ Parameters:
     type: boolean
     description: Available at build time (default: true)
     required: false
+    default: true
   - name: --comment
     type: string
     description: Comment for the environment variable
@@ -1737,10 +2025,12 @@ Parameters:
     type: boolean
     description: Treat value as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --key
     type: string
     description: Environment variable key (required)
@@ -1749,6 +2039,7 @@ Parameters:
     type: boolean
     description: Available at runtime (default: true)
     required: false
+    default: true
   - name: --value
     type: string
     description: Environment variable value (required)
@@ -1761,6 +2052,7 @@ Parameters:
     type: boolean
     description: Skip confirmation prompt
     required: false
+    default: false
 
 Command: coolify service env get <service_uuid> <env_uuid_or_key>
 Description: Get detailed information about a specific environment variable. First UUID is the service, second is the environment variable UUID or key name.
@@ -1777,7 +2069,8 @@ Parameters:
     type: boolean
     description: Make all variables available at build time (default: true)
     required: false
-  - name: --file
+    default: true
+  - name: --file (-f)
     type: string
     description: Path to .env file (required)
     required: true
@@ -1785,10 +2078,12 @@ Parameters:
     type: boolean
     description: Treat all values as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --runtime
     type: boolean
     description: Make all variables available at runtime (default: true)
     required: false
+    default: true
 
 Command: coolify service env update <service_uuid> <env_uuid_or_key>
 Description: Update an existing environment variable. Identify it by UUID or key name.
@@ -1797,6 +2092,7 @@ Parameters:
     type: boolean
     description: Available at build time (default: true)
     required: false
+    default: true
   - name: --comment
     type: string
     description: Comment for the environment variable
@@ -1805,10 +2101,12 @@ Parameters:
     type: boolean
     description: Treat value as literal (don't interpolate variables)
     required: false
+    default: false
   - name: --is-multiline
     type: boolean
     description: Value is multiline
     required: false
+    default: false
   - name: --key
     type: string
     description: New environment variable key (rename)
@@ -1817,6 +2115,7 @@ Parameters:
     type: boolean
     description: Available at runtime (default: true)
     required: false
+    default: true
   - name: --value
     type: string
     description: New environment variable value (required)
@@ -1861,6 +2160,7 @@ Parameters:
     type: boolean
     description: Whether this is a directory mount (file only)
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container (required)
@@ -1901,10 +2201,12 @@ Parameters:
     type: integer
     description: Storage ID (deprecated, use --uuid instead)
     required: false
+    default: 0
   - name: --is-preview-suffix-enabled
     type: boolean
     description: Enable preview suffix for this storage
     required: false
+    default: false
   - name: --mount-path
     type: string
     description: Mount path inside the container
