@@ -35,16 +35,11 @@ type DeployResponse struct {
 }
 
 // Deploy triggers a deployment for a resource
-func (s *DeploymentService) Deploy(ctx context.Context, uuid string, force bool) (*DeployResponse, error) {
-	endpoint := fmt.Sprintf("deploy?uuid=%s", uuid)
-	if force {
-		endpoint += "&force=true"
-	}
-
+func (s *DeploymentService) Deploy(ctx context.Context, req models.DeployRequest) (*DeployResponse, error) {
 	var response DeployResponse
-	err := s.client.Get(ctx, endpoint, &response)
+	err := s.client.Post(ctx, "deploy", req, &response)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy resource %s: %w", uuid, err)
+		return nil, fmt.Errorf("failed to deploy resource %s: %w", req.UUID, err)
 	}
 	return &response, nil
 }

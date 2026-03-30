@@ -30,10 +30,12 @@ func NewUUIDCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
+			if err := validateDeployFlags(ctx, cmd, client); err != nil {
+				return err
+			}
 
-			force, _ := cmd.Flags().GetBool("force")
 			deploySvc := service.NewDeploymentService(client)
-			result, err := deploySvc.Deploy(ctx, uuid, force)
+			result, err := deploySvc.Deploy(ctx, getDeployRequest(cmd, uuid))
 			if err != nil {
 				return fmt.Errorf("failed to deploy resource: %w", err)
 			}
@@ -60,6 +62,6 @@ func NewUUIDCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Bool("force", false, "Force deployment")
+	addDeployFlags(cmd)
 	return cmd
 }

@@ -24,6 +24,9 @@ func NewNameCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
 			}
+			if err := validateDeployFlags(ctx, cmd, client); err != nil {
+				return err
+			}
 
 			// Find resource by name
 			resourceSvc := service.NewResourceService(client)
@@ -45,9 +48,8 @@ func NewNameCommand() *cobra.Command {
 			}
 
 			// Deploy using the found UUID
-			force, _ := cmd.Flags().GetBool("force")
 			deploySvc := service.NewDeploymentService(client)
-			result, err := deploySvc.Deploy(ctx, matchedUUID, force)
+			result, err := deploySvc.Deploy(ctx, getDeployRequest(cmd, matchedUUID))
 			if err != nil {
 				return fmt.Errorf("failed to deploy resource: %w", err)
 			}
@@ -74,6 +76,6 @@ func NewNameCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Bool("force", false, "Force deployment")
+	addDeployFlags(cmd)
 	return cmd
 }

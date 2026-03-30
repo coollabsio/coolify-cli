@@ -23,3 +23,11 @@ type DeployResponse struct {
 	Message        string `json:"message"`
 	DeploymentUUID string `json:"deployment_uuid,omitempty"`
 }
+
+// DeployRequest represents the request to trigger a deployment.
+type DeployRequest struct {
+	UUID          string  `json:"uuid"`
+	Force         *bool   `json:"force,omitempty"`
+	PullRequestID *int    `json:"pull_request_id,omitempty"`
+	DockerTag     *string `json:"docker_tag,omitempty"`
+}
