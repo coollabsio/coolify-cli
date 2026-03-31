@@ -90,40 +90,167 @@ The markdown files will be written to the specified directory (default: ./docs).
 
 var llmsCmd = &cobra.Command{
 	Use:   "llms",
-	Short: "Generate llms.txt for AI agent command specification",
-	Long: `Generate a machine-readable llms.txt file that defines all CLI commands and their parameters.
+	Short: "Generate llms.txt and llms-full.txt for AI agents",
+	Long: `Generate AI-friendly documentation files for the Coolify CLI.
 
-This file is intended to enable AI agents to understand and interact with the CLI.
-The output file will be written to the specified path (default: ./llms.txt).`,
+This creates a concise llms.txt quick reference plus a complete llms-full.txt command catalog.
+The output files will be written to the specified paths (defaults: ./llms.txt and ./llms-full.txt).`,
 	Example: `  coolify docs llms
-  coolify docs llms --output=./llms.txt`,
+  coolify docs llms --output=./llms.txt --full-output=./llms-full.txt`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		outputFile, _ := cmd.Flags().GetString("output")
+		fullOutputFile, _ := cmd.Flags().GetString("full-output")
 
-		var sb strings.Builder
-		sb.WriteString(llmsIntro)
-		writeLLMsAliases(&sb, rootCmd, "coolify")
-		sb.WriteString(llmsBody)
-		writeLLMsCommand(&sb, rootCmd, "coolify")
-
-		if err := os.WriteFile(outputFile, []byte(sb.String()), 0600); err != nil {
-			return fmt.Errorf("failed to write llms.txt: %w", err)
-		}
-
-		absPath, _ := filepath.Abs(outputFile)
-		fmt.Printf("llms.txt generated successfully: %s\n", absPath)
-
-		return nil
+		return writeLLMsArtifacts(outputFile, fullOutputFile)
 	},
 }
 
-// llmsIntro contains the static overview section prepended to the generated command reference.
-const llmsIntro = `# Coolify CLI - llms.txt
+const llmsQuickTemplate = `# Coolify CLI - llms.txt
 
-> A CLI tool for interacting with the Coolify API, built with Go.
+> Quick AI/LLM instructions for the Coolify CLI.
+> Source: https://github.com/coollabsio/coolify-cli
+> API Spec: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+
+## Operating Rules
+
+- Prefer ` + "`--format json`" + ` for automation and parsing.
+- Use Coolify UUIDs for resources; do not use internal numeric IDs.
+- Team commands are the exception: they use numeric team IDs.
+- Authenticate with a saved context when possible; use ` + "`--token`" + ` only for overrides.
+- Use ` + "`llms-full.txt`" + ` for the exhaustive command/flag catalog.
+
+## Installation
+
+` + "```bash" + `
+# Linux/macOS (recommended)
+curl -fsSL https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.sh | bash
+
+# Homebrew (macOS/Linux)
+brew install coollabsio/coolify-cli/coolify-cli
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/coollabsio/coolify-cli/main/scripts/install.ps1 | iex
+
+# Go install
+go install github.com/coollabsio/coolify-cli/coolify@latest
+` + "```" + `
+
+## Authentication
+
+1. Get an API token from your Coolify dashboard at ` + "`/security/api-tokens`" + `
+2. For Coolify Cloud: ` + "`coolify context set-token cloud <token>`" + `
+3. For self-hosted: ` + "`coolify context add -d <context_name> <url> <token>`" + `
+4. Switch contexts with ` + "`coolify context use <context_name>`" + `
+
+## Configuration
+
+Config file location:
+- Linux/macOS: ` + "`~/.config/coolify/config.json`" + `
+- Windows: ` + "`%%APPDATA%%\\coolify\\config.json`" + `
+
+Supports multiple contexts (instances) with ` + "`coolify context`" + ` commands.
+
+## Output Formats
+
+All commands support ` + "`--format`" + ` flag:
+- ` + "`table`" + ` (default) - human-readable tabular output
+- ` + "`json`" + ` - compact JSON for scripting
+- ` + "`pretty`" + ` - indented JSON for debugging
+
+## Global Flags
+
+- ` + "`--context <name>`" + ` - use a specific saved context
+- ` + "`--token <token>`" + ` - override token from config
+- ` + "`--format table|json|pretty`" + ` - choose output format
+- ` + "`--show-sensitive`" + ` - reveal sensitive values
+- ` + "`--debug`" + ` - enable debug output
+
+## Common Workflows
+
+### Contexts
+
+` + "```bash" + `
+coolify context list
+coolify context verify
+coolify context version
+coolify context use prod
+` + "```" + `
+
+### Inventory
+
+` + "```bash" + `
+coolify server list
+coolify project list
+coolify resource list
+coolify app list
+coolify service list
+coolify database list
+` + "```" + `
+
+### Applications
+
+` + "```bash" + `
+coolify app get <uuid>
+coolify app start <uuid>
+coolify app stop <uuid>
+coolify app restart <uuid>
+coolify app logs <uuid> --follow
+coolify app deployments list <app-uuid>
+coolify app deployments logs <app-uuid> --follow
+` + "```" + `
+
+### Environment Variables
+
+` + "```bash" + `
+coolify app env list <app-uuid>
+coolify app env create <app-uuid> --key API_KEY --value secret123
+coolify app env update <app-uuid> <env-uuid-or-key> --value new-secret
+coolify app env sync <app-uuid> --file .env.production --build-time --preview
+` + "```" + `
+
+### Deployments
+
+` + "```bash" + `
+coolify deploy list
+coolify deploy name my-application
+coolify deploy batch api,worker,frontend --force
+coolify deploy cancel <deployment-uuid>
+` + "```" + `
+
+### Databases and Services
+
+` + "```bash" + `
+coolify database get <uuid>
+coolify database create postgresql --server-uuid <uuid> --project-uuid <uuid> --environment-name production
+coolify database backup list <database-uuid>
+coolify service get <uuid>
+coolify service create <type> --project-uuid <uuid> --server-uuid <uuid> --instant-deploy
+` + "```" + `
+
+## Common Aliases
+
+- ` + "`coolify app`" + ` | ` + "`coolify apps`" + ` | ` + "`coolify application`" + ` | ` + "`coolify applications`" + `
+- ` + "`coolify service`" + ` | ` + "`coolify services`" + ` | ` + "`coolify svc`" + `
+- ` + "`coolify database`" + ` | ` + "`coolify databases`" + ` | ` + "`coolify db`" + ` | ` + "`coolify dbs`" + `
+- ` + "`coolify teams`" + ` | ` + "`coolify team`" + `
+
+## Full Reference
+
+- Full command and parameter catalog: %s
+- Regenerate docs: ` + "`go run ./coolify docs llms`" + `
+`
+
+const llmsFullIntro = `# Coolify CLI - llms-full.txt
+
+> Full AI/LLM command catalog for the Coolify CLI.
 > Manage Coolify instances (cloud and self-hosted), servers, projects, applications, databases, services, deployments, domains, and private keys.
 > Source: https://github.com/coollabsio/coolify-cli
 > API Spec: https://github.com/coollabsio/coolify/blob/v4.x/openapi.json
+
+## Companion Files
+
+- Quick instructions: %s
+- Regenerate docs: ` + "`go run ./coolify docs llms`" + `
 
 ## Installation
 
@@ -151,7 +278,7 @@ go install github.com/coollabsio/coolify-cli/coolify@latest
 
 Config file location:
 - Linux/macOS: ` + "`~/.config/coolify/config.json`" + `
-- Windows: ` + "`%APPDATA%\\coolify\\config.json`" + `
+- Windows: ` + "`%%APPDATA%%\\coolify\\config.json`" + `
 
 Supports multiple contexts (instances) with ` + "`coolify context`" + ` commands.
 
@@ -163,7 +290,7 @@ All commands support ` + "`--format`" + ` flag:
 - ` + "`pretty`" + ` - indented JSON for debugging
 `
 
-const llmsBody = `
+const llmsFullBody = `
 
 ## Supported Database Types
 
@@ -253,6 +380,69 @@ coolify team members list
 ## Command Reference
 
 `
+
+func buildQuickLLMSText(fullReferencePath string) string {
+	return fmt.Sprintf(llmsQuickTemplate, fullReferencePath)
+}
+
+func buildFullLLMSText(quickReferencePath string) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, llmsFullIntro, quickReferencePath)
+	writeLLMsAliases(&sb, rootCmd, "coolify")
+	sb.WriteString(llmsFullBody)
+	writeLLMsCommand(&sb, rootCmd, "coolify")
+	return sb.String()
+}
+
+func writeLLMsArtifacts(outputFile, fullOutputFile string) error {
+	if filepath.Clean(outputFile) == filepath.Clean(fullOutputFile) {
+		return fmt.Errorf("output and full-output must be different files")
+	}
+
+	if err := ensureParentDir(outputFile); err != nil {
+		return err
+	}
+	if err := ensureParentDir(fullOutputFile); err != nil {
+		return err
+	}
+
+	quickReferencePath := llmsReferencePath(fullOutputFile, outputFile)
+	fullReferencePath := llmsReferencePath(outputFile, fullOutputFile)
+
+	if err := os.WriteFile(outputFile, []byte(buildQuickLLMSText(fullReferencePath)), 0600); err != nil {
+		return fmt.Errorf("failed to write llms.txt: %w", err)
+	}
+	if err := os.WriteFile(fullOutputFile, []byte(buildFullLLMSText(quickReferencePath)), 0600); err != nil {
+		return fmt.Errorf("failed to write llms-full.txt: %w", err)
+	}
+
+	absQuickPath, _ := filepath.Abs(outputFile)
+	absFullPath, _ := filepath.Abs(fullOutputFile)
+	fmt.Printf("llms.txt generated successfully: %s\n", absQuickPath)
+	fmt.Printf("llms-full.txt generated successfully: %s\n", absFullPath)
+
+	return nil
+}
+
+func ensureParentDir(path string) error {
+	parentDir := filepath.Dir(path)
+	if err := os.MkdirAll(parentDir, 0750); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+	return nil
+}
+
+func llmsReferencePath(fromFile, toFile string) string {
+	referencePath, err := filepath.Rel(filepath.Dir(fromFile), toFile)
+	if err != nil {
+		return filepath.ToSlash(toFile)
+	}
+	referencePath = filepath.ToSlash(referencePath)
+	if strings.HasPrefix(referencePath, ".") || strings.HasPrefix(referencePath, "/") {
+		return referencePath
+	}
+	return "./" + referencePath
+}
 
 // writeLLMsAliases writes aliases derived from the Cobra command tree.
 func writeLLMsAliases(sb *strings.Builder, cmd *cobra.Command, parentPath string) {
@@ -431,6 +621,7 @@ func NewDocsCommand() *cobra.Command {
 	manCmd.Flags().StringP("output-dir", "o", "./man", "Output directory for man pages")
 	markdownCmd.Flags().StringP("output-dir", "o", "./docs", "Output directory for markdown files")
 	llmsCmd.Flags().StringP("output", "o", "./llms.txt", "Output file path")
+	llmsCmd.Flags().String("full-output", "./llms-full.txt", "Full output file path")
 
 	return docsCmd
 }

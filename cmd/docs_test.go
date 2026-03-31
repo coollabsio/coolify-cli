@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -63,6 +65,54 @@ func TestWriteLLMsAliasesUsesCommandTree(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected alias output to contain %q\nfull output:\n%s", want, got)
+		}
+	}
+}
+
+func TestBuildQuickLLMSTextIncludesCoreGuidance(t *testing.T) {
+	got := buildQuickLLMSText("./llms-full.txt")
+
+	for _, want := range []string{
+		"# Coolify CLI - llms.txt",
+		"Prefer `--format json` for automation and parsing.",
+		"coolify context verify",
+		"coolify app logs <uuid> --follow",
+		"Full command and parameter catalog: ./llms-full.txt",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected quick llms output to contain %q\nfull output:\n%s", want, got)
+		}
+	}
+}
+
+func TestWriteLLMsArtifactsWritesQuickAndFullFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	quickPath := filepath.Join(tempDir, "llms.txt")
+	fullPath := filepath.Join(tempDir, "nested", "llms-full.txt")
+
+	if err := writeLLMsArtifacts(quickPath, fullPath); err != nil {
+		t.Fatalf("writeLLMsArtifacts() error = %v", err)
+	}
+
+	quickContent, err := os.ReadFile(quickPath)
+	if err != nil {
+		t.Fatalf("failed reading quick file: %v", err)
+	}
+	fullContent, err := os.ReadFile(fullPath)
+	if err != nil {
+		t.Fatalf("failed reading full file: %v", err)
+	}
+
+	for _, want := range []struct {
+		content string
+		substr  string
+	}{
+		{string(quickContent), "./nested/llms-full.txt"},
+		{string(fullContent), "../llms.txt"},
+		{string(fullContent), "## Command Reference"},
+	} {
+		if !strings.Contains(want.content, want.substr) {
+			t.Fatalf("expected generated content to contain %q", want.substr)
 		}
 	}
 }

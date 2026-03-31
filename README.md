@@ -64,6 +64,16 @@ This will install the `coolify` binary in your `$GOPATH/bin` directory (usually 
 
 Now you can use the CLI with the token you just added.
 
+## For LLMs / AI agents
+
+- Quick instructions: [`llms.txt`](./llms.txt)
+- Full command catalog: [`llms-full.txt`](./llms-full.txt)
+- Regenerate both files:
+
+```bash
+go run ./coolify docs llms
+```
+
 ## Change default context
 You can change the default context with `coolify context use <context_name>` or `coolify context set-default <context_name>`
 ## Currently Supported Commands

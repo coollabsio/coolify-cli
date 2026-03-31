@@ -49,10 +49,10 @@ jobs:
         run: go run ./coolify docs llms
 
       - name: Check uncommitted changes
-        run: git diff --exit-code llms.txt
+        run: git diff --exit-code llms.txt llms-full.txt
 
       - if: failure()
-        run: echo "::error::llms.txt is out of date. Run 'go run ./coolify docs llms' and commit the changes."
+        run: echo "::error::llms.txt or llms-full.txt is out of date. Run 'go run ./coolify docs llms' and commit the changes."
 
   go-mod-tidy:
     runs-on: ubuntu-latest
