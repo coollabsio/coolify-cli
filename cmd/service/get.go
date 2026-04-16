@@ -32,7 +32,8 @@ func NewGetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get service: %w", err)
 			}
 
-			formatter, err := output.NewFormatter("table", output.Options{})
+			format, _ := cmd.Flags().GetString("format")
+			formatter, err := output.NewFormatter(format, output.Options{})
 			if err != nil {
 				return fmt.Errorf("failed to create formatter: %w", err)
 			}
