@@ -174,11 +174,175 @@ For `/24` per host: 253 containers max. For higher density: re-bootstrap with `-
 
 ### 5. Service discovery
 
-- Containers don't get cross-host DNS automatically. v5 should run a DNS server (e.g. CoreDNS) per host or one cluster-wide:
-  - Listening on each host's wg0 mgmt IP (`100.64.0.X:53`).
-  - Records: `<service>.<namespace>.coolify.local A 10.210.X.Y`.
-  - Configure containers via `--dns 100.64.0.X` (host's own mgmt IP).
-- Alternative: rely on Coolify-injected env vars (e.g. `DB_HOST=10.210.0.5`). Simpler for v1.
+**Pattern**: embedded DNS server in coold, backed by [Corrosion](https://github.com/superfly/corrosion) (CRDT sqlite gossiped via SWIM across the mesh). No env injection. No container restarts on backend movement.
+
+#### Why DNS-via-coold over alternatives
+
+| Approach | Stable target? | Backend move = restart? | Complexity |
+|---|---|---|---|
+| Env injection (`DB_HOST=10.210.5.42`) | no — IP changes | yes (rolling redeploy on every change) | medium (template engine + dep graph) |
+| **Embedded DNS in coold** | **yes (hostname)** | **no** | **low (~200 LoC)** |
+| VIP per service | yes (IP) | no | high (keepalived/BGP/IPVS) |
+| Per-host HTTP/TCP proxy | yes (port) | no | medium (proxy config) |
+
+DNS chosen: smallest moving parts, works for any protocol, standard `getaddrinfo()` path, ubiquitous client support.
+
+#### Corrosion schema (replicated sqlite)
+
+```sql
+CREATE TABLE services (
+    id              TEXT PRIMARY KEY,         -- "myapp.db"
+    coolify_app_id  TEXT NOT NULL,
+    name            TEXT NOT NULL,            -- "db"
+    namespace       TEXT NOT NULL,            -- "myapp"
+    port            INTEGER,                  -- canonical port (informational)
+    updated_at      INTEGER NOT NULL          -- ms epoch (CRDT clock)
+);
+
+CREATE TABLE service_endpoints (
+    service_id      TEXT NOT NULL,
+    container_id    TEXT NOT NULL,
+    host_mgmt_ip    TEXT NOT NULL,            -- 100.64.0.X (host running the container)
+    container_ip    TEXT NOT NULL,            -- 10.210.X.Y
+    healthy         INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL,
+    PRIMARY KEY (service_id, container_id)
+);
+```
+
+Each coold writes its own host's container facts. Reads are local sqlite (sub-ms). Gossip handles distribution; convergence ~1s in small clusters.
+
+#### Embedded DNS server
+
+```go
+// pseudocode — ~200 LoC total
+func (c *Coold) serveDNS() {
+    pc, _ := net.ListenPacket("udp", "10.210.X.1:53")  // bridge gateway IP
+    for {
+        buf := make([]byte, 512)
+        n, addr, _ := pc.ReadFrom(buf)
+        go c.handle(buf[:n], addr, pc)
+    }
+}
+
+func (c *Coold) handle(query []byte, src net.Addr, pc net.PacketConn) {
+    msg := dns.Unpack(query)
+    name := msg.Questions[0].Name  // "myapp.db.coolify.internal."
+
+    if !strings.HasSuffix(name, ".coolify.internal.") {
+        // Forward to upstream (configurable; default 1.1.1.1).
+        pc.WriteTo(c.upstream.Query(msg), src)
+        return
+    }
+
+    serviceID := strings.TrimSuffix(name, ".coolify.internal.")
+    var ips []string
+    c.corrosion.Query(`
+        SELECT container_ip FROM service_endpoints
+        WHERE service_id = ? AND healthy = 1
+    `, serviceID).Scan(&ips)
+
+    if len(ips) == 0 {
+        pc.WriteTo(dns.NXDOMAIN(msg), src); return
+    }
+    pc.WriteTo(dns.AnswerA(msg, ips, ttl=5), src)
+}
+```
+
+Listens on **bridge gateway IP** (`10.210.X.1:53`) of the host's `coolify-mesh` bridge — reachable from every container in the host's `/24` via standard kernel routing.
+
+#### Container creation hook
+
+Every container coold creates gets:
+```
+podman run --dns 10.210.X.1 --dns-search coolify.internal ...
+```
+
+App code uses short names: `getaddrinfo("myapp.db", ...)` → libc appends search suffix → `myapp.db.coolify.internal` → coold answers from local Corrosion.
+
+#### Resolution flow
+
+```
+1. App in container A on host-1 (10.210.0.10) calls getaddrinfo("myapp.db")
+2. libc reads /etc/resolv.conf:
+     nameserver 10.210.0.1
+     search coolify.internal
+3. UDP query "myapp.db.coolify.internal" → 10.210.0.1:53
+4. coold@host-1 reads local Corrosion → 10.210.5.42 (running on host-3)
+5. Reply: A 10.210.5.42, TTL=5
+6. App opens TCP to 10.210.5.42:5432
+7. Routed via wg0 (peer host-3's AllowedIPs covers 10.210.5.0/24)
+   → bridge → container
+8. (If --default-deny is on, COOLIFY-ALLOW on host-3 must permit
+    10.210.0.10 → 10.210.5.42.)
+```
+
+#### Backend movement (zero restart on dependents)
+
+```
+T+0:   myapp.db @ 10.210.5.42 on host-3. Endpoint row gossiped.
+T+10s: User redeploys myapp.db on host-3.
+       coold@host-3:
+         - new container at 10.210.5.43
+         - INSERT new endpoint row (10.210.5.43)
+         - DELETE old endpoint row (10.210.5.42)
+         - kill old container
+       Corrosion gossips delta.
+T+11s: All hosts have updated state.
+T+15s: App on host-1 has stale TCP to 10.210.5.42 — broken when old container died.
+       App's reconnect logic re-resolves myapp.db → 10.210.5.43 → reconnects.
+       App container NEVER restarted, env NEVER changed.
+```
+
+App must have reconnect logic (every reasonable DB/cache client does). DNS provides the new IP transparently.
+
+#### TTL
+
+5s. Trade-off:
+- Lower = faster failover, more queries.
+- Higher = quieter DNS, slower failover.
+
+Apps with infinite-cache resolvers (Java's `networkaddress.cache.ttl=-1`) won't see updates. Document for users; not coold's problem.
+
+#### Multi-replica services
+
+Resolver returns ALL healthy A records. Apps with proper conn pools (postgres, redis clients) handle multi-target naturally. No client-side LB protocol needed.
+
+#### Health & staleness
+
+- coold marks `healthy=0` on healthcheck fail. DNS stops returning that IP within next query.
+- Stale-row TTL: rows older than 60s without heartbeat are pruned (owning coold heartbeats every 15s).
+
+#### TLD
+
+`.coolify.internal` — `.internal` is RFC 6761 reserved for private use. Won't collide with public TLDs. Configurable per-cluster.
+
+#### Failure modes
+
+| Failure | Behaviour |
+|---|---|
+| coold dies | Cluster DNS resolution stops. systemd restarts coold (~3s). Existing connections survive. Same profile as k8s losing CoreDNS. |
+| Corrosion split-brain | Each partition serves local view; CRDT merges cleanly when partition heals. May serve stale IPs during partition. |
+| Backend healthy in DB but unreachable | DNS returns IP → app connection fails → app retries. If multi-replica, may pick different one on retry. |
+| Container has no `--dns` (created outside coold) | No cluster resolution. Document: only coold-managed containers get discovery. |
+| Cross-region high latency | Slower convergence; stale DNS for 10–30s. Acceptable v1. |
+
+#### API surface (central Coolify → coold REST)
+
+```
+POST   /api/v1/services/register      {service_id, app_id, name, namespace, port, container_id, container_ip, host_mgmt_ip}
+DELETE /api/v1/services/{service_id}/endpoints/{container_id}
+GET    /api/v1/services/{service_id}/endpoints
+GET    /api/v1/services?namespace=myapp
+GET    /api/v1/dns/lookup/{name}      (debug — what coold would answer)
+GET    /api/v1/dns/stats              (qps, hit/miss/forward counts)
+```
+
+Most ops are automatic side effects of deploy/scale/health-check. Central rarely calls `/services/register` directly — coold registers on container create, deregisters on remove.
+
+#### Bootstrap impact
+
+Zero. `coolify init apply` doesn't change. Bridge gateway `10.210.X.1` was always reserved by `MachineIP()`; coold binds port 53 on it when deployed.
 
 ### 6. Ingress (public traffic → containers)
 
