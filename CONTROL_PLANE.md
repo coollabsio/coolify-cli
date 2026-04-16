@@ -88,45 +88,67 @@ podman run -d --name coold --restart=always \
 
 When host has `--default-deny` enabled, **all cross-host container traffic is dropped by default**. The control plane decides who talks to whom.
 
+#### Division of labour: bootstrap vs coold
+
+| Layer | Owner | Responsibility |
+|---|---|---|
+| Chain scaffold (COOLIFY-INTRA, COOLIFY-ALLOW, FORWARD jumps, conntrack early-accept, POSTROUTING RETURN) | `coolify init apply` (one-shot) | Install + idempotently re-converge on flag change. Never touches individual allow rules. |
+| Allow rules inside `COOLIFY-ALLOW` | **coold** | Sole owner. Persists in coold's own DB. Applies in batch. Survives reboot via coold autostart. |
+
+**`coolify init` is intentionally not the rule store.** Bootstrap creates the empty allow chain; coold fills it.
+
 #### Allow-rule lifecycle
 
 For an allow `(srcIP, dstIP)`:
 - Add ACCEPT to `COOLIFY-ALLOW` on the host that **owns dstIP** (where DROP would otherwise fire).
-- For bidirectional traffic (e.g. TCP), add the reverse `(dstIP, srcIP)` on the host that owns srcIP (so reply traffic is accepted on its way back through that host's FORWARD when it's the destination of the reply).
-- In short: **a unidirectional allow is one rule on the destination host. A bidirectional allow is two rules on two hosts.**
+- For bidirectional traffic (e.g. TCP, ICMP echo+reply), add the reverse `(dstIP, srcIP)` on the host that owns srcIP. (Reply packets traverse THAT host's FORWARD chain when arriving back, and dst-side check fires there.)
+- **One unidirectional allow = one rule on one host. One bidirectional allow = two rules on two hosts.**
+- Conntrack ESTABLISHED early-accept (installed by bootstrap) handles in-flow follow-up packets — no need to add per-packet rules.
 
-#### Persistence model — recommended: systemd dropin
+#### Persistence + scale model — coold owns rules
 
-Don't use `iptables -A` directly (lost on reboot). Write a dropin per allow:
-
-`/etc/systemd/system/coolify-mesh-fw.service.d/allow-<allow-uuid>.conf`:
-```
-[Service]
-ExecStart=/bin/sh -c "/usr/sbin/iptables -C COOLIFY-ALLOW -s <SRC> -d <DST> -j ACCEPT 2>/dev/null || /usr/sbin/iptables -A COOLIFY-ALLOW -s <SRC> -d <DST> -j ACCEPT"
-```
-
-Then:
-```bash
-systemctl daemon-reload
-systemctl restart coolify-mesh-fw.service
-```
-
-The base unit's `Type=oneshot, RemainAfterExit=yes` re-runs all `ExecStart=` lines on restart, including dropins. Survives reboots without `iptables-persistent`.
-
-To remove an allow: delete the dropin file → `daemon-reload` → `restart`. Then optionally `iptables -D COOLIFY-ALLOW ...` for immediate effect (otherwise next packet hits DROP after restart).
-
-Alternatively, `iptables -A` runtime + `iptables-save > /etc/iptables/rules.v4` + `netfilter-persistent` — but adds package dependency.
-
-#### Allow API surface (control plane → CLI/agent)
+Per-rule systemd dropins do NOT scale (1000 rules × `daemon-reload` + restart = minutes, fs clutter, audit nightmare). Instead:
 
 ```
-POST   /api/v5/firewall/allow          {srcIP, dstIP, ports?, proto?}
-DELETE /api/v5/firewall/allow/{id}
-GET    /api/v5/firewall/allow          (list)
-GET    /api/v5/firewall/allow/{id}     (status, last-applied)
+coold service (per host)
+  ├─ DB:  /var/lib/coold/allows.db   (sqlite, source of truth)
+  ├─ Boot:        load DB → emit nft/iptables-restore batch
+  ├─ API mutate:  insert/delete row + apply incremental iptables -A/-D
+  └─ Reconcile:   periodic full reload from DB to detect drift
 ```
 
-Per-port allows: extend `ExecStart=` with `-p tcp --dport <PORT>` etc. — no scaffold change needed.
+Apply paths:
+
+| Backend | Bulk apply (1000 rules) | Atomicity |
+|---|---|---|
+| `iptables -A` per rule | ~5s | per-rule |
+| `iptables-restore --noflush` (preferred for iptables-legacy) | ~50ms | per-batch |
+| `nft -f /tmp/rules.nft` (preferred when host uses nftables backend) | ~10ms | atomic transaction |
+
+coold detects backend (`iptables --version` or presence of nftables socket) and picks. Bootstrap doesn't care.
+
+For **systemctl restart coolify-mesh-fw.service** (e.g. `coolify init apply` re-runs after a flag flip): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — coold's rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`), coold's reconcile loop replays from DB within seconds.
+
+#### Allow API surface (central Coolify → coold REST)
+
+```
+POST   /api/v1/firewall/allow          {src, dst, proto?, port?, comment?}    → returns id
+DELETE /api/v1/firewall/allow/{id}
+GET    /api/v1/firewall/allow                                                  list
+GET    /api/v1/firewall/allow/{id}                                             show + match counters
+POST   /api/v1/firewall/allow/bulk     {add: [...], remove: [...]}             atomic batch
+POST   /api/v1/firewall/reconcile                                              force full reload
+```
+
+coold translates each row into the right iptables/nft fragment. Per-port: `-p tcp --dport <N>`. Source/dest IP, CIDR, or set reference (for grouping like "all-frontend-ips").
+
+For very large rule sets: use **nftables sets** so a rule references a set name, and the set membership changes are O(1):
+
+```
+nft add element ip filter coolify_allowed_pairs { 10.210.0.10 . 10.210.1.10 }
+```
+
+One static rule like `ct state new ip saddr . ip daddr @coolify_allowed_pairs accept` evaluates in O(log n) regardless of set size. coold maintains the set rather than thousands of rules. Optional optimization for v5+.
 
 #### Intra-host isolation (NOT enforced by `--default-deny`)
 
@@ -286,7 +308,10 @@ These all wrap podman API calls + mesh state queries over wg0.
 
 The pieces communicate via:
 1. **SSH** for bootstrap + re-converge (idempotent re-runs).
-2. **coold REST API** over wg0 mgmt IPs (`https://100.64.0.X:8443`) for runtime ops. coold is the *only* process with access to the local podman socket.
-3. **Filesystem dropins** in `/etc/systemd/system/coolify-mesh-fw.service.d/` for persistent firewall state.
+2. **coold REST API** over wg0 mgmt IPs (`https://100.64.0.X:8443`) for runtime ops. coold is the *only* process with access to the local podman socket AND the sole owner of allow rules in COOLIFY-ALLOW.
 
-The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary between the central Coolify control plane and raw container runtime.
+Persistence model:
+- Bootstrap state (chains, jumps, conntrack accept) → idempotent `coolify init apply` re-runs.
+- Allow rules → coold's own DB, applied via `iptables-restore --noflush` or `nft -f`. No per-rule systemd dropin (doesn't scale to 1000s of rules).
+
+The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary AND the firewall state authority between the central Coolify control plane and the host.
