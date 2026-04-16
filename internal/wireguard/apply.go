@@ -34,6 +34,10 @@ const podmanInstallCmd = `DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>/d
 	`-o Dpkg::Options::="--force-confold" ` +
 	`podman 2>&1`
 
+// enablePodmanSocketCmd ensures /run/podman/podman.sock exists via systemd
+// socket activation. The socket is NEVER exposed on TCP — it stays a Unix
+// socket on the host so the per-host coold agent can bind-mount it and
+// proxy a curated REST API over wg0. See CONTROL_PLANE.md §2 + §12.
 const enablePodmanSocketCmd = `systemctl enable --now podman.socket 2>&1`
 
 const enableIPForwardCmd = `sysctl -w net.ipv4.ip_forward=1 && ` +

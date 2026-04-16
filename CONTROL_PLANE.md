@@ -2,6 +2,30 @@
 
 This document lists everything the Coolify v5 control plane must implement on top of the bootstrap performed by `coolify init apply` to fully manage a fleet of mesh-connected hosts.
 
+## Architecture overview
+
+```
+┌────────────────────────────┐
+│  Coolify central UI / API  │
+│  (single instance / HA)    │
+└──────────────┬─────────────┘
+               │ HTTPS over wg0 (TLS + bearer token)
+               │ to 100.64.0.X:8443
+               ▼
+┌────────────────────────────┐  ┌─────────────────────────┐
+│  coold (per-host agent)    │  │  /run/podman/podman.sock│
+│  - REST API on wg0 :8443   │──┤  bind-mount, host-only  │
+│  - RBAC, audit, rate limit │  │  (NEVER on network)     │
+│  - Talks ONLY to local sock│  └─────────────┬───────────┘
+└────────────────────────────┘                │
+                                              ▼
+                              ┌─────────────────────────────┐
+                              │  podmand (containers, nets) │
+                              └─────────────────────────────┘
+```
+
+**Key principle**: `/run/podman/podman.sock` is **never exposed on TCP**. coold (per-host agent container or systemd service) bind-mounts the socket and proxies a curated REST API over wg0. Central Coolify never touches the raw podman API directly.
+
 ## What `coolify init apply --podman --default-deny` already provides
 
 | Layer | Component | State |
@@ -32,14 +56,33 @@ Each host has a stable `(mgmt-ip, container-subnet)` pair. The bootstrap is idem
 
 ### 2. Container lifecycle
 
-Talk to `podman.socket` REST API at `http://<mgmt-ip>/v5.0.0/libpod/...` (over wg0).
+Talk to **coold** REST API at `https://<mgmt-ip>:8443/...` (over wg0). coold proxies to the local `/run/podman/podman.sock` Unix socket.
 
 - Create container with `--network coolify-mesh` and explicit `--ip` from the host's `/24`.
-  - Reserve container IPs in the control plane DB. Allocator skips `.1` (bridge gateway), reserves `.2-.254` for containers.
+  - Reserve container IPs in the control plane DB. Allocator skips `.1` (bridge gateway), reserves `.2` for coold itself, `.3-.254` for app containers.
 - Start, stop, restart, remove.
-- Stream logs via `/containers/{id}/logs?follow=true` over the WG tunnel.
+- Stream logs via coold's `/containers/{id}/logs?follow=true` (which proxies podman API over the wg0 tunnel).
 - Health checks via `/containers/{id}/healthcheck/run`.
-- Resource limits, env vars, mounts, volumes, secrets — all standard podman API.
+- Resource limits, env vars, mounts, volumes, secrets — all standard podman API surfaced through coold.
+
+#### coold deployment
+
+coold runs as a privileged container on each host (or as a host systemd service). v5 control plane installs it via `coolify init apply` after the mesh + podman + bridge are up — OR `coolify init` could grow a `--coold` flag that installs it as part of bootstrap (out of scope for v1, but trivial extension).
+
+Reference container spec:
+```bash
+podman run -d --name coold --restart=always \
+  --network coolify-mesh --ip 10.210.X.2 \
+  -v /run/podman/podman.sock:/run/podman/podman.sock \
+  -v /etc/coolify/coold:/etc/coolify/coold:ro \
+  --security-opt label=disable \
+  -p 100.64.0.X:8443:8443 \
+  ghcr.io/coollabs/coold:latest
+```
+
+- Listens on host's WG mgmt IP only (`100.64.0.X:8443`) — unreachable from public internet.
+- TLS cert + bearer token auth on every request.
+- Allow rule needed in `COOLIFY-ALLOW`: central Coolify host's mgmt IP → this host's `100.64.0.X:8443`. (Alternatively: skip default-deny for mgmt subnet — see §3.)
 
 ### 3. Network policy (firewall)
 
@@ -168,10 +211,15 @@ Stream into central time-series store (Prometheus / VictoriaMetrics).
 ### 12. Security posture
 
 - **Private keys never leave hosts**: WG private key generated on remote, never transits SSH (already done by bootstrap).
-- **Podman socket access**: `/run/podman/podman.sock` is rootful, exposed via `unix://`. Control plane connects via SSH tunnel OR via wg0 + a thin proxy (`podman system service tcp://100.64.0.X:2375`). Latter is simpler but exposes API on management network — acceptable since wg0 is trusted, but add TLS + auth for defense-in-depth.
-- **SSH access**: bootstrap uses key-based SSH. Control plane should rotate SSH keys per agent install, store in encrypted DB.
-- **Host firewall (iptables INPUT chain)**: bootstrap doesn't lock down INPUT. v5 should drop public access to ports other than `:51820/udp` (WG), `:22/tcp` (SSH), `:80/:443` (ingress).
-- **Audit**: log every COOLIFY-ALLOW change with who-when-why metadata.
+- **Podman socket access**: `/run/podman/podman.sock` stays as a rootful Unix socket on each host — **NEVER exposed on TCP**. Only **coold** (per-host agent, see §2) has access via bind-mount. coold surfaces a curated REST API over wg0 with TLS + bearer auth. This means:
+  - Compromise of a non-coold container does NOT grant podman API access.
+  - All container ops are auditable at the coold API layer (RBAC, rate limit, deny dangerous flags like `--privileged`).
+  - No `podman system service tcp://...` listener; no need for socket-level TLS.
+  - Central Coolify only knows the coold endpoint, not the underlying socket.
+- **SSH access**: bootstrap uses key-based SSH. Control plane should rotate SSH keys per agent install, store in encrypted DB. After bootstrap, day-to-day ops go via coold REST — SSH is for re-bootstrap only.
+- **Host firewall (iptables INPUT chain)**: bootstrap doesn't lock down INPUT. v5 should drop public access to ports other than `:51820/udp` (WG), `:22/tcp` (SSH), `:80/:443` (ingress). coold's `:8443` binds to the wg0 IP only, so it's already not on the public interface.
+- **coold port reachability**: with `--default-deny`, central Coolify needs an allow in COOLIFY-ALLOW on each managed host: `-s <central-mgmt-ip>/32 -d <host-mgmt-ip>/32 -p tcp --dport 8443 -j ACCEPT`. v5 installs this allow as part of "host join" workflow.
+- **Audit**: log every COOLIFY-ALLOW change with who-when-why metadata; coold mirrors with API-level audit log.
 
 ### 13. Failure modes & recovery
 
@@ -236,7 +284,9 @@ These all wrap podman API calls + mesh state queries over wg0.
 
 `coolify init apply` does the **one-shot host bootstrap**: WG mesh, podman runtime, bridge network, default-deny scaffold. After that, **everything dynamic is the v5 control plane's job**: container lifecycle, allow rules in COOLIFY-ALLOW (via systemd dropins for persistence), scheduling, observability, ingress, updates.
 
-The two pieces communicate via:
+The pieces communicate via:
 1. **SSH** for bootstrap + re-converge (idempotent re-runs).
-2. **Podman REST API** over wg0 mgmt IPs for runtime ops.
+2. **coold REST API** over wg0 mgmt IPs (`https://100.64.0.X:8443`) for runtime ops. coold is the *only* process with access to the local podman socket.
 3. **Filesystem dropins** in `/etc/systemd/system/coolify-mesh-fw.service.d/` for persistent firewall state.
+
+The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary between the central Coolify control plane and raw container runtime.
