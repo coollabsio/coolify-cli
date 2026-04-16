@@ -1,0 +1,422 @@
+package wireguard
+
+import (
+	"net"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+var (
+	defaultMgmtPool      = mustParseCIDR("100.64.0.0/16")
+	defaultContainerPool = mustParseCIDR("10.210.0.0/16")
+)
+
+func desiredTwoHosts() *DesiredMesh {
+	return &DesiredMesh{
+		Hosts:           []string{"1.1.1.1", "2.2.2.2"},
+		Interface:       "wg0",
+		MgmtPool:        defaultMgmtPool,
+		ContainerPool:   defaultContainerPool,
+		ContainerPrefix: 24,
+		ListenPort:      51820,
+	}
+}
+
+func desiredWithPodman() *DesiredMesh {
+	d := desiredTwoHosts()
+	d.InstallPodman = true
+	d.PodmanNetworkName = "coolify-mesh"
+	return d
+}
+
+func convergedServer(host, pubkey, peerKey, mgmtIP, contSubnet string) *ServerState {
+	return &ServerState{
+		Host:               host,
+		Installed:          true,
+		KeysExist:          true,
+		PublicKey:          pubkey,
+		WireGuardMgmtIP:    net.ParseIP(mgmtIP).To4(),
+		ContainerSubnet:    mustParseCIDR(contSubnet),
+		ListenPort:         51820,
+		Active:             true,
+		Peers:              []Peer{{PublicKey: peerKey}},
+		PodmanInstalled:    true,
+		PodmanSocketActive: true,
+		PodmanNetExists:    true,
+		IPForwardEnabled:   true,
+		FirewallActive:     true,
+	}
+}
+
+func TestBuildPlan_AlreadyConverged_NoPodman(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "AAAAAAAA=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.1").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "BBBBBBBB="}},
+			},
+			"2.2.2.2": {
+				Host:            "2.2.2.2",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "BBBBBBBB=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.2").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "AAAAAAAA="}},
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	assert.True(t, plan.IsEmpty(), "expected empty plan, got: %+v", plan.Actions)
+}
+
+func TestBuildPlan_FreshBootstrap(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{Servers: map[string]*ServerState{}}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	assert.False(t, plan.IsEmpty())
+
+	actionTypes := func(host string) []ActionType {
+		var out []ActionType
+		for _, a := range plan.Actions {
+			if a.Host == host {
+				out = append(out, a.Type)
+			}
+		}
+		return out
+	}
+
+	for _, host := range []string{"1.1.1.1", "2.2.2.2"} {
+		types := actionTypes(host)
+		assert.Contains(t, types, ActionInstallWG, host)
+		assert.Contains(t, types, ActionGenKeyPair, host)
+		assert.Contains(t, types, ActionAllocateMgmtIP, host)
+		assert.Contains(t, types, ActionWriteConfig, host)
+		assert.Contains(t, types, ActionEnableService, host)
+	}
+}
+
+func TestBuildPlan_MgmtIPMismatchTriggersRewrite(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "AAAAAAAA=",
+				WireGuardMgmtIP: net.ParseIP("10.210.0.1").To4(), // outside 100.64/16
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "BBBBBBBB="}},
+			},
+			"2.2.2.2": {
+				Host:            "2.2.2.2",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "BBBBBBBB=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.2").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "AAAAAAAA="}},
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	assert.NotEmpty(t, plan.Warnings)
+
+	var aTypes []ActionType
+	for _, a := range plan.Actions {
+		if a.Host == "1.1.1.1" {
+			aTypes = append(aTypes, a.Type)
+		}
+	}
+	assert.Contains(t, aTypes, ActionAllocateMgmtIP)
+	assert.Contains(t, aTypes, ActionWriteConfig)
+}
+
+func TestBuildPlan_AddPeer(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "AAAAAAAA=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.1").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{},
+			},
+			"2.2.2.2": {
+				Host:            "2.2.2.2",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "BBBBBBBB=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.2").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "AAAAAAAA="}},
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	var types []ActionType
+	for _, a := range plan.Actions {
+		if a.Host == "1.1.1.1" {
+			types = append(types, a.Type)
+		}
+	}
+	assert.Contains(t, types, ActionAddPeer)
+	assert.Contains(t, types, ActionWriteConfig)
+	assert.Contains(t, types, ActionReloadService)
+}
+
+func TestBuildPlan_RemovePeer(t *testing.T) {
+	desired := &DesiredMesh{
+		Hosts:           []string{"1.1.1.1"},
+		Interface:       "wg0",
+		MgmtPool:        defaultMgmtPool,
+		ContainerPool:   defaultContainerPool,
+		ContainerPrefix: 24,
+		ListenPort:      51820,
+	}
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "AAAAAAAA=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.1").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "STALEKEY="}},
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	var types []ActionType
+	for _, a := range plan.Actions {
+		if a.Host == "1.1.1.1" {
+			types = append(types, a.Type)
+		}
+	}
+	assert.Contains(t, types, ActionRemovePeer)
+	assert.Contains(t, types, ActionWriteConfig)
+}
+
+func TestBuildPlan_StableMgmtAndContainerAssignments(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.7").To4(),
+				ContainerSubnet: mustParseCIDR("10.210.5.0/24"),
+			},
+			"2.2.2.2": {
+				Host:            "2.2.2.2",
+				WireGuardMgmtIP: nil,
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	assert.Equal(t, "100.64.0.7", plan.MgmtAssignments["1.1.1.1"].String())
+	assert.Equal(t, "10.210.5.0/24", plan.SubnetAssignments["1.1.1.1"].String())
+}
+
+func TestBuildPlan_PodmanFullStack(t *testing.T) {
+	desired := desiredWithPodman()
+	current := MeshState{Servers: map[string]*ServerState{}}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	collect := func(host string) []ActionType {
+		var out []ActionType
+		for _, a := range plan.Actions {
+			if a.Host == host {
+				out = append(out, a.Type)
+			}
+		}
+		return out
+	}
+
+	for _, h := range []string{"1.1.1.1", "2.2.2.2"} {
+		types := collect(h)
+		assert.Contains(t, types, ActionInstallPodman, h)
+		assert.Contains(t, types, ActionEnablePodmanSocket, h)
+		assert.Contains(t, types, ActionEnableIPForward, h)
+		assert.Contains(t, types, ActionCreatePodmanNet, h)
+		assert.Contains(t, types, ActionInstallFirewall, h)
+		assert.Contains(t, types, ActionAllocateContainerSubnet, h)
+	}
+}
+
+func TestBuildPlan_PodmanIdempotent(t *testing.T) {
+	desired := desiredWithPodman()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24"),
+			"2.2.2.2": convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24"),
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	assert.True(t, plan.IsEmpty(), "expected empty plan, got: %+v", plan.Actions)
+}
+
+func TestBuildPlan_PodmanNotRequested(t *testing.T) {
+	desired := desiredTwoHosts() // InstallPodman == false
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:            "1.1.1.1",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "AAAAAAAA=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.1").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "BBBBBBBB="}},
+			},
+			"2.2.2.2": {
+				Host:            "2.2.2.2",
+				Installed:       true,
+				KeysExist:       true,
+				PublicKey:       "BBBBBBBB=",
+				WireGuardMgmtIP: net.ParseIP("100.64.0.2").To4(),
+				ListenPort:      51820,
+				Active:          true,
+				Peers:           []Peer{{PublicKey: "AAAAAAAA="}},
+			},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	for _, a := range plan.Actions {
+		assert.NotEqual(t, ActionInstallPodman, a.Type)
+		assert.NotEqual(t, ActionEnablePodmanSocket, a.Type)
+		assert.NotEqual(t, ActionEnableIPForward, a.Type)
+		assert.NotEqual(t, ActionCreatePodmanNet, a.Type)
+		assert.NotEqual(t, ActionInstallFirewall, a.Type)
+		assert.NotEqual(t, ActionAllocateContainerSubnet, a.Type)
+	}
+}
+
+func TestBuildPlan_FirewallMissing(t *testing.T) {
+	desired := desiredWithPodman()
+	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
+	srvA.FirewallActive = false
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": srvA,
+			"2.2.2.2": convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24"),
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	var aTypes []ActionType
+	for _, a := range plan.Actions {
+		if a.Host == "1.1.1.1" {
+			aTypes = append(aTypes, a.Type)
+		}
+	}
+	assert.Equal(t, []ActionType{ActionInstallFirewall}, aTypes)
+}
+
+func TestBuildPlan_DefaultDenyRequiresPodman(t *testing.T) {
+	desired := desiredTwoHosts()
+	desired.DefaultDenyContainers = true // InstallPodman left false
+
+	_, err := BuildPlan(desired, MeshState{Servers: map[string]*ServerState{}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--default-deny requires --podman")
+}
+
+func TestBuildPlan_DefaultDenyDriftReinstalls(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.DefaultDenyContainers = true
+
+	// Both hosts converged in mode A (default-deny OFF) — must reinstall to flip on.
+	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
+	srvA.DefaultDenyActive = false
+	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
+	srvB.DefaultDenyActive = false
+	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	for _, h := range []string{"1.1.1.1", "2.2.2.2"} {
+		var found bool
+		for _, a := range plan.Actions {
+			if a.Host == h && a.Type == ActionInstallFirewall {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected ActionInstallFirewall for %s", h)
+	}
+}
+
+func TestBuildPlan_DefaultDenyConverged(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.DefaultDenyContainers = true
+
+	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
+	srvA.DefaultDenyActive = true
+	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
+	srvB.DefaultDenyActive = true
+	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	assert.True(t, plan.IsEmpty(), "expected empty plan, got: %+v", plan.Actions)
+}
+
+func TestBuildPlan_SurfacesWarnings(t *testing.T) {
+	desired := desiredTwoHosts()
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {Host: "1.1.1.1", WireGuardMgmtIP: net.ParseIP("100.64.0.5").To4()},
+			"2.2.2.2": {Host: "2.2.2.2", WireGuardMgmtIP: net.ParseIP("100.64.0.5").To4()},
+		},
+	}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+	assert.NotEmpty(t, plan.Warnings, "expected warning for duplicate mgmt IP")
+}
