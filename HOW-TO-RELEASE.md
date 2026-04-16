@@ -44,9 +44,13 @@ Once you publish the release:
    - **Linux**: amd64, arm64
    - **macOS (Darwin)**: amd64, arm64
    - **Windows**: amd64, arm64
-3. Goreleaser injects the version from the tag into the binaries
+3. Goreleaser injects the version from the tag into the binaries via ldflags (into `internal/version.version`)
 4. Binaries are automatically uploaded to the release
-5. The release becomes available at:
+5. A follow-up `update-version` job then:
+   - Updates the `version` constant in `internal/version/checker.go` to the new tag
+   - Commits the bump to `v4.x` as `chore: bump version to vX.Y.Z`
+   - Force-moves the release tag to point at that new commit
+6. The release becomes available at:
    - GitHub: `https://github.com/coollabsio/coolify-cli/releases/tag/v1.x.x`
    - Install script: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`
    - `go install`: `go install github.com/coollabsio/coolify-cli/coolify@v1.x.x`
@@ -79,9 +83,10 @@ After the workflow completes (usually 2-5 minutes):
   - GoReleaser configuration issues
 
 ### Version Not Updating
-- Ensure you committed the version change in `cmd/root.go`
+- The version is injected at build time via ldflags into `internal/version.version` — you do **not** need to edit it manually before releasing. The post-release `update-version` job also rewrites `internal/version/checker.go` on `v4.x`.
+- If the hardcoded fallback in `internal/version/checker.go` is stale, check that the `update-version` job ran successfully after the release.
 - The tag must start with `v` (e.g., `v1.2.3`, not `1.2.3`)
-- Check that the workflow has write permissions
+- Check that the workflow has write permissions (`contents: write` in `release-cli.yml`)
 
 ### Install Script Not Finding New Version
 - Wait a few minutes for GitHub's CDN to update
@@ -94,9 +99,10 @@ Before creating a release:
 
 - [ ] All tests pass: `go test ./internal/...`
 - [ ] Code is formatted: `go fmt ./...`
-- [ ] Version updated in `cmd/root.go`
 - [ ] Changes merged to `v4.x` branch
 - [ ] Release notes prepared
+
+> Note: You do **not** need to bump the version manually. GoReleaser injects the tag version via ldflags, and the `update-version` CI job commits the bump to `internal/version/checker.go` after the release.
 
 After creating a release:
 
