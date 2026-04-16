@@ -50,28 +50,21 @@ Once you publish the release:
    - Updates the `version` constant in `internal/version/checker.go` to the new tag
    - Commits the bump to `v4.x` as `chore: bump version to vX.Y.Z`
    - Force-moves the release tag to point at that new commit
-6. The release becomes available at:
+6. GoReleaser also publishes a Homebrew formula to the tap at [`coollabsio/homebrew-coolify-cli`](https://github.com/coollabsio/homebrew-coolify-cli) (under `Formula/coolify-cli.rb`), using the `HOMEBREW_TAP_GITHUB_TOKEN` secret
+7. The release becomes available at:
    - GitHub: `https://github.com/coollabsio/coolify-cli/releases/tag/v1.x.x`
    - Install script: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash`
+   - Homebrew: `brew install coollabsio/coolify-cli/coolify-cli`
    - `go install`: `go install github.com/coollabsio/coolify-cli/coolify@v1.x.x`
 
 ### 3. Verify the Release
 
-After the workflow completes (usually 2-5 minutes):
+After the workflow completes (usually 2-5 minutes), verify without touching your local install:
 
-1. Check the release page has all platform binaries
-2. Test the install script:
-   ```bash
-   curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
-   coolify version
-   ```
-3. Test the auto-update functionality:
-   ```bash
-   # If you have an older version installed
-   coolify update
-   coolify version  # Should show the new version
-   ```
-4. Verify the version matches your release
+1. Check the release page has all platform binaries (Linux/macOS/Windows × amd64/arm64)
+2. Confirm the `update-version` job committed the bump on `v4.x` (look for `chore: bump version to vX.Y.Z`) and that the tag now points at that commit
+3. Confirm `internal/version/checker.go` on `v4.x` has the new version
+4. Confirm the Homebrew tap has a new `Formula/coolify-cli.rb` commit for this version at https://github.com/coollabsio/homebrew-coolify-cli
 
 ## Troubleshooting
 
@@ -106,24 +99,26 @@ Before creating a release:
 
 After creating a release:
 
-- [ ] GitHub Actions workflow completed successfully
+- [ ] GitHub Actions workflow completed successfully (both `release-cli` and `update-version` jobs)
 - [ ] All platform binaries are present on the release page
-- [ ] Install script downloads the new version
-- [ ] `coolify version` returns the correct version
+- [ ] `internal/version/checker.go` on `v4.x` shows the new version
+- [ ] Homebrew tap has a fresh `Formula/coolify-cli.rb` commit
 
 ## Configuration Files
 
 The release process uses these configuration files:
 
-- `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, etc.) - points to `/coolify` as entry point
+- `.goreleaser.yml` - GoReleaser configuration (build matrix, archives, Homebrew tap) - entry point is `./coolify/main.go`
 - `.github/workflows/release-cli.yml` - GitHub Actions workflow
 - `scripts/install.sh` - User-facing install script
 - `internal/version/checker.go` - Contains `GetVersion()` function that returns the current version
 - `coolify/main.go` - Binary entry point for `go install` support
+- [`coollabsio/homebrew-coolify-cli`](https://github.com/coollabsio/homebrew-coolify-cli) - External Homebrew tap updated automatically on each release
 
 ## Notes
 
 - The CLI has auto-update checking built-in (checks every 10 minutes)
 - Users can manually update with `coolify update`
 - Install script supports version pinning: `bash install.sh v1.2.3`
+- Homebrew users can install via `brew install coollabsio/coolify-cli/coolify-cli` (the tap at https://github.com/coollabsio/homebrew-coolify-cli is auto-updated by GoReleaser)
 - Releases are immutable - if you need to fix something, create a new patch version
