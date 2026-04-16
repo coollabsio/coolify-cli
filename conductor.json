@@ -1,7 +1,0 @@
-{
-    "scripts": {
-        "setup": "./conductor-setup.sh",
-        "run": "~/go/bin/air"
-    },
-    "runScriptMode": "nonconcurrent"
-}
