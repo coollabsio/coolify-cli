@@ -174,6 +174,125 @@ type Resource struct {
 - UUIDs are more secure (don't expose database sequencing)
 - Coolify API uses UUIDs as the primary resource identifier
 
+## `coolify init` — WireGuard mesh + Podman bootstrap (alpha, v5)
+
+**This subcommand is an outlier**: it does NOT talk to the Coolify API. It SSHes into remote hosts and installs/configures WireGuard, Podman, the bridge network, and a firewall scaffold. It's a one-shot infrastructure bootstrap consumed by the future v5 control plane (coold).
+
+### What it does
+
+- Establishes a full-mesh WireGuard overlay across N hosts.
+- Each host gets a mgmt IP `/32` from `--wg-mgmt-pool` (default `100.64.0.0/16`, RFC 6598 CGNAT) on `wg0`.
+- Each host gets a container subnet `/<container-prefix>` from `--container-pool` (default `10.210.0.0/16`, default prefix `/24`) owned by a Podman bridge named `coolify-mesh`.
+- Optionally installs Podman + enables `podman.socket` + creates the bridge + installs `coolify-mesh-fw.service` (`--podman` flag).
+- Optionally installs default-deny firewall scaffold (`--default-deny` flag) — adds `COOLIFY-INTRA` and empty `COOLIFY-ALLOW` chains.
+
+### Architecture (why this layout)
+
+The mgmt pool and container pool are **separate** so the Podman bridge can own the full container `/24` without conflicting with `wg0`. Pattern adopted from uncloud (psviderski/uncloud).
+
+WG config per host (e.g. host A):
+```
+[Interface]
+Address    = 100.64.0.1/32      # mgmt IP, NOT in container pool
+ListenPort = 51820
+PrivateKey = <gen on host>
+
+[Peer]                          # one per other host
+PublicKey  = <peer pubkey>
+AllowedIPs = 100.64.0.2/32, 10.210.1.0/24    # peer mgmt + peer container subnet
+Endpoint   = <peer SSH ip>:51820
+```
+
+Critical: `AllowedIPs` lists the peer's full `/24` so kernel routes `10.210.<peer>.0/24 dev wg0`. This is what makes cross-host container traffic work.
+
+Firewall service (`coolify-mesh-fw.service`) installed by `--podman`:
+- POSTROUTING `RETURN` rule prevents Podman MASQUERADE from rewriting container egress source on `wg0` (would break reverse routing because wg0 has no IP in the container subnet).
+- Mode A (no `--default-deny`): blanket FORWARD ACCEPT for container subnet.
+- Mode B (`--default-deny`): COOLIFY-INTRA chain (ESTABLISHED accept → COOLIFY-ALLOW → DROP), FORWARD jumps for `-s/-d <container-subnet>`. v5 control plane fills `COOLIFY-ALLOW`.
+
+### Cross-host vs intra-host firewall
+
+- **Cross-host default-deny WORKS** — those packets cross interfaces (wg0 ↔ bridge) and traverse iptables FORWARD. Empirically verified.
+- **Intra-host (same bridge) is NOT enforced** — Linux + netavark + Ubuntu 24.04 quirk: bridge L2 traffic bypasses iptables FORWARD even with `bridge-nf-call-iptables=1`. v5 control plane handles intra-host isolation via per-app podman networks (`--opt isolate=true`), not iptables.
+
+### Subcommands
+
+```bash
+coolify init plan   --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --default-deny]
+coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --default-deny] [--yes]
+```
+
+- `plan` is read-only: SSH-probes each host, reconstructs current state, shows what `apply` would do. Idempotent.
+- `apply` is the same plus execution. 2-phase parallel: phase 1 = install + keygen + podman + socket + IP forward. Re-probe to collect fresh public keys. Phase 2 = write WG config + enable/reload service + create podman network + install firewall.
+
+### Flags (defined in `cmd/init/flags.go`)
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--servers` | required | comma-separated SSH IPs |
+| `--ssh-key` | required | path to SSH private key |
+| `--ssh-passphrase-prompt` | false | prompt for key passphrase (also reads `COOLIFY_SSH_PASSPHRASE` env) |
+| `--ssh-user` | `root` | SSH user |
+| `--ssh-port` | `22` | SSH port |
+| `--wg-mgmt-pool` | `100.64.0.0/16` | mgmt IP pool, /32 per host on wg0 |
+| `--container-pool` | `10.210.0.0/16` | container pool, carved per host |
+| `--container-prefix` | `24` | per-host container subnet prefix |
+| `--wg-interface` | `wg0` | WG iface name on remote |
+| `--wg-listen-port` | `51820` | WG UDP port |
+| `--podman` | false | install podman + bridge + firewall service |
+| `--podman-network` | `coolify-mesh` | bridge network name |
+| `--default-deny` | false | requires `--podman`. Install COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
+| `--concurrency` | `10` | parallel SSH connections |
+| `--ssh-timeout` | `30s` | SSH connect timeout |
+| `--yes`, `-y` | false | skip alpha confirmation prompt |
+
+### Code layout
+
+- `cmd/init/` — Cobra subcommands (`init`, `init plan`, `init apply`).
+  - `flags.go` — `InitFlags` struct + bindings + SSH client builder.
+  - `plan.go` — `runPlan`: parse pools, build SSH client, probe, plan, render.
+  - `apply.go` — `runApply`: alpha gate, probe, plan, execute, verify.
+  - `init.go` — registers subcommands; package is `initcmd` (not `init` — Go reserved keyword).
+- `internal/wireguard/` — pure Go logic (no SSH, no I/O — `apply.go` is the SSH boundary).
+  - `state.go` — `ServerState`, `MeshState`, `DesiredMesh` types.
+  - `subnet.go` — `Allocate` (per-host subnets) + `AllocateMgmtIPs` (per-host /32) + conflict detection. Skips `.0` and broadcast for /32. Stable reuse + dedup-host check + warn-on-conflict.
+  - `config.go` — `RenderConfig` + `WriteConfigCommand` for `wg0.conf` (Address /32, AllowedIPs mgmt + container).
+  - `reconstruct.go` — `Probe` (SSH probes) + `Reconstruct` (parallel) + `parseConfigFile`.
+  - `plan.go` — `BuildPlan` (pure function: desired - actual = actions). `ActionType` enum.
+  - `apply.go` — `ApplyMesh` (2-phase fanout via `internal/ssh/fanout.go`). `runStep` helper.
+  - `firewall.go` — `coolify-mesh-fw.service` unit generator (two-mode: blanket allow vs default-deny).
+- `internal/ssh/` — generic SSH runner + parallel `ForEachServer[T]`.
+- `test/fixtures/wg/wg0.conf` — fixture for parser tests.
+
+### Key invariants
+
+- **Reconstructed-only state**: no local state file. Every `plan`/`apply` re-probes via SSH. State lives on the hosts.
+- **Idempotent**: re-running with no changes produces empty plan. State drift triggers re-converge (e.g. flipping `--default-deny` reinstalls the firewall service).
+- **Private key never leaves host**: WG private key generated on remote via `wg genkey`; config written using `$PRIVKEY=$(cat /etc/wireguard/privatekey)` shell expansion.
+- **Atomic config writes**: write to `.conf.tmp`, `mv` to `.conf`.
+- **Stable subnet assignment**: existing valid assignments are preserved across re-runs; only invalid (out-of-pool, wrong prefix, duplicate, network/broadcast IP) trigger reassignment with warning.
+
+### Future control plane (v5 / coold)
+
+`coolify init` only does the **one-shot host bootstrap**. Day-to-day container/firewall ops are the v5 control plane's job. See `CONTROL_PLANE.md` for the full spec, including:
+
+- coold per-host agent (REST API on wg0, bind-mounts `/run/podman/podman.sock`, NEVER exposes socket on TCP).
+- Service discovery via embedded DNS in coold + Corrosion-replicated sqlite (no env injection, no container restart on backend movement).
+- Allow-rule persistence via coold's own DB + `iptables-restore --noflush` or `nft -f` batch (NOT systemd dropins per rule — doesn't scale).
+- Cross-host allow rules go on the **destination host** (where DROP would otherwise fire).
+
+When extending `coolify init`, defer dynamic responsibilities to coold. Bootstrap should stay narrow: scaffold the mesh, install runtime, prep firewall chains. coold owns everything that changes at runtime.
+
+### Testing init
+
+Tests live in `internal/wireguard/*_test.go` and `cmd/init/*_test.go`:
+
+```bash
+go test ./internal/wireguard/... ./cmd/init/... -v
+```
+
+Use the SSH `Runner` interface for mocking — never open real SSH connections in unit tests. `internal/ssh/fanout.go` is generic; reuse for any per-server fanout.
+
 ## Testing Requirements
 
 **CRITICAL: All code changes MUST include tests. This is non-negotiable.**
