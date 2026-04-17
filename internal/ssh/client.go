@@ -21,6 +21,12 @@ type Runner interface {
 	Run(ctx context.Context, host, user string, port int, cmd string) (stdout, stderr string, err error)
 }
 
+// FileUploader streams a local file to a remote path via a single SSH
+// session.  Kept separate from Runner so existing Runner mocks stay valid.
+type FileUploader interface {
+	UploadFile(ctx context.Context, host, user string, port int, localPath, remotePath string, mode os.FileMode) error
+}
+
 // Client implements Runner using the golang.org/x/crypto/ssh library.
 // Keys must be unencrypted PEM files.
 // NOTE: host-key verification is intentionally disabled in v1 (alpha).
@@ -82,10 +88,10 @@ func contains(s, sub string) bool {
 		}()
 }
 
-// Run connects to host:port over SSH as user, executes cmd, and returns
-// the combined stdout, stderr, and any error.  The connection is
-// closed when the command finishes or ctx is cancelled.
-func (c *Client) Run(ctx context.Context, host, user string, port int, cmd string) (string, string, error) {
+// dial opens an SSH connection to host:port as user and returns it.  Caller
+// owns Close().  Shared by Run and UploadFile so host-key/timeout behaviour
+// stays identical across commands and file transfers.
+func (c *Client) dial(ctx context.Context, host, user string, port int) (*gossh.Client, error) {
 	cfg := &gossh.ClientConfig{
 		User:            user,
 		Auth:            []gossh.AuthMethod{gossh.PublicKeys(c.signer)},
@@ -95,20 +101,31 @@ func (c *Client) Run(ctx context.Context, host, user string, port int, cmd strin
 
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
-	// Use a context-aware dialer so the dial itself respects ctx.
 	dialer := &net.Dialer{Timeout: c.timeout}
 	netConn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		return "", "", fmt.Errorf("dial %s: %w", addr, err)
+		return nil, fmt.Errorf("dial %s: %w", addr, err)
 	}
 
 	sshConn, chans, reqs, err := gossh.NewClientConn(netConn, addr, cfg)
 	if err != nil {
 		netConn.Close()
-		return "", "", fmt.Errorf("SSH handshake %s: %w", addr, err)
+		return nil, fmt.Errorf("SSH handshake %s: %w", addr, err)
 	}
-	conn := gossh.NewClient(sshConn, chans, reqs)
+	return gossh.NewClient(sshConn, chans, reqs), nil
+}
+
+// Run connects to host:port over SSH as user, executes cmd, and returns
+// the combined stdout, stderr, and any error.  The connection is
+// closed when the command finishes or ctx is cancelled.
+func (c *Client) Run(ctx context.Context, host, user string, port int, cmd string) (string, string, error) {
+	conn, err := c.dial(ctx, host, user, port)
+	if err != nil {
+		return "", "", err
+	}
 	defer conn.Close()
+
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	sess, err := conn.NewSession()
 	if err != nil {
@@ -134,5 +151,63 @@ func (c *Client) Run(ctx context.Context, host, user string, port int, cmd strin
 		return stdout.String(), stderr.String(), ctx.Err()
 	case runErr := <-waitDone:
 		return stdout.String(), stderr.String(), runErr
+	}
+}
+
+// uploadShellCmd returns the remote command that atomically writes stdin
+// to remotePath with the given mode.  Exposed as a function so it can be
+// unit-tested without opening an SSH connection.
+func uploadShellCmd(remotePath string, mode os.FileMode) string {
+	return fmt.Sprintf(
+		`set -e; umask 077; mkdir -p "$(dirname %q)"; `+
+			`cat > %q.tmp.$$ && chmod %o %q.tmp.$$ && mv -f %q.tmp.$$ %q`,
+		remotePath, remotePath, mode.Perm(), remotePath, remotePath, remotePath)
+}
+
+// UploadFile streams localPath to remotePath on host via a single SSH
+// session.  The write is atomic: data lands in <remote>.tmp.$PID first and
+// is renamed on success.
+func (c *Client) UploadFile(ctx context.Context, host, user string, port int, localPath, remotePath string, mode os.FileMode) error {
+	f, err := os.Open(localPath)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", localPath, err)
+	}
+	defer f.Close()
+
+	conn, err := c.dial(ctx, host, user, port)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+
+	sess, err := conn.NewSession()
+	if err != nil {
+		return fmt.Errorf("SSH new session on %s: %w", addr, err)
+	}
+	defer sess.Close()
+
+	var stderr bytes.Buffer
+	sess.Stdin = f
+	sess.Stderr = &stderr
+
+	if err := sess.Start(uploadShellCmd(remotePath, mode)); err != nil {
+		return fmt.Errorf("SSH upload start on %s: %w", addr, err)
+	}
+
+	waitDone := make(chan error, 1)
+	go func() { waitDone <- sess.Wait() }()
+
+	select {
+	case <-ctx.Done():
+		_ = sess.Signal(gossh.SIGTERM)
+		return ctx.Err()
+	case runErr := <-waitDone:
+		if runErr != nil {
+			return fmt.Errorf("upload %s -> %s: %w (stderr: %s)",
+				localPath, remotePath, runErr, bytes.TrimSpace(stderr.Bytes()))
+		}
+		return nil
 	}
 }

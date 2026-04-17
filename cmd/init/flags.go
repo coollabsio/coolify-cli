@@ -28,6 +28,11 @@ type InitFlags struct {
 	InstallPodman         bool
 	PodmanNetworkName     string
 	DefaultDenyContainers bool
+	InstallCoold          bool
+	CooldBinaryPath       string
+	CorrosionBinaryPath   string
+	CorrosionGossipPort   int
+	CorrosionAPIPort      int
 	Concurrency         int
 	SSHTimeout          string
 	Yes                 bool
@@ -101,6 +106,18 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 		"Name of the Podman bridge network created on each host (requires --podman)")
 	pf.BoolVar(&f.DefaultDenyContainers, "default-deny", false,
 		"With --podman: install default-deny iptables rules for CROSS-HOST container traffic (between hosts via wg0). Intra-host (same bridge) traffic is NOT enforced — defer to per-app podman networks. The v5 control plane manages allows in the COOLIFY-ALLOW chain on the host that owns each destination IP")
+	pf.BoolVar(&f.InstallCoold, "install-coold", false,
+		"Install the Coolify v5 control-plane agents (corrosion + coold). Requires --podman. Uploads the binaries from --corrosion-binary / --coold-binary")
+	pf.StringVar(&f.CooldBinaryPath, "coold-binary",
+		os.ExpandEnv("$HOME/devel/coold/target/release/coold"),
+		"Local path to the coold Linux/arm64 binary (used with --install-coold)")
+	pf.StringVar(&f.CorrosionBinaryPath, "corrosion-binary",
+		os.ExpandEnv("$HOME/devel/corrosion/target/release/corrosion"),
+		"Local path to the corrosion Linux/arm64 binary (used with --install-coold)")
+	pf.IntVar(&f.CorrosionGossipPort, "corrosion-gossip-port", 8787,
+		"Corrosion SWIM gossip port (bound to the wg0 mgmt IP)")
+	pf.IntVar(&f.CorrosionAPIPort, "corrosion-api-port", 8080,
+		"Corrosion HTTP API port (bound to 127.0.0.1)")
 	pf.IntVar(&f.Concurrency, "concurrency", 10,
 		"Maximum number of parallel SSH connections")
 	pf.StringVar(&f.SSHTimeout, "ssh-timeout", "30s",

@@ -12,6 +12,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
+	"github.com/coollabsio/coolify-cli/internal/services"
 	internalssh "github.com/coollabsio/coolify-cli/internal/ssh"
 	"github.com/coollabsio/coolify-cli/internal/wireguard"
 )
@@ -38,6 +39,35 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 
 	if err := validatePlanFlags(flags); err != nil {
 		return err
+	}
+
+	var corrosionSha, cooldSha string
+	if flags.InstallCoold {
+		if !flags.InstallPodman {
+			return fmt.Errorf("--install-coold requires --podman")
+		}
+		for _, bp := range []struct {
+			label, path string
+			out         *string
+		}{
+			{"corrosion", flags.CorrosionBinaryPath, &corrosionSha},
+			{"coold", flags.CooldBinaryPath, &cooldSha},
+		} {
+			if bp.path == "" {
+				return fmt.Errorf("--%s-binary is required with --install-coold", bp.label)
+			}
+			if _, err := os.Stat(bp.path); err != nil {
+				return fmt.Errorf("%s binary %q: %w", bp.label, bp.path, err)
+			}
+			if err := services.VerifyLinuxARM64(bp.path); err != nil {
+				return fmt.Errorf("%s binary: %w", bp.label, err)
+			}
+			sum, err := wireguard.FileSha256(bp.path)
+			if err != nil {
+				return fmt.Errorf("hash %s binary: %w", bp.label, err)
+			}
+			*bp.out = sum
+		}
 	}
 
 	// Alpha gate: block unless bypassed.
@@ -69,6 +99,13 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		InstallPodman:         flags.InstallPodman,
 		PodmanNetworkName:     flags.PodmanNetworkName,
 		DefaultDenyContainers: flags.DefaultDenyContainers,
+		InstallCoold:          flags.InstallCoold,
+		CooldBinaryPath:       flags.CooldBinaryPath,
+		CorrosionBinaryPath:   flags.CorrosionBinaryPath,
+		CorrosionGossipPort:   flags.CorrosionGossipPort,
+		CorrosionAPIPort:      flags.CorrosionAPIPort,
+		CorrosionBinarySha256: corrosionSha,
+		CooldBinarySha256:     cooldSha,
 	}
 
 	sshClient, err := flags.BuildSSHClient()
@@ -115,7 +152,7 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 
 	// Execute the plan.
 	fmt.Fprintln(os.Stderr, "Applying...")
-	actionResults, applyErr := wireguard.ApplyMesh(ctx, sshClient,
+	actionResults, applyErr := wireguard.ApplyMesh(ctx, sshClient, sshClient,
 		flags.SSHUser, flags.SSHPort, desired, current, flags.Concurrency)
 
 	// Render action results.

@@ -100,6 +100,69 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 		state.DefaultDenyActive = true
 	}
 
+	// 11. Corrosion binary installed.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`test -x /usr/local/bin/corrosion && echo yes || echo no`)
+	if strings.TrimSpace(stdout) == "yes" {
+		state.CorrosionInstalled = true
+	}
+
+	// 12. Corrosion systemd service active.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`systemctl is-active corrosion 2>/dev/null || true`)
+	if strings.TrimSpace(stdout) == "active" {
+		state.CorrosionActive = true
+	}
+
+	// 13. Corrosion config hash (empty when missing).
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /etc/corrosion/config.toml 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.CorrosionConfigHash = h
+	}
+
+	// 14. Corrosion schema file present.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`test -f /etc/corrosion/schemas/coolify.sql && echo yes || echo no`)
+	if strings.TrimSpace(stdout) == "yes" {
+		state.CorrosionSchemaExists = true
+	}
+
+	// 15. Coold binary installed.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`test -x /usr/local/bin/coold && echo yes || echo no`)
+	if strings.TrimSpace(stdout) == "yes" {
+		state.CooldInstalled = true
+	}
+
+	// 15a. sha256 of remote corrosion binary (empty when absent).
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /usr/local/bin/corrosion 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.CorrosionBinarySha256 = h
+	}
+
+	// 15b. sha256 of remote coold binary (empty when absent).
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /usr/local/bin/coold 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.CooldBinarySha256 = h
+	}
+
+	// 15c. sha256 of remote coold.service unit (empty when absent).
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /etc/systemd/system/coold.service 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.CooldUnitSha256 = h
+	}
+
+	// 16. Coold systemd service active.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`systemctl is-active coold 2>/dev/null || true`)
+	if strings.TrimSpace(stdout) == "active" {
+		state.CooldActive = true
+	}
+
 	return state, nil
 }
 

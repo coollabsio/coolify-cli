@@ -1,8 +1,12 @@
 package wireguard
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net"
+
+	"github.com/coollabsio/coolify-cli/internal/services"
 )
 
 // ActionType identifies the kind of change required.
@@ -23,6 +27,12 @@ const (
 	ActionEnableIPForward         ActionType = "enable-ip-forward"
 	ActionCreatePodmanNet         ActionType = "create-podman-network"
 	ActionInstallFirewall         ActionType = "install-firewall"
+	ActionUploadCorrosion         ActionType = "upload-corrosion"
+	ActionUploadCoold             ActionType = "upload-coold"
+	ActionWriteCorrosionConfig    ActionType = "write-corrosion-config"
+	ActionWriteCorrosionSchema    ActionType = "write-corrosion-schema"
+	ActionInstallCorrosionService ActionType = "install-corrosion-service"
+	ActionInstallCooldService     ActionType = "install-coold-service"
 )
 
 // PlannedAction is one step that apply must execute on a host.
@@ -51,6 +61,9 @@ func (p *Plan) IsEmpty() bool { return len(p.Actions) == 0 }
 func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	if desired.DefaultDenyContainers && !desired.InstallPodman {
 		return nil, fmt.Errorf("--default-deny requires --podman")
+	}
+	if desired.InstallCoold && !desired.InstallPodman {
+		return nil, fmt.Errorf("--install-coold requires --podman")
 	}
 
 	mgmtAssignments, mgmtWarns, err := AllocateMgmtIPs(desired.MgmtPool, current.AssignedMgmtIPs(), desired.Hosts)
@@ -223,9 +236,95 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 				})
 			}
 		}
+
+		// --- Corrosion + coold stack (v5 control plane) ---
+		if desired.InstallCoold {
+			corrosionDrift := !state.CorrosionInstalled ||
+				(desired.CorrosionBinarySha256 != "" && state.CorrosionBinarySha256 != desired.CorrosionBinarySha256)
+			cooldDrift := !state.CooldInstalled ||
+				(desired.CooldBinarySha256 != "" && state.CooldBinarySha256 != desired.CooldBinarySha256)
+
+			if corrosionDrift {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionUploadCorrosion,
+					Detail: "/usr/local/bin/corrosion",
+				})
+			}
+			if cooldDrift {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionUploadCoold,
+					Detail: "/usr/local/bin/coold",
+				})
+			}
+
+			peers := peerMgmtIPs(host, desired.Hosts, mgmtAssignments)
+			expectedConfig := services.CorrosionConfigBytes(mgmtIP,
+				desired.CorrosionGossipPort, desired.CorrosionAPIPort, peers)
+			expectedHash := sha256Hex(expectedConfig)
+			configDrift := state.CorrosionConfigHash != expectedHash
+
+			if configDrift {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionWriteCorrosionConfig,
+					Detail: fmt.Sprintf("/etc/corrosion/config.toml (peers=%d)", len(peers)),
+				})
+			}
+			if !state.CorrosionSchemaExists {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionWriteCorrosionSchema,
+					Detail: "/etc/corrosion/schemas/coolify.sql",
+				})
+			}
+			expectedCooldUnit := services.CooldServiceUnit(mgmtIP)
+			cooldUnitDrift := state.CooldUnitSha256 != sha256Hex([]byte(expectedCooldUnit))
+
+			if !state.CorrosionActive || configDrift || corrosionDrift {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionInstallCorrosionService,
+					Detail: "systemctl enable --now corrosion",
+				})
+			}
+			if !state.CooldActive || configDrift || cooldDrift || cooldUnitDrift {
+				detail := fmt.Sprintf("systemctl enable --now coold (mgmt=%s)", mgmtIP)
+				if cooldUnitDrift && state.CooldUnitSha256 != "" {
+					detail += " [unit drift]"
+				}
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionInstallCooldService,
+					Detail: detail,
+				})
+			}
+		}
 	}
 
 	return plan, nil
+}
+
+// peerMgmtIPs returns the mgmt IPs of all hosts except self, drawn from the
+// planned assignments so the result is stable even before any host has been
+// probed.
+func peerMgmtIPs(self string, hosts []string, assignments map[string]net.IP) []net.IP {
+	out := make([]net.IP, 0, len(hosts)-1)
+	for _, h := range hosts {
+		if h == self {
+			continue
+		}
+		if ip, ok := assignments[h]; ok && ip != nil {
+			out = append(out, ip)
+		}
+	}
+	return out
+}
+
+func sha256Hex(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 // actionsForHost returns the subset of plan.Actions matching host and atype.

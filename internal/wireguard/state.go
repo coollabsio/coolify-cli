@@ -72,6 +72,38 @@ type ServerState struct {
 	// DefaultDenyActive is true when the COOLIFY-INTRA chain exists and
 	// terminates in DROP (the default-deny scaffold is in place).
 	DefaultDenyActive bool
+
+	// CorrosionInstalled is true when /usr/local/bin/corrosion exists and is executable.
+	CorrosionInstalled bool
+
+	// CorrosionActive is true when the corrosion systemd service is active.
+	CorrosionActive bool
+
+	// CorrosionConfigHash is the sha256 of /etc/corrosion/config.toml, or empty
+	// when the file is absent.  Used to detect drift when peer list changes.
+	CorrosionConfigHash string
+
+	// CorrosionSchemaExists is true when /etc/corrosion/schemas/coolify.sql exists.
+	CorrosionSchemaExists bool
+
+	// CooldInstalled is true when /usr/local/bin/coold exists and is executable.
+	CooldInstalled bool
+
+	// CooldActive is true when the coold systemd service is active.
+	CooldActive bool
+
+	// CorrosionBinarySha256 is the sha256 of /usr/local/bin/corrosion (hex), or
+	// empty when absent. Used by BuildPlan to detect out-of-date binaries.
+	CorrosionBinarySha256 string
+
+	// CooldBinarySha256 is the sha256 of /usr/local/bin/coold (hex), or empty
+	// when absent.
+	CooldBinarySha256 string
+
+	// CooldUnitSha256 is the sha256 of /etc/systemd/system/coold.service (hex),
+	// or empty when absent. Used by BuildPlan to detect generator changes
+	// (e.g. Requires→Wants) that would otherwise be invisible.
+	CooldUnitSha256 string
 }
 
 // MeshState is the reconstructed state across all servers in the mesh.
@@ -141,4 +173,28 @@ type DesiredMesh struct {
 	// container subnet (intra-host AND cross-host via wg0). The v5 control
 	// plane manages the explicit allow-list in the COOLIFY-ALLOW chain.
 	DefaultDenyContainers bool
+
+	// InstallCoold, when true, uploads corrosion + coold binaries to each host,
+	// writes their configs/unit files, and enables both services.  Requires
+	// InstallPodman (coold depends on podman.socket).
+	InstallCoold bool
+
+	// CooldBinaryPath is the local filesystem path of the coold binary to upload.
+	// Never written to remote state.
+	CooldBinaryPath string
+
+	// CorrosionBinaryPath is the local filesystem path of the corrosion binary to upload.
+	CorrosionBinaryPath string
+
+	// CorrosionGossipPort is the SWIM gossip UDP port (default 8787).
+	CorrosionGossipPort int
+
+	// CorrosionAPIPort is the corrosion HTTP API port bound to 127.0.0.1 (default 8080).
+	CorrosionAPIPort int
+
+	// CorrosionBinarySha256 and CooldBinarySha256 are hex sha256 of the local
+	// binary files. Populated by the apply/plan command before BuildPlan so the
+	// plan step can detect remote/local binary drift.
+	CorrosionBinarySha256 string
+	CooldBinarySha256     string
 }
