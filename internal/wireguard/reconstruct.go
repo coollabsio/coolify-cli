@@ -76,6 +76,13 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 					state.ContainerSubnet = n
 				}
 			}
+			// dns_enabled: when true, netavark holds bridge gateway :53 via
+			// aardvark-dns, which would collide with coold's cluster DNS.
+			stdout, _, _ = runner.Run(ctx, host, user, port,
+				fmt.Sprintf(`podman network inspect %s -f '{{.DNSEnabled}}' 2>/dev/null || true`, podmanNetName))
+			if strings.TrimSpace(stdout) == "true" {
+				state.PodmanDNSEnabled = true
+			}
 		}
 	}
 

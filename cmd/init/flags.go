@@ -15,16 +15,16 @@ import (
 
 // InitFlags holds all flags shared between `plan` and `apply`.
 type InitFlags struct {
-	Servers             []string
-	SSHKey              string
-	SSHUser             string
-	SSHPort             int
-	SSHPassphrasePrompt bool
-	WGMgmtPool          string
-	ContainerPool       string
-	ContainerPrefix     int
-	WGInterface         string
-	WGListenPort        int
+	Servers               []string
+	SSHKey                string
+	SSHUser               string
+	SSHPort               int
+	SSHPassphrasePrompt   bool
+	WGMgmtPool            string
+	ContainerPool         string
+	ContainerPrefix       int
+	WGInterface           string
+	WGListenPort          int
 	InstallPodman         bool
 	PodmanNetworkName     string
 	DefaultDenyContainers bool
@@ -33,9 +33,9 @@ type InitFlags struct {
 	CorrosionBinaryPath   string
 	CorrosionGossipPort   int
 	CorrosionAPIPort      int
-	Concurrency         int
-	SSHTimeout          string
-	Yes                 bool
+	Concurrency           int
+	SSHTimeout            string
+	Yes                   bool
 }
 
 // ParseSSHTimeout parses the SSHTimeout string into a time.Duration.

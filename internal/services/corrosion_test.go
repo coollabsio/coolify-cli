@@ -74,6 +74,25 @@ func TestCoolifySchema_HasLivenessAndReadinessColumns(t *testing.T) {
 	}
 }
 
+func TestCoolifySchema_HasContainerNameColumn(t *testing.T) {
+	// container_name is the DNS label coold's resolver queries on. Flat
+	// scheme: <container_name>.coolify.internal → container_ip. Coolify
+	// enforces global uniqueness.
+	want := "container_name  TEXT NOT NULL DEFAULT ''"
+	if !strings.Contains(CoolifySchemaSQL, want) {
+		t.Errorf("schema missing %q:\n%s", want, CoolifySchemaSQL)
+	}
+}
+
+func TestCoolifySchema_HasNamespaceColumn(t *testing.T) {
+	// namespace is reserved for future per-app isolation / multi-tenant.
+	// Empty in single-tenant; populated when Coolify wants app scoping.
+	want := "namespace       TEXT NOT NULL DEFAULT ''"
+	if !strings.Contains(CoolifySchemaSQL, want) {
+		t.Errorf("schema missing %q:\n%s", want, CoolifySchemaSQL)
+	}
+}
+
 func TestCoolifySchema_AllNotNullColumnsHaveDefault(t *testing.T) {
 	// CR-SQLite rejects any NOT NULL column missing a DEFAULT with
 	// "needs a default value for forward schema compatibility".

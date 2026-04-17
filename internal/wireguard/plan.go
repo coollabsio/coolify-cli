@@ -26,6 +26,7 @@ const (
 	ActionEnablePodmanSocket      ActionType = "enable-podman-socket"
 	ActionEnableIPForward         ActionType = "enable-ip-forward"
 	ActionCreatePodmanNet         ActionType = "create-podman-network"
+	ActionRecreatePodmanNet       ActionType = "recreate-podman-network"
 	ActionInstallFirewall         ActionType = "install-firewall"
 	ActionUploadCorrosion         ActionType = "upload-corrosion"
 	ActionUploadCoold             ActionType = "upload-coold"
@@ -227,6 +228,12 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 					Type:   ActionCreatePodmanNet,
 					Detail: fmt.Sprintf("%s subnet=%s gateway=%s", desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet)),
 				})
+			} else if state.PodmanDNSEnabled {
+				plan.Actions = append(plan.Actions, PlannedAction{
+					Host:   host,
+					Type:   ActionRecreatePodmanNet,
+					Detail: fmt.Sprintf("%s dns_enabled=true — recreate with --disable-dns (frees bridge :53 for coold)", desired.PodmanNetworkName),
+				})
 			}
 			if !state.FirewallActive || state.DefaultDenyActive != desired.DefaultDenyContainers {
 				plan.Actions = append(plan.Actions, PlannedAction{
@@ -285,7 +292,7 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 					Detail: detail,
 				})
 			}
-			expectedCooldUnit := services.CooldServiceUnit(mgmtIP)
+			expectedCooldUnit := services.CooldServiceUnit(mgmtIP, MachineIP(contSubnet))
 			cooldUnitDrift := state.CooldUnitSha256 != sha256Hex([]byte(expectedCooldUnit))
 
 			if !state.CorrosionActive || configDrift || corrosionDrift || schemaDrift {

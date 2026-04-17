@@ -18,6 +18,12 @@ import (
 // coold always provides every column on upsert.
 //
 // Columns:
+//   - container_name: globally unique DNS label. coold's embedded resolver
+//     answers <container_name>.coolify.internal → container_ip. Uniqueness
+//     is Coolify's responsibility at app-create time.
+//   - namespace: optional app-scoping key reserved for multi-tenant / per-app
+//     isolation (e.g. one podman network per namespace). Empty string in
+//     single-tenant deployments. Opaque DNS-safe string owned by Coolify.
 //   - state: raw podman container status (running, exited, stopped,
 //     restarting, paused, created, dead, configured, removing). Liveness.
 //   - health: podman HEALTHCHECK result. One of:
@@ -26,6 +32,7 @@ import (
 const CoolifySchemaSQL = `CREATE TABLE service_endpoints (
     container_id    TEXT NOT NULL DEFAULT '' PRIMARY KEY,
     container_name  TEXT NOT NULL DEFAULT '',
+    namespace       TEXT NOT NULL DEFAULT '',
     host_mgmt_ip    TEXT NOT NULL DEFAULT '',
     container_ip    TEXT NOT NULL DEFAULT '',
     state           TEXT NOT NULL DEFAULT '',

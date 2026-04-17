@@ -63,6 +63,12 @@ type ServerState struct {
 	// PodmanNetExists is true when the configured Podman network already exists.
 	PodmanNetExists bool
 
+	// PodmanDNSEnabled is true when the configured Podman network has
+	// `dns_enabled=true` (netavark auto-starts aardvark-dns on the bridge
+	// gateway:53). coold needs that socket free for cluster-wide DNS, so
+	// this drift triggers ActionRecreatePodmanNet.
+	PodmanDNSEnabled bool
+
 	// IPForwardEnabled is true when net.ipv4.ip_forward == 1.
 	IPForwardEnabled bool
 

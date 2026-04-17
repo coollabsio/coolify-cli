@@ -205,6 +205,8 @@ Endpoint   = <peer SSH ip>:51820
 
 Critical: `AllowedIPs` lists the peer's full `/24` so kernel routes `10.210.<peer>.0/24 dev wg0`. This is what makes cross-host container traffic work.
 
+Podman network `coolify-mesh` is created with `--disable-dns` — bridge gateway `10.210.X.1:53` is reserved for coold's embedded cluster DNS (see CONTROL_PLANE.md §5). Pre-alpha networks with `dns_enabled=true` are detected on re-run and recreated.
+
 Firewall service (`coolify-mesh-fw.service`) installed by `--podman`:
 - POSTROUTING `RETURN` rule prevents Podman MASQUERADE from rewriting container egress source on `wg0` (would break reverse routing because wg0 has no IP in the container subnet).
 - Mode A (no `--default-deny`): blanket FORWARD ACCEPT for container subnet.

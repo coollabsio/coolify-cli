@@ -52,10 +52,24 @@ const enableIPForwardCmd = `sysctl -w net.ipv4.ip_forward=1 && ` +
 // podmanNetCreateCmd creates a Podman bridge network bound to the host's
 // container subnet. Idempotent: skips if the network already exists.
 // The bridge gateway is MachineIP(subnet) (the .1 of the /24).
+//
+// --disable-dns prevents netavark from starting aardvark-dns on the bridge
+// gateway IP:53 — coold owns that socket for cluster-wide service discovery
+// (see CONTROL_PLANE.md §5).
 func podmanNetCreateCmd(name string, subnet *net.IPNet, gateway net.IP) string {
 	return fmt.Sprintf(
 		`podman network exists %s 2>/dev/null && echo "network exists, skipping" || `+
-			`podman network create --driver bridge --subnet=%s --gateway=%s %s`,
+			`podman network create --driver bridge --disable-dns --subnet=%s --gateway=%s %s`,
+		name, subnet, gateway, name)
+}
+
+// podmanNetRecreateCmd drops and recreates the Podman bridge network to clear
+// a dns_enabled=true drift (pre-alpha deployments created the network without
+// --disable-dns). Uses `rm -f` to detach any attached containers first.
+func podmanNetRecreateCmd(name string, subnet *net.IPNet, gateway net.IP) string {
+	return fmt.Sprintf(
+		`podman network rm -f %s 2>&1 && `+
+			`podman network create --driver bridge --disable-dns --subnet=%s --gateway=%s %s`,
 		name, subnet, gateway, name)
 }
 
@@ -170,7 +184,7 @@ func ApplyMesh(
 		p3 := ssh.ForEachServer(ctx, desired.Hosts, concurrency,
 			func(ctx context.Context, host string) ([]ActionResult, error) {
 				return phase3Server(ctx, runner, uploader, host, user, port,
-					desired, fresh, mgmtAssignments, corrosionSha, cooldSha)
+					desired, fresh, mgmtAssignments, containerAssignments, corrosionSha, cooldSha)
 			})
 
 		for _, r := range p3 {
@@ -310,8 +324,17 @@ func phase2Server(
 	if desired.InstallPodman {
 		freshState := fresh.Servers[host]
 
-		// Create Podman bridge network if not already present.
-		if freshState == nil || !freshState.PodmanNetExists {
+		// Recreate Podman network if dns_enabled=true (pre-alpha drift).
+		// coold needs the bridge gateway :53 socket free.
+		if freshState != nil && freshState.PodmanNetExists && freshState.PodmanDNSEnabled {
+			recreateCmd := podmanNetRecreateCmd(desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet))
+			if err := runStep(ctx, runner, host, user, port, &out,
+				ActionRecreatePodmanNet, recreateCmd,
+				fmt.Sprintf("recreate Podman network on %s (disable DNS)", host)); err != nil {
+				return out, err
+			}
+		} else if freshState == nil || !freshState.PodmanNetExists {
+			// Create Podman bridge network if not already present.
 			netCmd := podmanNetCreateCmd(desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet))
 			if err := runStep(ctx, runner, host, user, port, &out,
 				ActionCreatePodmanNet, netCmd,
@@ -491,6 +514,7 @@ func phase3Server(
 	desired *DesiredMesh,
 	fresh MeshState,
 	mgmtAssignments map[string]net.IP,
+	containerAssignments map[string]*net.IPNet,
 	corrosionSha, cooldSha string,
 ) ([]ActionResult, error) {
 	var out []ActionResult
@@ -499,6 +523,11 @@ func phase3Server(
 	if mgmtIP == nil {
 		return out, fmt.Errorf("no mgmt IP allocated for %s", host)
 	}
+	contSubnet := containerAssignments[host]
+	if contSubnet == nil {
+		return out, fmt.Errorf("no container subnet allocated for %s", host)
+	}
+	bridgeGatewayIP := MachineIP(contSubnet)
 
 	// 1. Upload corrosion binary (skip if sha matches).
 	if remoteSha256(ctx, runner, host, user, port, "/usr/local/bin/corrosion") != corrosionSha {
@@ -568,7 +597,7 @@ func phase3Server(
 	// Use enable + restart (not enable --now) so an already-active service still
 	// picks up new unit/config/schema without a separate reload step.
 	corrosionUnit := services.CorrosionServiceUnit(desired.Interface)
-	cooldUnit := services.CooldServiceUnit(mgmtIP)
+	cooldUnit := services.CooldServiceUnit(mgmtIP, bridgeGatewayIP)
 
 	serviceCmd := heredocWrite("/etc/systemd/system/corrosion.service",
 		corrosionUnit, "COOLIFY_CORROSION_UNIT_EOF") +

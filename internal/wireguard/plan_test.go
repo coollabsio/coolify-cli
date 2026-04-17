@@ -334,6 +334,33 @@ func TestBuildPlan_PodmanNotRequested(t *testing.T) {
 	}
 }
 
+func TestBuildPlan_PodmanDNSEnabledTriggersRecreate(t *testing.T) {
+	desired := desiredWithPodman()
+	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
+	srvA.PodmanDNSEnabled = true // pre-alpha drift: aardvark-dns would squat :53
+	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
+	// srvB has dns_enabled=false — should NOT trigger recreate
+	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
+
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	var aTypes, bTypes []ActionType
+	for _, a := range plan.Actions {
+		if a.Host == "1.1.1.1" {
+			aTypes = append(aTypes, a.Type)
+		}
+		if a.Host == "2.2.2.2" {
+			bTypes = append(bTypes, a.Type)
+		}
+	}
+
+	assert.Contains(t, aTypes, ActionRecreatePodmanNet, "host A must recreate (dns_enabled=true)")
+	assert.NotContains(t, aTypes, ActionCreatePodmanNet, "host A already exists — only recreate")
+	assert.NotContains(t, bTypes, ActionRecreatePodmanNet, "host B fine, no recreate")
+	assert.NotContains(t, bTypes, ActionCreatePodmanNet, "host B fine, no create")
+}
+
 func TestBuildPlan_FirewallMissing(t *testing.T) {
 	desired := desiredWithPodman()
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")

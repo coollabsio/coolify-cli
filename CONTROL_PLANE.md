@@ -342,7 +342,23 @@ Most ops are automatic side effects of deploy/scale/health-check. Central rarely
 
 #### Bootstrap impact
 
-Zero. `coolify init apply` doesn't change. Bridge gateway `10.210.X.1` was always reserved by `MachineIP()`; coold binds port 53 on it when deployed.
+Minimal. `coolify init apply` creates the `coolify-mesh` Podman network with `--disable-dns` so netavark never starts aardvark-dns on `10.210.X.1:53`. coold owns that socket. Bridge gateway IP was always reserved by `MachineIP()`.
+
+Pre-alpha deployments that created the network without `--disable-dns` are detected at plan-time (probe reads `podman network inspect .DNSEnabled`). A `recreate-podman-network` action drops and recreates the network — same subnet, same gateway, but with DNS disabled. Any attached containers are disconnected via `podman network rm -f`.
+
+#### Port 53 conflict handling
+
+Three layers protect coold's `10.210.X.1:53` socket:
+
+| Layer | Mechanism | Covers |
+|---|---|---|
+| 1. Bootstrap | `podman network create --disable-dns` (+ drift recreate) | aardvark-dns squat |
+| 2. Bind target | coold binds **bridge gateway IP only**, not `0.0.0.0` and not wg0 mgmt IP | host wildcard DNS daemons (dnsmasq/pihole on `0.0.0.0:53`) and wg0 bloat |
+| 3. Preflight | `net.Listen("tcp", gateway+":53")` probe before `ListenPacket` | clear actionable error + systemd `Restart=on-failure` retry |
+
+systemd-resolved on Ubuntu binds `127.0.0.53:53` — no conflict with bridge gateway.
+
+Bind rule: coold DNS is container-facing only (listen on bridge gateway IP). coold REST API is operator-facing (listen on wg0 mgmt IP, port 8443). Separate concerns, separate sockets.
 
 ### 6. Ingress (public traffic → containers)
 
