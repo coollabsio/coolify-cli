@@ -541,9 +541,23 @@ func phase3Server(
 		return out, err
 	}
 
-	// 5. Write schema.
+	// 5. Write schema. When schema content drifts (not first install) the
+	// CR-SQLite on-disk DB is incompatible — stop corrosion and wipe the DB
+	// so it re-bootstraps from the new schema. Coold repopulates within ~2s.
+	expectedSchemaSha := sha256Hex([]byte(services.CoolifySchemaSQL))
+	freshState := fresh.Servers[host]
+	schemaDrift := freshState != nil &&
+		freshState.CorrosionSchemaSha256 != "" &&
+		freshState.CorrosionSchemaSha256 != expectedSchemaSha
 	schemaCmd := heredocWrite("/etc/corrosion/schemas/coolify.sql",
 		services.CoolifySchemaSQL, "COOLIFY_SCHEMA_EOF")
+	if schemaDrift {
+		schemaCmd = `systemctl stop corrosion 2>/dev/null || true; ` +
+			`rm -f /var/lib/corrosion/corrosion.db ` +
+			`/var/lib/corrosion/corrosion.db-shm ` +
+			`/var/lib/corrosion/corrosion.db-wal && ` +
+			schemaCmd
+	}
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionWriteCorrosionSchema, schemaCmd,
 		fmt.Sprintf("write corrosion schema on %s", host)); err != nil {
@@ -551,6 +565,8 @@ func phase3Server(
 	}
 
 	// 6. Write corrosion unit + 7. Write coold unit + 8. daemon-reload + enable.
+	// Use enable + restart (not enable --now) so an already-active service still
+	// picks up new unit/config/schema without a separate reload step.
 	corrosionUnit := services.CorrosionServiceUnit(desired.Interface)
 	cooldUnit := services.CooldServiceUnit(mgmtIP)
 
@@ -560,9 +576,10 @@ func phase3Server(
 		heredocWrite("/etc/systemd/system/coold.service",
 			cooldUnit, "COOLIFY_COOLD_UNIT_EOF") +
 		` && systemctl daemon-reload` +
-		` && systemctl enable --now corrosion` +
+		` && systemctl enable corrosion coold` +
+		` && systemctl restart corrosion` +
 		` && sleep 1` +
-		` && systemctl enable --now coold`
+		` && systemctl restart coold`
 
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionInstallCorrosionService, serviceCmd,

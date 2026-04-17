@@ -128,6 +128,14 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 		state.CorrosionSchemaExists = true
 	}
 
+	// 14a. sha256 of remote schema file (empty when absent). Used to detect
+	// schema revisions so a new schema triggers re-write + DB reset.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /etc/corrosion/schemas/coolify.sql 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.CorrosionSchemaSha256 = h
+	}
+
 	// 15. Coold binary installed.
 	stdout, _, _ = runner.Run(ctx, host, user, port,
 		`test -x /usr/local/bin/coold && echo yes || echo no`)

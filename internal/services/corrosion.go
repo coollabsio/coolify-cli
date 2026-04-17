@@ -16,12 +16,20 @@ import (
 // rejects schemas missing defaults with "needs a default value for forward
 // schema compatibility".  Defaults are never surfaced at runtime because
 // coold always provides every column on upsert.
+//
+// Columns:
+//   - state: raw podman container status (running, exited, stopped,
+//     restarting, paused, created, dead, configured, removing). Liveness.
+//   - health: podman HEALTHCHECK result. One of:
+//     "healthy", "unhealthy", "starting", "unknown". "unknown" when the
+//     container has no HEALTHCHECK declared. Readiness.
 const CoolifySchemaSQL = `CREATE TABLE service_endpoints (
     container_id    TEXT NOT NULL DEFAULT '' PRIMARY KEY,
     container_name  TEXT NOT NULL DEFAULT '',
     host_mgmt_ip    TEXT NOT NULL DEFAULT '',
     container_ip    TEXT NOT NULL DEFAULT '',
-    healthy         INTEGER NOT NULL DEFAULT 1,
+    state           TEXT NOT NULL DEFAULT '',
+    health          TEXT NOT NULL DEFAULT 'unknown',
     updated_at      INTEGER NOT NULL DEFAULT 0
 );
 `

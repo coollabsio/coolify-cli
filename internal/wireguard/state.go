@@ -86,6 +86,11 @@ type ServerState struct {
 	// CorrosionSchemaExists is true when /etc/corrosion/schemas/coolify.sql exists.
 	CorrosionSchemaExists bool
 
+	// CorrosionSchemaSha256 is the sha256 of /etc/corrosion/schemas/coolify.sql
+	// (hex), or empty when absent. Used by BuildPlan to detect schema drift so
+	// a new schema revision triggers re-write + corrosion restart + DB reset.
+	CorrosionSchemaSha256 string
+
 	// CooldInstalled is true when /usr/local/bin/coold exists and is executable.
 	CooldInstalled bool
 

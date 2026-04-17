@@ -272,17 +272,23 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 					Detail: fmt.Sprintf("/etc/corrosion/config.toml (peers=%d)", len(peers)),
 				})
 			}
-			if !state.CorrosionSchemaExists {
+			expectedSchemaSha := sha256Hex([]byte(services.CoolifySchemaSQL))
+			schemaDrift := state.CorrosionSchemaSha256 != expectedSchemaSha
+			if !state.CorrosionSchemaExists || schemaDrift {
+				detail := "/etc/corrosion/schemas/coolify.sql"
+				if schemaDrift && state.CorrosionSchemaSha256 != "" {
+					detail += " [schema drift — DB will be reset]"
+				}
 				plan.Actions = append(plan.Actions, PlannedAction{
 					Host:   host,
 					Type:   ActionWriteCorrosionSchema,
-					Detail: "/etc/corrosion/schemas/coolify.sql",
+					Detail: detail,
 				})
 			}
 			expectedCooldUnit := services.CooldServiceUnit(mgmtIP)
 			cooldUnitDrift := state.CooldUnitSha256 != sha256Hex([]byte(expectedCooldUnit))
 
-			if !state.CorrosionActive || configDrift || corrosionDrift {
+			if !state.CorrosionActive || configDrift || corrosionDrift || schemaDrift {
 				plan.Actions = append(plan.Actions, PlannedAction{
 					Host:   host,
 					Type:   ActionInstallCorrosionService,

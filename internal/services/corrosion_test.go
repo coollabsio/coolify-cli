@@ -60,6 +60,34 @@ func TestCorrosionConfigBytes_EmptyPeers(t *testing.T) {
 	}
 }
 
+func TestCoolifySchema_HasLivenessAndReadinessColumns(t *testing.T) {
+	for _, want := range []string{
+		"state           TEXT NOT NULL DEFAULT ''",
+		"health          TEXT NOT NULL DEFAULT 'unknown'",
+	} {
+		if !strings.Contains(CoolifySchemaSQL, want) {
+			t.Errorf("schema missing %q:\n%s", want, CoolifySchemaSQL)
+		}
+	}
+	if strings.Contains(CoolifySchemaSQL, "healthy") {
+		t.Errorf("schema still has removed `healthy` column:\n%s", CoolifySchemaSQL)
+	}
+}
+
+func TestCoolifySchema_AllNotNullColumnsHaveDefault(t *testing.T) {
+	// CR-SQLite rejects any NOT NULL column missing a DEFAULT with
+	// "needs a default value for forward schema compatibility".
+	for _, line := range strings.Split(CoolifySchemaSQL, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.Contains(trimmed, "NOT NULL") {
+			continue
+		}
+		if !strings.Contains(trimmed, "DEFAULT") {
+			t.Errorf("line missing DEFAULT (CR-SQLite would reject): %q", trimmed)
+		}
+	}
+}
+
 func TestCorrosionServiceUnit_ContainsInterface(t *testing.T) {
 	got := CorrosionServiceUnit("wg0")
 	for _, want := range []string{
