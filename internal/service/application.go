@@ -59,6 +59,15 @@ func (s *ApplicationService) Delete(ctx context.Context, uuid string) error {
 	return nil
 }
 
+// DeletePreview deletes a preview deployment for an application
+func (s *ApplicationService) DeletePreview(ctx context.Context, appUUID, prID string) error {
+	err := s.client.Delete(ctx, fmt.Sprintf("applications/%s/previews/%s", appUUID, prID))
+	if err != nil {
+		return fmt.Errorf("failed to delete preview %s for application %s: %w", prID, appUUID, err)
+	}
+	return nil
+}
+
 // Start starts an application (initiates deployment)
 func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool, instantDeploy bool) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse
