@@ -402,6 +402,54 @@ func TestApplicationService_Delete_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to delete application")
 }
 
+func TestApplicationService_DeletePreview_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/previews/42", r.URL.Path)
+		assert.Equal(t, "DELETE", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"Preview deletion request queued."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	err := svc.DeletePreview(context.Background(), "app-uuid-123", "42")
+	require.NoError(t, err)
+}
+
+func TestApplicationService_DeletePreview_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"Preview not found."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	err := svc.DeletePreview(context.Background(), "app-uuid-123", "999")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete preview")
+}
+
+func TestApplicationService_DeletePreview_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"message":"internal server error"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	err := svc.DeletePreview(context.Background(), "app-uuid-123", "42")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete preview")
+}
+
 func TestApplicationService_Start(t *testing.T) {
 	deploymentUUID := "deploy-uuid-123"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

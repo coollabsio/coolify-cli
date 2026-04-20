@@ -5,6 +5,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/application/create"
 	"github.com/coollabsio/coolify-cli/cmd/application/env"
+	"github.com/coollabsio/coolify-cli/cmd/application/previews"
 	"github.com/coollabsio/coolify-cli/cmd/application/storage"
 )
 
@@ -56,6 +57,16 @@ func NewAppCommand() *cobra.Command {
 	storageCmd.AddCommand(storage.NewUpdateCommand())
 	storageCmd.AddCommand(storage.NewDeleteCommand())
 	cmd.AddCommand(storageCmd)
+
+	// Add previews subcommand with its children
+	previewsCmd := &cobra.Command{
+		Use:     "previews",
+		Aliases: []string{"preview"},
+		Short:   "Manage application preview deployments",
+		Long:    `Manage preview deployments created from pull requests. Requires the application UUID.`,
+	}
+	previewsCmd.AddCommand(previews.NewDeletePreviewCommand())
+	cmd.AddCommand(previewsCmd)
 
 	return cmd
 }

@@ -51,6 +51,7 @@ All commands support `--format` flag:
 
 Aliases are derived from the CLI command tree:
 - `coolify app env` | `coolify app envs` | `coolify app environment`
+- `coolify app previews` | `coolify app preview`
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
 - `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
@@ -850,6 +851,15 @@ Parameters:
     description: Number of log lines to retrieve
     required: false
     default: 100
+
+Command: coolify app previews delete <app_uuid> <pr_id>
+Description: Delete a preview deployment for an application. First argument is the application UUID, second is the pull request ID.
+Parameters:
+  - name: --force
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
 
 Command: coolify app restart <uuid>
 Description: Restart a running application.
