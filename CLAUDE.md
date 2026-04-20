@@ -295,6 +295,135 @@ go test ./internal/wireguard/... ./cmd/init/... -v
 
 Use the SSH `Runner` interface for mocking — never open real SSH connections in unit tests. `internal/ssh/fanout.go` is generic; reuse for any per-server fanout.
 
+## `coolify firewall` — cross-host allow-rule test harness (alpha, v5)
+
+**This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It SSHes into mesh hosts and manages the `COOLIFY-ALLOW` iptables chain that `coolify init --default-deny` installed. It exists so the full v5 firewall flow (default-deny → allow → connectivity → revoke → reboot persistence) can be validated end-to-end BEFORE the coold agent exists. Once coold ships, coold's REST API owns this surface and the CLI becomes a thin client of that API. Until then, this CLI IS the control plane for allow rules.
+
+### What it does
+
+- Discovers containers on the `coolify-mesh` bridge across all listed hosts.
+- Adds/removes `ACCEPT` rules in `COOLIFY-ALLOW` on the host that **owns the destination IP** (per `CONTROL_PLANE.md §3`: rules go on dst host, where `COOLIFY-INTRA` would DROP).
+- Installs companion systemd unit `coolify-mesh-allow.service` on first `allow` per host → restores `COOLIFY-ALLOW` from `/etc/coolify/allow.rules` on boot via `iptables-restore --noflush`.
+- Idempotent: `-C` check before `-A`/`-D`, chain auto-created (`iptables -N … || true`) if missing.
+
+### Subcommands
+
+```bash
+coolify firewall containers   # discover containers on coolify-mesh across hosts
+coolify firewall list         # show all rules in COOLIFY-ALLOW across hosts
+coolify firewall allow --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
+coolify firewall revoke --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
+```
+
+`<ref>` accepts: container name (unique across mesh), `host:name`, short 12-char podman ID, or raw IP.
+
+### Flags
+
+Persistent (inherited from `cmd/common/sshmesh.go` — shared with `coolify init`):
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--servers` | required | comma-separated SSH IPs |
+| `--ssh-key` | required | SSH private key path |
+| `--ssh-passphrase-prompt` | false | prompt for passphrase (also `COOLIFY_SSH_PASSPHRASE` env) |
+| `--ssh-user` | `root` | SSH user |
+| `--ssh-port` | `22` | SSH port |
+| `--concurrency` | `10` | parallel SSH connections |
+| `--ssh-timeout` | `30s` | SSH connect timeout |
+| `--podman-network` | `coolify-mesh` | bridge network name (must match `coolify init --podman-network`) |
+
+Allow/revoke local:
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--from` | required | source container ref or raw IP |
+| `--to` | required | destination container ref or raw IP |
+| `--port` | `0` | dst port (0 = any) |
+| `--proto` | `tcp` | `tcp`, `udp`, or `""` (any — requires `--port=0`) |
+| `--bidirectional` | false | also install reverse rule on src host (needed for server-initiated flows; conntrack ESTABLISHED handles client-initiated replies) |
+
+### Rule identity
+
+Every rule carries an iptables `-m comment --comment "cid:<12-hex>"` where `<12-hex>` = `sha256(src|dst|proto|port)[:12]`. Stable across `allow`/`revoke` calls — revoke-by-flags rebuilds the same hash and matches. Used as the user-facing rule ID in `firewall list` output.
+
+### SSH command shape
+
+**Apply** (on dst host):
+```sh
+iptables -N COOLIFY-ALLOW || true                                # ensure chain
+<install coolify-mesh-allow.service if missing; daemon-reload; enable>
+iptables -C COOLIFY-ALLOW <spec> -j ACCEPT 2>/dev/null \
+  || iptables -A COOLIFY-ALLOW <spec> -j ACCEPT
+<save filter rules to /etc/coolify/allow.rules.tmp; mv>
+```
+
+**Revoke** (on dst host):
+```sh
+iptables -L COOLIFY-ALLOW -n >/dev/null 2>&1 || exit 0           # no-op if chain gone
+iptables -C COOLIFY-ALLOW <spec> -j ACCEPT 2>/dev/null \
+  && iptables -D COOLIFY-ALLOW <spec> -j ACCEPT || true
+<save>
+```
+
+Save command:
+```sh
+mkdir -p /etc/coolify
+iptables-save -t filter | awk '/^\*filter/,/^COMMIT/' \
+  | grep -E '^(\*filter|COMMIT|:COOLIFY-ALLOW|-A COOLIFY-ALLOW)' \
+  > /etc/coolify/allow.rules.tmp
+mv /etc/coolify/allow.rules.tmp /etc/coolify/allow.rules
+```
+
+### Persistence across reboots
+
+Rules stored at `/etc/coolify/allow.rules` (filter-table fragment, only `:COOLIFY-ALLOW` + `-A COOLIFY-ALLOW` lines). Restored on boot by companion unit `coolify-mesh-allow.service`, ordered `After=coolify-mesh-fw.service` (which creates the chain) and `Wants=` it. Uses `iptables-restore --noflush` → only `COOLIFY-ALLOW` is touched; nothing else in the filter table is disturbed.
+
+Unit is installed idempotently on first `allow` per host (atomic `.tmp` + `mv` + `daemon-reload` + `enable`). `coolify-mesh-fw.service` (installed by init) is untouched by this command.
+
+### Code layout
+
+- `cmd/common/sshmesh.go` — shared SSH/mesh flag struct `SSHMeshFlags` + `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`. Embedded by both `cmd/init/InitFlags` and `cmd/firewall/FirewallFlags`.
+- `cmd/firewall/` — Cobra layer (`firewall`, `containers`, `list`, `allow`, `revoke`).
+  - `firewall.go` — `NewFirewallCommand()` parent + subcommand registration.
+  - `flags.go` — `FirewallFlags` embeds `common.SSHMeshFlags` + `PodmanNetworkName`.
+  - `allow.go` — `allowRevokeFlags`, `emitAllowRevoke` (discover → resolve → build rule → apply/revoke).
+  - `resolve.go` — `resolveEndpoint(ref, []Container)` (name / host:name / short-id / raw IP).
+  - `containers.go`, `list.go`, `helpers.go` — thin subcommand + fanout wrappers.
+- `internal/firewall/` — pure + SSH boundary (same pattern as `internal/wireguard/`).
+  - `rule.go` — `AllowRule`, `ComputeID`, `RenderAppend/Delete/Check`, `ParseChainLine`. Const `ChainName = "COOLIFY-ALLOW"`.
+  - `discover.go` — `Container` type, `discoverScript`, `DiscoverContainers`, `DiscoverAll` (parallel).
+  - `list.go` — `ListAllow`, `ListAll` (parse `iptables -S COOLIFY-ALLOW`).
+  - `apply.go` — `ApplyAllow`, `RevokeAllow`, `buildApplyCmd`, `buildRevokeCmd` (pure string builders; SSH at boundary).
+  - `persist.go` — `AllowPersistUnit()`, `SaveRulesCommand()`, `InstallPersistenceCommand()`. Consts `RulesPath`, `PersistUnitName`, `PersistUnitPath`.
+- `internal/models/firewall.go` — table/JSON row types (`ContainerRow`, `AllowRuleRow`).
+
+### Key invariants
+
+- **Destination-host ownership**: every rule lives on exactly one host — the one whose `/24` contains the destination IP. `--bidirectional` adds the reverse rule on the src host.
+- **coold-compatible state**: when coold ships, it reads `/etc/coolify/allow.rules` as initial state, replays into its DB, then takes over. CLI and coold share the same persistence format.
+- **Same reconstructed-state philosophy as init**: no local state file. `firewall list` always probes live hosts.
+- **Bidirectional is opt-in**: conntrack ESTABLISHED accept (installed by `coolify-mesh-fw.service`) handles reply packets for client-initiated flows. Only set `--bidirectional` for protocols that actually open new connections in both directions.
+- **Rule identity is hash, not UUID**: stable across calls so `revoke` by flags hits the same rule `allow` created.
+
+### Testing firewall
+
+```bash
+go test ./internal/firewall/... ./cmd/firewall/... ./cmd/common/... -v
+```
+
+Uses `fakeRunner`/`cmdFakeRunner` pattern (substring → canned stdout map) — same as `cmd/init/plan_test.go`. All SSH calls mocked at the `ssh.Runner` boundary; no real SSH in unit tests. Coverage ≥77% on new packages.
+
+### End-to-end flow (verified on real hosts)
+
+After `coolify init apply --podman --default-deny --servers A,B ...` ran:
+
+1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA`.
+2. `coolify firewall containers` → discovery table.
+3. `coolify firewall allow --from client --to web --port 80` → rule on dst host, traffic flows.
+4. `coolify firewall list` → shows the rule with its `cid:…` ID.
+5. `coolify firewall revoke …` → rule gone, traffic DROPped again.
+6. Reboot → `coolify-mesh-allow.service` restores from `/etc/coolify/allow.rules`.
+
 ## Testing Requirements
 
 **CRITICAL: All code changes MUST include tests. This is non-negotiable.**

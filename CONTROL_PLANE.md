@@ -88,14 +88,26 @@ podman run -d --name coold --restart=always \
 
 When host has `--default-deny` enabled, **all cross-host container traffic is dropped by default**. The control plane decides who talks to whom.
 
-#### Division of labour: bootstrap vs coold
+#### Division of labour: bootstrap vs coold vs central
 
 | Layer | Owner | Responsibility |
 |---|---|---|
 | Chain scaffold (COOLIFY-INTRA, COOLIFY-ALLOW, FORWARD jumps, conntrack early-accept, POSTROUTING RETURN) | `coolify init apply` (one-shot) | Install + idempotently re-converge on flag change. Never touches individual allow rules. |
-| Allow rules inside `COOLIFY-ALLOW` | **coold** | Sole owner. Persists in coold's own DB. Applies in batch. Survives reboot via coold autostart. |
+| Rule metadata (who/when/why, audit log, RBAC, tenant scoping, app→rule mapping) | **Coolify central DB** | Authoritative store. All rich queries, audit trails, and access control live here. |
+| Raw rule tuples `(src, dst, proto, port)` on the host | **coold** (future) / **`coolify firewall`** CLI (pre-coold) | Apply to kernel + snapshot to `/etc/coolify/allow.rules` for reboot. Stateless-ish — just a cache of what central told it to apply. No metadata, no DB. |
 
-**`coolify init` is intentionally not the rule store.** Bootstrap creates the empty allow chain; coold fills it.
+**Key split**: central Coolify owns rich state (metadata, audit, RBAC). Per-host coold owns only the raw rules needed to program the kernel + survive reboot. This keeps coold small and lets a single central DB be the source of truth for all cross-cutting concerns.
+
+**`coolify init` is intentionally not the rule store.** Bootstrap creates the empty allow chain. Pre-coold, the `coolify firewall` CLI fills it; post-coold, coold takes over (same file format).
+
+#### Reboot persistence
+
+Works the same pre- and post-coold because both use the same file format:
+
+- `/etc/coolify/allow.rules` — filter-table fragment, `:COOLIFY-ALLOW` + `-A COOLIFY-ALLOW` lines only. Written atomically (`.tmp` + `mv`) on every rule change.
+- `/etc/systemd/system/coolify-mesh-allow.service` — `Type=oneshot`, `After=coolify-mesh-fw.service`, `Wants=coolify-mesh-fw.service`. `ExecStart=iptables-restore --noflush /etc/coolify/allow.rules`. `--noflush` means only `COOLIFY-ALLOW` is populated; nothing else is disturbed.
+
+Pre-coold: the `coolify firewall` CLI writes this file directly over SSH. Post-coold: coold writes it on every API mutate, keeping the file in sync with kernel. The systemd unit is the same either way — coold takes over the writer, not the file format. No migration step beyond "coold starts being the writer".
 
 #### Allow-rule lifecycle
 
@@ -105,17 +117,39 @@ For an allow `(srcIP, dstIP)`:
 - **One unidirectional allow = one rule on one host. One bidirectional allow = two rules on two hosts.**
 - Conntrack ESTABLISHED early-accept (installed by bootstrap) handles in-flow follow-up packets — no need to add per-packet rules.
 
-#### Persistence + scale model — coold owns rules
+#### Persistence + scale model
 
-Per-rule systemd dropins do NOT scale (1000 rules × `daemon-reload` + restart = minutes, fs clutter, audit nightmare). Instead:
+Per-rule systemd dropins do NOT scale (1000 rules × `daemon-reload` + restart = minutes, fs clutter, audit nightmare). Instead, coold is a thin rule-applier backed by central:
 
 ```
 coold service (per host)
-  ├─ DB:  /var/lib/coold/allows.db   (sqlite, source of truth)
-  ├─ Boot:        load DB → emit nft/iptables-restore batch
-  ├─ API mutate:  insert/delete row + apply incremental iptables -A/-D
-  └─ Reconcile:   periodic full reload from DB to detect drift
+  ├─ Snapshot file:  /etc/coolify/allow.rules   (flat iptables-save fragment)
+  ├─ Boot:           systemd unit runs iptables-restore --noflush from file
+  ├─ API mutate:     apply iptables -A/-D  →  regen snapshot via iptables-save
+  └─ Reconcile:      central periodically diffs its DB vs coold's live
+                     `iptables -S COOLIFY-ALLOW`; pushes deltas to re-converge
 ```
+
+Source of truth for **the set of rules that should exist** = central Coolify DB. Source of truth for **what's programmed in the kernel right now** = kernel itself, mirrored to `/etc/coolify/allow.rules` for reboot. coold does not keep its own DB.
+
+#### Write ordering (crash/reboot safety)
+
+Every mutating call from central → coold follows this sequence:
+
+1. **Central writes to its own DB first** (with its own audit/tenant metadata). Durable with the rest of Coolify's state.
+2. **Central sends REST call to coold** with just `(src, dst, proto, port)`.
+3. **coold applies `iptables -A/-D`** to kernel.
+4. **coold regenerates `/etc/coolify/allow.rules`** via `iptables-save` (atomic `.tmp` + `mv`).
+5. **coold returns success to central**.
+6. **On any failure in 3–5**, central marks the row "pending" in its DB and retries / surfaces to operator. Nothing is lost because step 1 is already durable.
+
+Consequences:
+- **Crash between steps 3 and 4** → kernel has the rule, file doesn't. Reboot loses the rule. Central's reconcile loop detects divergence (its DB has the rule, live kernel doesn't after boot) and re-pushes. Safe, with a small drift window bounded by reconcile cadence.
+- **Crash between steps 4 and 5** → kernel + file both updated, but central didn't get the ack. Central retries; `iptables -C` guard makes the retry a no-op. Safe.
+- **coold down when central wants to mutate** → central queues the change and retries on reconnect. No state loss on either side.
+- **Central DB is authoritative** — a reboot can only *shrink* the live rule set compared to central's view, never grow it.
+
+Bulk ops (`/bulk`) ship the whole batch in one REST call. coold applies via `iptables-restore --noflush` / `nft -f` (atomic transaction), then regens snapshot once.
 
 Apply paths:
 
@@ -127,7 +161,7 @@ Apply paths:
 
 coold detects backend (`iptables --version` or presence of nftables socket) and picks. Bootstrap doesn't care.
 
-For **systemctl restart coolify-mesh-fw.service** (e.g. `coolify init apply` re-runs after a flag flip): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — coold's rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`), coold's reconcile loop replays from DB within seconds.
+For **systemctl restart coolify-mesh-fw.service** (e.g. `coolify init apply` re-runs after a flag flip): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — existing rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`, crash mid-write), central's reconcile loop compares its own DB against `iptables -S COOLIFY-ALLOW` from each host and re-pushes any missing tuples within the reconcile interval.
 
 #### Allow API surface (central Coolify → coold REST)
 
@@ -466,19 +500,20 @@ Not in v1 or v5 initial.
 (Future `coolify-cli` subcommands beyond `init`)
 
 ```
-coolify deploy <app>           # build + push + run
+coolify deploy <app>                                      # build + push + run
 coolify scale <app> --replicas N
-coolify firewall allow <src> <dst> [--port N --proto tcp]
-coolify firewall deny <id>
-coolify firewall list
-coolify host list              # show mesh state, last-handshake, container count
+coolify firewall containers --servers A,B ...             # discover mesh containers (implemented, pre-coold CLI)
+coolify firewall list --servers A,B ...                   # list COOLIFY-ALLOW rules across hosts (implemented)
+coolify firewall allow --from <ref> --to <ref> --port N   # add allow rule (implemented; SSHes directly pre-coold, will switch to coold REST)
+coolify firewall revoke --from <ref> --to <ref> --port N  # remove allow rule (implemented)
+coolify host list                                         # show mesh state, last-handshake, container count
 coolify host add <ip> --ssh-key K
 coolify host remove <ip>
 coolify logs <container>
 coolify exec <container> -- sh
 ```
 
-These all wrap podman API calls + mesh state queries over wg0.
+`coolify firewall` is implemented today; it SSHes directly because coold doesn't exist yet. When coold ships, the CLI will keep the same flag surface but call coold's REST API (§3 above) instead of SSH+iptables. Everything else wraps podman API calls + mesh state queries over wg0.
 
 ---
 
@@ -492,6 +527,8 @@ The pieces communicate via:
 
 Persistence model:
 - Bootstrap state (chains, jumps, conntrack accept) → idempotent `coolify init apply` re-runs.
-- Allow rules → coold's own DB, applied via `iptables-restore --noflush` or `nft -f`. No per-rule systemd dropin (doesn't scale to 1000s of rules).
+- Rule metadata (who/when/why, audit, RBAC, tenant scoping) → central Coolify DB only. coold does not duplicate this.
+- Kernel rules → programmed by coold on every central API call; mirrored to `/etc/coolify/allow.rules` for reboot via `coolify-mesh-allow.service` (oneshot `iptables-restore --noflush`). Same file format pre- and post-coold.
+- Pre-coold: `coolify firewall` CLI is the writer and plays the role central will later play.
 
-The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary AND the firewall state authority between the central Coolify control plane and the host.
+The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary between central Coolify and the host, AND the kernel-rule applier — but central is the authoritative store for rule existence and metadata. Until coold ships, `coolify firewall` is a thin test harness that writes allow rules the same way coold will.
