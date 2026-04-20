@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/cmd/common"
+	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 )
 
 // FirewallFlags is the shared flag set for every `coolify firewall`
@@ -25,9 +26,12 @@ type FirewallFlags struct {
 	// each host and reads /etc/coolify/api-token instead — tokens are
 	// generated per-host at install time and are not centrally shared.
 	CooldToken string
-	// CooldPort is the TCP port coold listens on (bound to wg0 mgmt IP).
+	// CooldPort is the TCP port coold listens on (bound to the WG mgmt IP).
 	// Must match COOLD_API_BIND emitted by internal/services/coold.go.
 	CooldPort int
+	// WGInterface is the WireGuard interface name used to discover coold's
+	// bind IP on each host. Must match --wg-interface used at `coolify init`.
+	WGInterface string
 }
 
 // bindFirewallFlags registers the persistent flags on the parent command.
@@ -41,7 +45,9 @@ func bindFirewallFlags(cmd *cobra.Command, f *FirewallFlags) {
 		"Bearer token override for coold REST API (also reads COOLIFY_COOLD_TOKEN env). "+
 			"When unset, CLI reads /etc/coolify/api-token over SSH per host.")
 	pf.IntVar(&f.CooldPort, "coold-port", 8443,
-		"TCP port coold's REST API listens on (wg0 mgmt IP)")
+		"TCP port coold's REST API listens on (bound to the WG mgmt IP)")
+	pf.StringVar(&f.WGInterface, "wg-interface", ifw.DefaultWGInterface,
+		"WireGuard interface name on remote hosts (must match --wg-interface at init)")
 }
 
 // ResolveCooldToken returns the bearer-token override supplied via flag or

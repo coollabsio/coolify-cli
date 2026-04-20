@@ -78,6 +78,7 @@ func parentWithToken() *FirewallFlags {
 		PodmanNetworkName: "coolify-mesh",
 		CooldToken:        "test-token",
 		CooldPort:         8443,
+		WGInterface:       "wg0",
 	}
 }
 

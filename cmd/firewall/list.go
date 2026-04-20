@@ -43,7 +43,7 @@ func emitList(
 ) error {
 	tokenFor := tokenResolver(ctx, runner, flags)
 	all, results := ifw.CooldListAll(ctx, runner, flags.Servers, flags.SSHUser,
-		flags.SSHPort, flags.CooldPort, tokenFor, flags.Concurrency)
+		flags.SSHPort, flags.CooldPort, flags.WGInterface, tokenFor, flags.Concurrency)
 
 	rows := make([]models.AllowRuleRow, 0, len(all))
 	for _, r := range all {

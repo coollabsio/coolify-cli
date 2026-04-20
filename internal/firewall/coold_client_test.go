@@ -36,7 +36,7 @@ func TestShellSingleQuote_Escapes(t *testing.T) {
 }
 
 func TestBuildCurlAllow_Shape(t *testing.T) {
-	cmd := buildCurlAllow("tok-xyz", 8443, `{"src":"10.0.0.1","dst":"10.0.0.2"}`)
+	cmd := buildCurlAllow("wg0", "tok-xyz", 8443, `{"src":"10.0.0.1","dst":"10.0.0.2"}`)
 	assert.Contains(t, cmd, "ip -4 -o addr show wg0")
 	assert.Contains(t, cmd, "curl -fsS")
 	assert.Contains(t, cmd, "Authorization: Bearer tok-xyz")
@@ -47,7 +47,7 @@ func TestBuildCurlAllow_Shape(t *testing.T) {
 }
 
 func TestBuildCurlRevoke_Shape(t *testing.T) {
-	cmd := buildCurlRevoke("tok-xyz", 8443, "abc123def456")
+	cmd := buildCurlRevoke("wg0", "tok-xyz", 8443, "abc123def456")
 	assert.Contains(t, cmd, "curl -fsS")
 	assert.Contains(t, cmd, "-X DELETE")
 	assert.Contains(t, cmd, "Authorization: Bearer tok-xyz")
@@ -55,7 +55,7 @@ func TestBuildCurlRevoke_Shape(t *testing.T) {
 }
 
 func TestBuildCurlList_SoftMgmtIP(t *testing.T) {
-	cmd := buildCurlList("tok-xyz", 8443)
+	cmd := buildCurlList("wg0", "tok-xyz", 8443)
 	// Missing wg0 yields an empty array and success exit.
 	assert.Contains(t, cmd, `echo '[]'; exit 0`)
 	assert.Contains(t, cmd, "Authorization: Bearer tok-xyz")
@@ -68,7 +68,7 @@ func TestCooldApply_SendsJSONPayload(t *testing.T) {
 		Src: net.ParseIP("10.0.0.1"), Dst: net.ParseIP("10.0.0.2"),
 		Proto: "tcp", Port: 80,
 	}
-	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "t", r)
+	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", r)
 	assert.NoError(t, err)
 	assert.Len(t, fr.calls, 1)
 	assert.Contains(t, fr.calls[0], `"src":"10.0.0.1"`)
@@ -82,7 +82,7 @@ func TestCooldApply_OmitsProtoWhenEmpty(t *testing.T) {
 	r := AllowRule{
 		Src: net.ParseIP("10.0.0.1"), Dst: net.ParseIP("10.0.0.2"),
 	}
-	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "t", r)
+	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", r)
 	assert.NoError(t, err)
 	// omitempty drops zero port and empty proto — avoids tripping coold's
 	// "port requires proto" validation.
@@ -92,7 +92,7 @@ func TestCooldApply_OmitsProtoWhenEmpty(t *testing.T) {
 
 func TestCooldRevoke_RejectsEmptyID(t *testing.T) {
 	fr := &fakeCooldRunner{}
-	err := CooldRevoke(context.Background(), fr, "h1", "root", 22, 8443, "t", "")
+	err := CooldRevoke(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
 	assert.Error(t, err)
 	assert.Empty(t, fr.calls, "no SSH call for empty id")
 }
@@ -104,7 +104,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 			{"src":"10.0.0.3","dst":"10.0.0.4"}
 		]`,
 	}}
-	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "t")
+	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t")
 	assert.NoError(t, err)
 	assert.Len(t, rules, 2)
 	assert.Equal(t, "h1", rules[0].Host)
@@ -119,7 +119,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 
 func TestCooldList_EmptyBody(t *testing.T) {
 	fr := &fakeCooldRunner{}
-	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "t")
+	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t")
 	assert.NoError(t, err)
 	assert.Empty(t, rules)
 }
@@ -132,7 +132,7 @@ func TestCooldListAll_SortsByHost(t *testing.T) {
 	}}
 	tokenFor := func(string) (string, error) { return "t", nil }
 	rules, results := CooldListAll(context.Background(), fr,
-		[]string{"hB", "hA"}, "root", 22, 8443, tokenFor, 2)
+		[]string{"hB", "hA"}, "root", 22, 8443, "wg0", tokenFor, 2)
 	assert.Len(t, rules, 2)
 	assert.Equal(t, "hA", rules[0].Host)
 	assert.Equal(t, "hB", rules[1].Host)
@@ -166,7 +166,7 @@ func TestCooldListAll_PropagatesTokenFetchError(t *testing.T) {
 		return "t", nil
 	}
 	_, results := CooldListAll(context.Background(), fr,
-		[]string{"hOk", "hBad"}, "root", 22, 8443, tokenFor, 2)
+		[]string{"hOk", "hBad"}, "root", 22, 8443, "wg0", tokenFor, 2)
 	var okCount, errCount int
 	for _, r := range results {
 		if r.Err != nil {

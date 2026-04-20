@@ -16,7 +16,7 @@ import (
 func newContainersCommand(flags *FirewallFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "containers",
-		Short: "List containers on coolify-mesh across all servers",
+		Short: "List containers on the Coolify mesh bridge across all servers",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runContainers(cmd.Context(), cmd, flags)
 		},
@@ -74,7 +74,7 @@ func emitContainers(
 		})
 	}
 	if len(rows) == 0 {
-		fmt.Fprintln(os.Stderr, "No containers found on coolify-mesh network.")
+		fmt.Fprintf(os.Stderr, "No containers found on %s network.\n", flags.PodmanNetworkName)
 		return nil
 	}
 	return formatter.Format(rows)

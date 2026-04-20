@@ -15,8 +15,8 @@ func NewFirewallCommand() *cobra.Command {
 		Long: `[ALPHA] Manage the COOLIFY-ALLOW iptables chain installed by
 "coolify init --podman --default-deny". This is a test harness for the v5
 control-plane firewall flow: it SSHes into every server, discovers running
-containers on the coolify-mesh bridge, and lets you add/remove cross-host
-allow rules.
+containers on the Coolify mesh bridge (override with --podman-network), and
+lets you add/remove cross-host allow rules.
 
 Subcommands:
   containers  List discovered containers across the mesh.

@@ -90,14 +90,14 @@ func CooldApply(
 	runner ssh.Runner,
 	host, user string,
 	sshPort, cooldPort int,
-	token string,
+	iface, token string,
 	r AllowRule,
 ) error {
 	body, err := json.Marshal(allowRulePayload(r))
 	if err != nil {
 		return fmt.Errorf("marshal allow rule: %w", err)
 	}
-	cmd := buildCurlAllow(token, cooldPort, string(body))
+	cmd := buildCurlAllow(iface, token, cooldPort, string(body))
 	if _, stderr, err := runner.Run(ctx, host, user, sshPort, cmd); err != nil {
 		return fmt.Errorf("coold apply on %s: %w (stderr: %s)",
 			host, err, strings.TrimSpace(stderr))
@@ -112,12 +112,12 @@ func CooldRevoke(
 	runner ssh.Runner,
 	host, user string,
 	sshPort, cooldPort int,
-	token, id string,
+	iface, token, id string,
 ) error {
 	if id == "" {
 		return fmt.Errorf("coold revoke: empty id")
 	}
-	cmd := buildCurlRevoke(token, cooldPort, id)
+	cmd := buildCurlRevoke(iface, token, cooldPort, id)
 	if _, stderr, err := runner.Run(ctx, host, user, sshPort, cmd); err != nil {
 		return fmt.Errorf("coold revoke on %s: %w (stderr: %s)",
 			host, err, strings.TrimSpace(stderr))
@@ -133,9 +133,9 @@ func CooldList(
 	runner ssh.Runner,
 	host, user string,
 	sshPort, cooldPort int,
-	token string,
+	iface, token string,
 ) ([]AllowRule, error) {
-	cmd := buildCurlList(token, cooldPort)
+	cmd := buildCurlList(iface, token, cooldPort)
 	stdout, stderr, err := runner.Run(ctx, host, user, sshPort, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("coold list on %s: %w (stderr: %s)",
@@ -172,6 +172,7 @@ func CooldListAll(
 	hosts []string,
 	user string,
 	sshPort, cooldPort int,
+	iface string,
 	tokenFor func(host string) (string, error),
 	concurrency int,
 ) ([]AllowRule, []ssh.ServerResult[[]AllowRule]) {
@@ -181,7 +182,7 @@ func CooldListAll(
 			if err != nil {
 				return nil, err
 			}
-			return CooldList(ctx, runner, host, user, sshPort, cooldPort, token)
+			return CooldList(ctx, runner, host, user, sshPort, cooldPort, iface, token)
 		})
 	var all []AllowRule
 	for _, r := range results {
@@ -211,26 +212,40 @@ func shellSingleQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// mgmtIPScript discovers coold's bind IP on the remote host by reading the
-// first IPv4 address on wg0. Emitted as part of every curl command so the
-// CLI doesn't need to track per-host mgmt IPs (they are already encoded in
-// the host's own wg0 interface).
-const mgmtIPScript = `MGMT=$(ip -4 -o addr show wg0 2>/dev/null | awk '{print $4}' | cut -d/ -f1); ` +
-	`test -n "$MGMT" || { echo "coold mgmt IP (wg0) not found on $(hostname) — is coold installed?" >&2; exit 1; }; `
+// DefaultWGInterface is the WireGuard interface name the firewall CLI
+// assumes when no override is supplied. Matches the default of
+// `coolify init --wg-interface`.
+const DefaultWGInterface = "wg0"
 
-// mgmtIPScriptSoft is the same as mgmtIPScript but treats a missing wg0 as
-// "no rules" rather than a failure. Used by list so a host without coold is
-// simply absent from the output instead of aborting the whole fanout.
-const mgmtIPScriptSoft = `MGMT=$(ip -4 -o addr show wg0 2>/dev/null | awk '{print $4}' | cut -d/ -f1); ` +
-	`if [ -z "$MGMT" ]; then echo '[]'; exit 0; fi; `
+// mgmtIPScript discovers coold's bind IP on the remote host by reading the
+// first IPv4 address on the host's WireGuard interface. Emitted as part of
+// every curl command so the CLI doesn't need to track per-host mgmt IPs
+// (they are already encoded in the host's own WG interface).
+func mgmtIPScript(iface string) string {
+	return fmt.Sprintf(
+		`MGMT=$(ip -4 -o addr show %[1]s 2>/dev/null | awk '{print $4}' | cut -d/ -f1); `+
+			`test -n "$MGMT" || { echo "coold mgmt IP (%[1]s) not found on $(hostname) — is coold installed?" >&2; exit 1; }; `,
+		iface)
+}
+
+// mgmtIPScriptSoft is the same as mgmtIPScript but treats a missing WG
+// interface as "no rules" rather than a failure. Used by list so a host
+// without coold is simply absent from the output instead of aborting the
+// whole fanout.
+func mgmtIPScriptSoft(iface string) string {
+	return fmt.Sprintf(
+		`MGMT=$(ip -4 -o addr show %s 2>/dev/null | awk '{print $4}' | cut -d/ -f1); `+
+			`if [ -z "$MGMT" ]; then echo '[]'; exit 0; fi; `,
+		iface)
+}
 
 // buildCurlAllow returns the shell one-liner that POSTs body to coold.
 // Token is embedded inline in the -H header; on the remote it is briefly
 // visible in /proc/<curl-pid>/cmdline to root only, for the ~ms lifetime of
 // the curl invocation. Acceptable for alpha; TLS + stdin-fed tokens are a
 // follow-up.
-func buildCurlAllow(token string, port int, body string) string {
-	return mgmtIPScript +
+func buildCurlAllow(iface, token string, port int, body string) string {
+	return mgmtIPScript(iface) +
 		`curl -fsS --max-time 10 ` +
 		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
 		`-H 'Content-Type: application/json' ` +
@@ -239,8 +254,8 @@ func buildCurlAllow(token string, port int, body string) string {
 }
 
 // buildCurlRevoke returns the shell one-liner that DELETEs rule id.
-func buildCurlRevoke(token string, port int, id string) string {
-	return mgmtIPScript +
+func buildCurlRevoke(iface, token string, port int, id string) string {
+	return mgmtIPScript(iface) +
 		`curl -fsS --max-time 10 -o /dev/null ` +
 		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
 		`-X DELETE ` +
@@ -248,10 +263,10 @@ func buildCurlRevoke(token string, port int, id string) string {
 }
 
 // buildCurlList returns the shell one-liner that GETs /allow. A missing
-// wg0 interface returns an empty JSON array so the caller sees "no rules"
+// WG interface returns an empty JSON array so the caller sees "no rules"
 // instead of a transport error.
-func buildCurlList(token string, port int) string {
-	return mgmtIPScriptSoft +
+func buildCurlList(iface, token string, port int) string {
+	return mgmtIPScriptSoft(iface) +
 		`curl -fsS --max-time 10 ` +
 		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
 		fmt.Sprintf(`"http://$MGMT:%d%s/allow"`, port, CooldAPIBasePath)

@@ -192,10 +192,10 @@ func emitAllowRevoke(
 			// Revoke by id — coold is idempotent (204 even on unknown id).
 			id := strings.TrimPrefix(r.Comment, "cid:")
 			rerr = ifw.CooldRevoke(ctx, runner, r.Host, parent.SSHUser,
-				parent.SSHPort, parent.CooldPort, token, id)
+				parent.SSHPort, parent.CooldPort, parent.WGInterface, token, id)
 		} else {
 			rerr = ifw.CooldApply(ctx, runner, r.Host, parent.SSHUser,
-				parent.SSHPort, parent.CooldPort, token, r)
+				parent.SSHPort, parent.CooldPort, parent.WGInterface, token, r)
 		}
 		if rerr != nil {
 			return fmt.Errorf("%s on %s: %w", action, r.Host, rerr)
