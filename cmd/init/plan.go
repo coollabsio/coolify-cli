@@ -149,13 +149,7 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 }
 
 func validatePlanFlags(f *InitFlags) error {
-	if len(f.Servers) == 0 {
-		return fmt.Errorf("--servers is required")
-	}
-	if f.SSHKey == "" {
-		return fmt.Errorf("--ssh-key is required")
-	}
-	return nil
+	return f.SSHMeshFlags.Validate()
 }
 
 // warningsToStrings formats allocator warnings as human-readable strings.

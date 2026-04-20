@@ -4,47 +4,36 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-)
 
-// TestInitFlags_ParseSSHTimeout verifies the duration parsing helper.
-func TestInitFlags_ParseSSHTimeout(t *testing.T) {
-	tests := []struct {
-		input string
-		want  time.Duration
-	}{
-		{"30s", 30 * time.Second},
-		{"1m", time.Minute},
-		{"invalid", 30 * time.Second}, // default on parse failure
-		{"0s", 30 * time.Second},      // default when <= 0
-		{"", 30 * time.Second},        // default on empty
-	}
-	for _, tt := range tests {
-		f := &InitFlags{SSHTimeout: tt.input}
-		assert.Equal(t, tt.want, f.ParseSSHTimeout(), "input: %q", tt.input)
-	}
-}
+	"github.com/coollabsio/coolify-cli/cmd/common"
+)
 
 // TestValidatePlanFlags checks required flag validation.
 func TestValidatePlanFlags(t *testing.T) {
 	t.Run("missing servers", func(t *testing.T) {
-		err := validatePlanFlags(&InitFlags{SSHKey: "/path/to/key"})
+		err := validatePlanFlags(&InitFlags{
+			SSHMeshFlags: common.SSHMeshFlags{SSHKey: "/path/to/key"},
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "--servers")
 	})
 
 	t.Run("missing ssh key", func(t *testing.T) {
-		err := validatePlanFlags(&InitFlags{Servers: []string{"1.1.1.1"}})
+		err := validatePlanFlags(&InitFlags{
+			SSHMeshFlags: common.SSHMeshFlags{Servers: []string{"1.1.1.1"}},
+		})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "--ssh-key")
 	})
 
 	t.Run("valid", func(t *testing.T) {
 		err := validatePlanFlags(&InitFlags{
-			Servers: []string{"1.1.1.1"},
-			SSHKey:  "/path/to/key",
+			SSHMeshFlags: common.SSHMeshFlags{
+				Servers: []string{"1.1.1.1"},
+				SSHKey:  "/path/to/key",
+			},
 		})
 		assert.NoError(t, err)
 	})
