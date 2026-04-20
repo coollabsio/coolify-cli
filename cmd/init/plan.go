@@ -43,19 +43,17 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 	}
 
 	var corrosionSha, cooldSha string
-	if flags.InstallCoold {
-		if flags.CorrosionBinaryPath != "" {
-			if _, err := os.Stat(flags.CorrosionBinaryPath); err == nil {
-				if s, herr := wireguard.FileSha256(flags.CorrosionBinaryPath); herr == nil {
-					corrosionSha = s
-				}
+	if flags.CorrosionBinaryPath != "" {
+		if _, err := os.Stat(flags.CorrosionBinaryPath); err == nil {
+			if s, herr := wireguard.FileSha256(flags.CorrosionBinaryPath); herr == nil {
+				corrosionSha = s
 			}
 		}
-		if flags.CooldBinaryPath != "" {
-			if _, err := os.Stat(flags.CooldBinaryPath); err == nil {
-				if s, herr := wireguard.FileSha256(flags.CooldBinaryPath); herr == nil {
-					cooldSha = s
-				}
+	}
+	if flags.CooldBinaryPath != "" {
+		if _, err := os.Stat(flags.CooldBinaryPath); err == nil {
+			if s, herr := wireguard.FileSha256(flags.CooldBinaryPath); herr == nil {
+				cooldSha = s
 			}
 		}
 	}
@@ -67,10 +65,10 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		ContainerPool:         contPool,
 		ContainerPrefix:       flags.ContainerPrefix,
 		ListenPort:            flags.WGListenPort,
-		InstallPodman:         flags.InstallPodman,
+		InstallPodman:         true,
 		PodmanNetworkName:     flags.PodmanNetworkName,
-		DefaultDenyContainers: flags.DefaultDenyContainers,
-		InstallCoold:          flags.InstallCoold,
+		DefaultDenyContainers: !flags.SkipDefaultDeny,
+		InstallCoold:          true,
 		CooldBinaryPath:       flags.CooldBinaryPath,
 		CorrosionBinaryPath:   flags.CorrosionBinaryPath,
 		CorrosionGossipPort:   flags.CorrosionGossipPort,

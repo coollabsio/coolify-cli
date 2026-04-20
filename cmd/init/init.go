@@ -21,8 +21,13 @@ func NewInitCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "[ALPHA] Initialize WireGuard mesh for Coolify v5",
-		Long: `[ALPHA] Bootstrap a WireGuard full-mesh overlay between servers so
-the Coolify v5 control plane can reach them over a private network.
+		Long: `[ALPHA] Bootstrap a WireGuard full-mesh overlay between servers and
+provision each host with the Coolify v5 runtime stack: Podman + bridge
+network, default-deny iptables scaffold, and the coold/corrosion
+control-plane agents.
+
+All of the above install by default. Use --skip-default-deny to leave
+the firewall in blanket-allow mode for testing.
 
 Subcommands:
   plan   Show what would change without touching anything.

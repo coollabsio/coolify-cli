@@ -37,9 +37,8 @@ func TestNewInitCommand_PersistentFlags(t *testing.T) {
 	assert.NotNil(t, pf.Lookup("container-prefix"))
 	assert.NotNil(t, pf.Lookup("wg-interface"))
 	assert.NotNil(t, pf.Lookup("wg-listen-port"))
-	assert.NotNil(t, pf.Lookup("podman"))
 	assert.NotNil(t, pf.Lookup("podman-network"))
-	assert.NotNil(t, pf.Lookup("default-deny"))
+	assert.NotNil(t, pf.Lookup("skip-default-deny"))
 	assert.NotNil(t, pf.Lookup("concurrency"))
 	assert.NotNil(t, pf.Lookup("ssh-timeout"))
 	assert.NotNil(t, pf.Lookup("yes"))
@@ -47,6 +46,9 @@ func TestNewInitCommand_PersistentFlags(t *testing.T) {
 	assert.Nil(t, pf.Lookup("wg-pool"))
 	assert.Nil(t, pf.Lookup("wg-host-prefix"))
 	assert.Nil(t, pf.Lookup("wg-subnet"))
+	assert.Nil(t, pf.Lookup("podman"))
+	assert.Nil(t, pf.Lookup("default-deny"))
+	assert.Nil(t, pf.Lookup("install-coold"))
 }
 
 // TestNewInitCommand_FlagDefaults verifies default values.
@@ -82,17 +84,13 @@ func TestNewInitCommand_FlagDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 51820, listenPort)
 
-	podman, err := pf.GetBool("podman")
-	require.NoError(t, err)
-	assert.False(t, podman)
-
 	podmanNet, err := pf.GetString("podman-network")
 	require.NoError(t, err)
 	assert.Equal(t, "coolify-mesh", podmanNet)
 
-	defaultDeny, err := pf.GetBool("default-deny")
+	skipDefaultDeny, err := pf.GetBool("skip-default-deny")
 	require.NoError(t, err)
-	assert.False(t, defaultDeny)
+	assert.False(t, skipDefaultDeny)
 
 	concurrency, err := pf.GetInt("concurrency")
 	require.NoError(t, err)

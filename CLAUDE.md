@@ -183,8 +183,9 @@ type Resource struct {
 - Establishes a full-mesh WireGuard overlay across N hosts.
 - Each host gets a mgmt IP `/32` from `--wg-mgmt-pool` (default `100.64.0.0/16`, RFC 6598 CGNAT) on `wg0`.
 - Each host gets a container subnet `/<container-prefix>` from `--container-pool` (default `10.210.0.0/16`, default prefix `/24`) owned by a Podman bridge named `coolify-mesh`.
-- Optionally installs Podman + enables `podman.socket` + creates the bridge + installs `coolify-mesh-fw.service` (`--podman` flag).
-- Optionally installs default-deny firewall scaffold (`--default-deny` flag) — adds `COOLIFY-INTRA` and empty `COOLIFY-ALLOW` chains.
+- Installs Podman + enables `podman.socket` + creates the bridge + installs `coolify-mesh-fw.service` (always; required for v5 runtime).
+- Installs coold + corrosion (v5 control-plane agents; always) from `--coold-binary` / `--corrosion-binary`.
+- Installs default-deny firewall scaffold by default — `COOLIFY-INTRA` + empty `COOLIFY-ALLOW` chains. Use `--skip-default-deny` to fall back to blanket-allow (mode A) for testing.
 
 ### Architecture (why this layout)
 
@@ -207,10 +208,10 @@ Critical: `AllowedIPs` lists the peer's full `/24` so kernel routes `10.210.<pee
 
 Podman network `coolify-mesh` is created with `--disable-dns` — bridge gateway `10.210.X.1:53` is reserved for coold's embedded cluster DNS (see CONTROL_PLANE.md §5). Pre-alpha networks with `dns_enabled=true` are detected on re-run and recreated.
 
-Firewall service (`coolify-mesh-fw.service`) installed by `--podman`:
+Firewall service (`coolify-mesh-fw.service`) installed unconditionally:
 - POSTROUTING `RETURN` rule prevents Podman MASQUERADE from rewriting container egress source on `wg0` (would break reverse routing because wg0 has no IP in the container subnet).
-- Mode A (no `--default-deny`): blanket FORWARD ACCEPT for container subnet.
-- Mode B (`--default-deny`): COOLIFY-INTRA chain (ESTABLISHED accept → COOLIFY-ALLOW → DROP), FORWARD jumps for `-s/-d <container-subnet>`. v5 control plane fills `COOLIFY-ALLOW`.
+- Mode A (`--skip-default-deny`): blanket FORWARD ACCEPT for container subnet.
+- Mode B (default): COOLIFY-INTRA chain (ESTABLISHED accept → COOLIFY-ALLOW → DROP), FORWARD jumps for `-s/-d <container-subnet>`. v5 control plane fills `COOLIFY-ALLOW`.
 
 ### Cross-host vs intra-host firewall
 
@@ -220,8 +221,8 @@ Firewall service (`coolify-mesh-fw.service`) installed by `--podman`:
 ### Subcommands
 
 ```bash
-coolify init plan   --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --default-deny]
-coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --default-deny] [--yes]
+coolify init plan   --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-default-deny]
+coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-default-deny] [--yes]
 ```
 
 - `plan` is read-only: SSH-probes each host, reconstructs current state, shows what `apply` would do. Idempotent.
@@ -241,9 +242,12 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --de
 | `--container-prefix` | `24` | per-host container subnet prefix |
 | `--wg-interface` | `wg0` | WG iface name on remote |
 | `--wg-listen-port` | `51820` | WG UDP port |
-| `--podman` | false | install podman + bridge + firewall service |
 | `--podman-network` | `coolify-mesh` | bridge network name |
-| `--default-deny` | false | requires `--podman`. Install COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
+| `--skip-default-deny` | false | skip the default-deny firewall scaffold. Default installs COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
+| `--coold-binary` | `$HOME/devel/coold/target/release/coold` | local path to the coold Linux/arm64 binary (required — uploaded to every host) |
+| `--corrosion-binary` | `$HOME/devel/corrosion/target/release/corrosion` | local path to the corrosion Linux/arm64 binary (required — uploaded to every host) |
+| `--corrosion-gossip-port` | `8787` | corrosion SWIM gossip port (bound to wg0 mgmt IP) |
+| `--corrosion-api-port` | `8080` | corrosion HTTP API port (bound to 127.0.0.1) |
 | `--concurrency` | `10` | parallel SSH connections |
 | `--ssh-timeout` | `30s` | SSH connect timeout |
 | `--yes`, `-y` | false | skip alpha confirmation prompt |
@@ -269,7 +273,7 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--podman --de
 ### Key invariants
 
 - **Reconstructed-only state**: no local state file. Every `plan`/`apply` re-probes via SSH. State lives on the hosts.
-- **Idempotent**: re-running with no changes produces empty plan. State drift triggers re-converge (e.g. flipping `--default-deny` reinstalls the firewall service).
+- **Idempotent**: re-running with no changes produces empty plan. State drift triggers re-converge (e.g. flipping `--skip-default-deny` reinstalls the firewall service).
 - **Private key never leaves host**: WG private key generated on remote via `wg genkey`; config written using `$PRIVKEY=$(cat /etc/wireguard/privatekey)` shell expansion.
 - **Atomic config writes**: write to `.conf.tmp`, `mv` to `.conf`.
 - **Stable subnet assignment**: existing valid assignments are preserved across re-runs; only invalid (out-of-pool, wrong prefix, duplicate, network/broadcast IP) trigger reassignment with warning.
@@ -297,7 +301,7 @@ Use the SSH `Runner` interface for mocking — never open real SSH connections i
 
 ## `coolify firewall` — cross-host allow-rule client (alpha, v5)
 
-**This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It is a thin REST client of the **coold** per-host agent installed by `coolify init --install-coold`. `allow` / `revoke` / `list` all go through coold's REST API (`/api/v1/firewall/allow`). `containers` stays SSH+podman because coold has no container surface yet. Transport is **SSH-bounce**: the laptop running the CLI is not a mesh peer, so it SSHes into the target host and the shell there runs `curl "http://$(wg0-mgmt-ip):8443/api/v1/firewall/..."` against coold on localhost.
+**This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It is a thin REST client of the **coold** per-host agent installed by `coolify init` (coold install is unconditional as of v1.6.3). `allow` / `revoke` / `list` all go through coold's REST API (`/api/v1/firewall/allow`). `containers` stays SSH+podman because coold has no container surface yet. Transport is **SSH-bounce**: the laptop running the CLI is not a mesh peer, so it SSHes into the target host and the shell there runs `curl "http://$(wg0-mgmt-ip):8443/api/v1/firewall/..."` against coold on localhost.
 
 coold owns all kernel-rule + persistence logic (iptables/nft backend detection, `/etc/coolify/allow.rules` snapshot, `coolify-mesh-allow.service`). The CLI never writes iptables or systemd units directly.
 
@@ -422,7 +426,7 @@ Uses `fakeCooldRunner` / `cmdFakeRunner` pattern (substring → canned stdout ma
 
 ### End-to-end flow (verified on real hosts)
 
-After `coolify init apply --podman --default-deny --install-coold --servers A,B ...` ran (coold must be up):
+After `coolify init apply --servers A,B ...` ran (coold must be up):
 
 1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA`.
 2. `coolify firewall containers --servers A,B --ssh-key KEY` → discovery table.
