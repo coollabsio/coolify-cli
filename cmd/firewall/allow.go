@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -180,12 +181,21 @@ func emitAllowRevoke(
 		action = "revoke"
 		past = "revoked"
 	}
+	tokenFor := tokenResolver(ctx, runner, parent)
 	for _, r := range rules {
+		token, terr := tokenFor(r.Host)
+		if terr != nil {
+			return fmt.Errorf("%s on %s: %w", action, r.Host, terr)
+		}
 		var rerr error
 		if revoke {
-			rerr = ifw.RevokeAllow(ctx, runner, r, parent.SSHUser, parent.SSHPort)
+			// Revoke by id — coold is idempotent (204 even on unknown id).
+			id := strings.TrimPrefix(r.Comment, "cid:")
+			rerr = ifw.CooldRevoke(ctx, runner, r.Host, parent.SSHUser,
+				parent.SSHPort, parent.CooldPort, token, id)
 		} else {
-			rerr = ifw.ApplyAllow(ctx, runner, r, parent.SSHUser, parent.SSHPort)
+			rerr = ifw.CooldApply(ctx, runner, r.Host, parent.SSHUser,
+				parent.SSHPort, parent.CooldPort, token, r)
 		}
 		if rerr != nil {
 			return fmt.Errorf("%s on %s: %w", action, r.Host, rerr)

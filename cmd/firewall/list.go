@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/ssh"
@@ -40,7 +41,9 @@ func emitList(
 	flags *FirewallFlags,
 	runner ssh.Runner,
 ) error {
-	all, results := listAllViaPkg(ctx, runner, flags)
+	tokenFor := tokenResolver(ctx, runner, flags)
+	all, results := ifw.CooldListAll(ctx, runner, flags.Servers, flags.SSHUser,
+		flags.SSHPort, flags.CooldPort, tokenFor, flags.Concurrency)
 
 	rows := make([]models.AllowRuleRow, 0, len(all))
 	for _, r := range all {

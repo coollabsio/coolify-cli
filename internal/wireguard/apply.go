@@ -596,11 +596,17 @@ func phase3Server(
 	// 6. Write corrosion unit + 7. Write coold unit + 8. daemon-reload + enable.
 	// Use enable + restart (not enable --now) so an already-active service still
 	// picks up new unit/config/schema without a separate reload step.
+	//
+	// Also ensure the coold API bearer token exists before the unit starts.
+	// The command is idempotent — reruns keep the existing token so clients
+	// don't get invalidated on every `apply`.
 	corrosionUnit := services.CorrosionServiceUnit(desired.Interface)
 	cooldUnit := services.CooldServiceUnit(mgmtIP, bridgeGatewayIP)
 
-	serviceCmd := heredocWrite("/etc/systemd/system/corrosion.service",
-		corrosionUnit, "COOLIFY_CORROSION_UNIT_EOF") +
+	serviceCmd := services.EnsureCooldAPITokenCommand() +
+		" && " +
+		heredocWrite("/etc/systemd/system/corrosion.service",
+			corrosionUnit, "COOLIFY_CORROSION_UNIT_EOF") +
 		" && " +
 		heredocWrite("/etc/systemd/system/coold.service",
 			cooldUnit, "COOLIFY_COOLD_UNIT_EOF") +

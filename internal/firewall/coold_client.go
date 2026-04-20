@@ -1,0 +1,258 @@
+package firewall
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net"
+	"sort"
+	"strings"
+
+	"github.com/coollabsio/coolify-cli/internal/ssh"
+)
+
+// CooldAPIBasePath is the path prefix the coold REST router serves under.
+// Mirrors `src/firewall/api.rs` in the coold repo.
+const CooldAPIBasePath = "/api/v1/firewall"
+
+// CooldAPITokenPath is the remote file coold reads its bearer token from.
+// Kept in sync with internal/services/coold.go — the CLI falls back to
+// reading this file over SSH when the user hasn't supplied --coold-token.
+const CooldAPITokenPath = "/etc/coolify/api-token"
+
+// FetchCooldToken SSHes into host and reads the coold bearer token at
+// CooldAPITokenPath. Each host generates its own random token at install
+// time (see EnsureCooldAPITokenCommand), so per-host fetch is the default
+// path when the user hasn't provided a global --coold-token override.
+func FetchCooldToken(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	sshPort int,
+) (string, error) {
+	cmd := "cat " + CooldAPITokenPath
+	stdout, stderr, err := runner.Run(ctx, host, user, sshPort, cmd)
+	if err != nil {
+		return "", fmt.Errorf("fetch coold token from %s: %w (stderr: %s)",
+			host, err, strings.TrimSpace(stderr))
+	}
+	tok := strings.TrimSpace(stdout)
+	if tok == "" {
+		return "", fmt.Errorf("coold token on %s is empty — is coold installed? (expected at %s)",
+			host, CooldAPITokenPath)
+	}
+	return tok, nil
+}
+
+// cooldRulePayload mirrors the JSON shape coold's REST API expects on POST
+// and returns on GET /allow. Kept aligned with coold/src/firewall/rule.rs:
+// src/dst are string IPs, proto/port/id are omitted when absent.
+type cooldRulePayload struct {
+	Src   string `json:"src"`
+	Dst   string `json:"dst"`
+	Proto string `json:"proto,omitempty"`
+	Port  uint16 `json:"port,omitempty"`
+	ID    string `json:"id,omitempty"`
+}
+
+// toAllowRule converts a payload coming back from coold into the CLI's
+// AllowRule. The host field is filled in by the caller (it is the mesh host
+// the list came from, not part of the payload).
+func (p cooldRulePayload) toAllowRule() (AllowRule, bool) {
+	src := net.ParseIP(p.Src)
+	dst := net.ParseIP(p.Dst)
+	if src == nil || dst == nil {
+		return AllowRule{}, false
+	}
+	r := AllowRule{Src: src, Dst: dst, Proto: p.Proto, Port: int(p.Port)}
+	if p.ID != "" {
+		r.Comment = "cid:" + p.ID
+	}
+	return r, true
+}
+
+// allowRulePayload converts an AllowRule into the wire shape coold accepts.
+// coold normalizes and computes the id itself, so we send only the tuple.
+func allowRulePayload(r AllowRule) cooldRulePayload {
+	p := cooldRulePayload{Src: r.Src.String(), Dst: r.Dst.String(), Proto: r.Proto}
+	if r.Port > 0 {
+		p.Port = uint16(r.Port)
+	}
+	return p
+}
+
+// CooldApply POSTs r to coold's /allow endpoint on host. coold is reached
+// via SSH-bounce: SSH into host, curl localhost wg0 mgmt IP. This is the
+// transport of choice for the alpha because the CLI runs on a laptop that
+// isn't a mesh peer — only hosts inside the wg0 network can reach coold.
+func CooldApply(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	sshPort, cooldPort int,
+	token string,
+	r AllowRule,
+) error {
+	body, err := json.Marshal(allowRulePayload(r))
+	if err != nil {
+		return fmt.Errorf("marshal allow rule: %w", err)
+	}
+	cmd := buildCurlAllow(token, cooldPort, string(body))
+	if _, stderr, err := runner.Run(ctx, host, user, sshPort, cmd); err != nil {
+		return fmt.Errorf("coold apply on %s: %w (stderr: %s)",
+			host, err, strings.TrimSpace(stderr))
+	}
+	return nil
+}
+
+// CooldRevoke DELETEs rule id from coold on host. coold returns 204 even
+// when the id is unknown, so missing rules are a silent no-op.
+func CooldRevoke(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	sshPort, cooldPort int,
+	token, id string,
+) error {
+	if id == "" {
+		return fmt.Errorf("coold revoke: empty id")
+	}
+	cmd := buildCurlRevoke(token, cooldPort, id)
+	if _, stderr, err := runner.Run(ctx, host, user, sshPort, cmd); err != nil {
+		return fmt.Errorf("coold revoke on %s: %w (stderr: %s)",
+			host, err, strings.TrimSpace(stderr))
+	}
+	return nil
+}
+
+// CooldList GETs coold's /allow endpoint on host and returns the parsed
+// rules. Missing coold (no wg0 interface) is treated as an empty slice so a
+// partially-deployed mesh doesn't break `firewall list`.
+func CooldList(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	sshPort, cooldPort int,
+	token string,
+) ([]AllowRule, error) {
+	cmd := buildCurlList(token, cooldPort)
+	stdout, stderr, err := runner.Run(ctx, host, user, sshPort, cmd)
+	if err != nil {
+		return nil, fmt.Errorf("coold list on %s: %w (stderr: %s)",
+			host, err, strings.TrimSpace(stderr))
+	}
+	stdout = strings.TrimSpace(stdout)
+	if stdout == "" {
+		return nil, nil
+	}
+	var payloads []cooldRulePayload
+	if err := json.Unmarshal([]byte(stdout), &payloads); err != nil {
+		return nil, fmt.Errorf("parse coold list on %s: %w (body: %s)",
+			host, err, stdout)
+	}
+	out := make([]AllowRule, 0, len(payloads))
+	for _, p := range payloads {
+		r, ok := p.toAllowRule()
+		if !ok {
+			continue
+		}
+		r.Host = host
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// CooldListAll fans CooldList across every host in parallel and returns a
+// stably-sorted flattened slice plus the per-host results. tokenFor is
+// called once per host on its worker goroutine — fail here and the host
+// surfaces as a ServerResult.Err instead of polluting the rule slice.
+func CooldListAll(
+	ctx context.Context,
+	runner ssh.Runner,
+	hosts []string,
+	user string,
+	sshPort, cooldPort int,
+	tokenFor func(host string) (string, error),
+	concurrency int,
+) ([]AllowRule, []ssh.ServerResult[[]AllowRule]) {
+	results := ssh.ForEachServer(ctx, hosts, concurrency,
+		func(ctx context.Context, host string) ([]AllowRule, error) {
+			token, err := tokenFor(host)
+			if err != nil {
+				return nil, err
+			}
+			return CooldList(ctx, runner, host, user, sshPort, cooldPort, token)
+		})
+	var all []AllowRule
+	for _, r := range results {
+		all = append(all, r.Result...)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Host != all[j].Host {
+			return all[i].Host < all[j].Host
+		}
+		si, sj := all[i].Src.String(), all[j].Src.String()
+		if si != sj {
+			return si < sj
+		}
+		di, dj := all[i].Dst.String(), all[j].Dst.String()
+		if di != dj {
+			return di < dj
+		}
+		return all[i].Port < all[j].Port
+	})
+	return all, results
+}
+
+// shellSingleQuote wraps s in POSIX-shell single quotes, escaping any
+// embedded single quotes. Used to embed JSON bodies and tokens into shell
+// commands without breaking quoting.
+func shellSingleQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// mgmtIPScript discovers coold's bind IP on the remote host by reading the
+// first IPv4 address on wg0. Emitted as part of every curl command so the
+// CLI doesn't need to track per-host mgmt IPs (they are already encoded in
+// the host's own wg0 interface).
+const mgmtIPScript = `MGMT=$(ip -4 -o addr show wg0 2>/dev/null | awk '{print $4}' | cut -d/ -f1); ` +
+	`test -n "$MGMT" || { echo "coold mgmt IP (wg0) not found on $(hostname) — is coold installed?" >&2; exit 1; }; `
+
+// mgmtIPScriptSoft is the same as mgmtIPScript but treats a missing wg0 as
+// "no rules" rather than a failure. Used by list so a host without coold is
+// simply absent from the output instead of aborting the whole fanout.
+const mgmtIPScriptSoft = `MGMT=$(ip -4 -o addr show wg0 2>/dev/null | awk '{print $4}' | cut -d/ -f1); ` +
+	`if [ -z "$MGMT" ]; then echo '[]'; exit 0; fi; `
+
+// buildCurlAllow returns the shell one-liner that POSTs body to coold.
+// Token is embedded inline in the -H header; on the remote it is briefly
+// visible in /proc/<curl-pid>/cmdline to root only, for the ~ms lifetime of
+// the curl invocation. Acceptable for alpha; TLS + stdin-fed tokens are a
+// follow-up.
+func buildCurlAllow(token string, port int, body string) string {
+	return mgmtIPScript +
+		`curl -fsS --max-time 10 ` +
+		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
+		`-H 'Content-Type: application/json' ` +
+		`-X POST -d ` + shellSingleQuote(body) + ` ` +
+		fmt.Sprintf(`"http://$MGMT:%d%s/allow"`, port, CooldAPIBasePath)
+}
+
+// buildCurlRevoke returns the shell one-liner that DELETEs rule id.
+func buildCurlRevoke(token string, port int, id string) string {
+	return mgmtIPScript +
+		`curl -fsS --max-time 10 -o /dev/null ` +
+		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
+		`-X DELETE ` +
+		fmt.Sprintf(`"http://$MGMT:%d%s/allow/%s"`, port, CooldAPIBasePath, id)
+}
+
+// buildCurlList returns the shell one-liner that GETs /allow. A missing
+// wg0 interface returns an empty JSON array so the caller sees "no rules"
+// instead of a transport error.
+func buildCurlList(token string, port int) string {
+	return mgmtIPScriptSoft +
+		`curl -fsS --max-time 10 ` +
+		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
+		fmt.Sprintf(`"http://$MGMT:%d%s/allow"`, port, CooldAPIBasePath)
+}

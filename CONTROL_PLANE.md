@@ -5,26 +5,43 @@ This document lists everything the Coolify v5 control plane must implement on to
 ## Architecture overview
 
 ```
-┌────────────────────────────┐
-│  Coolify central UI / API  │
-│  (single instance / HA)    │
-└──────────────┬─────────────┘
-               │ HTTPS over wg0 (TLS + bearer token)
-               │ to 100.64.0.X:8443
-               ▼
-┌────────────────────────────┐  ┌─────────────────────────┐
-│  coold (per-host agent)    │  │  /run/podman/podman.sock│
-│  - REST API on wg0 :8443   │──┤  bind-mount, host-only  │
-│  - RBAC, audit, rate limit │  │  (NEVER on network)     │
-│  - Talks ONLY to local sock│  └─────────────┬───────────┘
-└────────────────────────────┘                │
-                                              ▼
-                              ┌─────────────────────────────┐
-                              │  podmand (containers, nets) │
-                              └─────────────────────────────┘
+┌─────────────────────────────────────┐
+│  Coolify central UI / API           │
+│  - Multi-tenant (cloud) or 1-tenant │
+│    (self-hosted); same binary       │
+│  - WSS / gRPC bidi stream listener  │
+│    on :443 (public)                 │
+│  - Routes commands by host_id       │
+└────────────────────▲────────────────┘
+                     │ outbound TLS :443 (WSS / gRPC bidi)
+                     │ long-lived, resumable, jittered reconnect
+                     │ per-host JWT (issued at enroll)
+                     │
+   ┌─────────────────┴──────────────────┐
+   │      (per-customer gateway,        │
+   │       OPTIONAL — one mesh host     │
+   │       proxies N coolds → 1 stream) │
+   └─────────────────▲──────────────────┘
+                     │ same stream protocol, over wg0
+                     │
+┌────────────────────┴────────────────┐  ┌─────────────────────────┐
+│  coold (per-host agent)             │  │  /run/podman/podman.sock│
+│  - Dials central (or gateway) out   │──┤  bind-mount, host-only  │
+│  - Local REST on wg0 :8443          │  │  (NEVER on network)     │
+│    (intra-mesh callers: CLI, peers) │  └─────────────┬───────────┘
+│  - Bearer-token authn (both paths)  │                │
+│  - Talks ONLY to local podman sock  │                ▼
+└─────────────────────────────────────┘  ┌─────────────────────────────┐
+                                         │  podmand (containers, nets) │
+                                         └─────────────────────────────┘
 ```
 
-**Key principle**: `/run/podman/podman.sock` is **never exposed on TCP**. coold (per-host agent container or systemd service) bind-mounts the socket and proxies a curated REST API over wg0. Central Coolify never touches the raw podman API directly.
+**Key principles**:
+
+1. **`/run/podman/podman.sock` is never exposed on TCP.** coold bind-mounts it and proxies a curated API. Central Coolify never touches the raw podman socket directly.
+2. **coold always dials outbound — never accepts inbound from central or public internet.** One topology for self-hosted and cloud SaaS. Works through any NAT/corp firewall, scales to thousands of hosts per central region (10k+ idle streams are cheap). No "add central to every customer's wg0" — central never joins any mesh.
+3. **coold still exposes a local REST API on wg0 mgmt IP** for intra-mesh callers only (the `coolify firewall` CLI via SSH-bounce, other coolds in the same mesh, a per-customer gateway if deployed). Never reachable from public internet; wg0 is the only L3 boundary that can hit it.
+4. **Per-customer gateway (optional)**: for large customers, one host in the mesh runs a stream aggregator that dials central once and proxies commands to the other coolds over wg0. Reduces stream fan-out at central from N-per-customer to 1-per-customer; adds one hop of latency. Transparent to both ends — same protocol each side.
 
 ## What `coolify init apply --podman --default-deny` already provides
 
@@ -56,20 +73,88 @@ Each host has a stable `(mgmt-ip, container-subnet)` pair. The bootstrap is idem
 
 ### 2. Container lifecycle
 
-Talk to **coold** REST API at `https://<mgmt-ip>:8443/...` (over wg0). coold proxies to the local `/run/podman/podman.sock` Unix socket.
+Every container op is a command sent over coold's outbound stream (central → coold) or a local REST call on coold's wg0 listener (intra-mesh → coold). coold executes the command against the local `/run/podman/podman.sock` Unix socket and streams results back.
 
 - Create container with `--network coolify-mesh` and explicit `--ip` from the host's `/24`.
   - Reserve container IPs in the control plane DB. Allocator skips `.1` (bridge gateway), reserves `.2` for coold itself, `.3-.254` for app containers.
 - Start, stop, restart, remove.
-- Stream logs via coold's `/containers/{id}/logs?follow=true` (which proxies podman API over the wg0 tunnel).
+- Stream logs via `/containers/{id}/logs?follow=true` (coold relays podman API frames over the open control stream).
 - Health checks via `/containers/{id}/healthcheck/run`.
 - Resource limits, env vars, mounts, volumes, secrets — all standard podman API surfaced through coold.
 
+#### coold is a primitive proxy, not an app brain
+
+coold follows the **kubelet analogue**: it knows containers, images, volumes, networks, iptables, and Corrosion writes. It does **not** know apps, compose, Dockerfiles, buildpacks, or Nixpacks. Central Coolify is the apiserver+controllers: it parses app-level config and compiles it into a sequence of primitive ops streamed to coold.
+
+Test for "should this live in coold?": could a second orchestrator (a Nomad-style competitor) reuse this coold with a different app model? If yes → coold. If no → central.
+
+#### Wire surface (enumerable)
+
+Same endpoint set on both transports (outbound stream from central, local REST on wg0 for intra-mesh callers). New verbs require a coold release — there is no `/podman/raw` passthrough.
+
+```
+# Images
+POST   /api/v1/images/pull           {ref, auth?}            -> {digest}
+GET    /api/v1/images                                         -> [{ref, digest, size}]
+DELETE /api/v1/images/{ref}
+
+# Containers (filtered podman surface)
+POST   /api/v1/containers            <create spec>            -> {id}
+POST   /api/v1/containers/{id}/start
+POST   /api/v1/containers/{id}/stop          {timeout?}
+POST   /api/v1/containers/{id}/restart
+DELETE /api/v1/containers/{id}                {force?}
+GET    /api/v1/containers/{id}                (inspect)
+GET    /api/v1/containers/{id}/logs?follow=true               (streamed)
+POST   /api/v1/containers/{id}/exec           {cmd, tty?}     (streamed)
+POST   /api/v1/containers/{id}/healthcheck/run
+
+# Volumes
+POST   /api/v1/volumes               {name, driver, labels}
+DELETE /api/v1/volumes/{name}
+GET    /api/v1/volumes/{name}
+
+# Networks (bootstrap creates coolify-mesh; extra per-app nets created here)
+POST   /api/v1/networks              {name, driver, options, labels}
+DELETE /api/v1/networks/{name}
+GET    /api/v1/networks
+
+# Firewall (coold = sole writer)
+POST   /api/v1/firewall/allow        {src, dst, proto?, port?}  -> {id}
+DELETE /api/v1/firewall/allow/{id}
+GET    /api/v1/firewall/allow
+
+# Service endpoints (Corrosion writer; used by central to register deploys)
+POST   /api/v1/services/register
+DELETE /api/v1/services/{id}/endpoints/{container_id}
+GET    /api/v1/services/{id}/endpoints
+
+# DNS (diagnostics)
+GET    /api/v1/dns/lookup/{name}
+GET    /api/v1/dns/stats
+
+# Host facts (read-only; central scrapes these for observability + scheduling)
+GET    /api/v1/host/info             (podman info, kernel, wg state, load)
+GET    /api/v1/host/containers       (podman ps -a)
+GET    /api/v1/host/stats            (podman stats snapshot)
+```
+
+**Deny filter on `POST /containers`** (defense-in-depth even though central is trusted):
+- Block `--privileged`, `--cap-add=SYS_ADMIN/NET_ADMIN` unless host is marked `allow_privileged=true`.
+- Block host-path bind mounts outside a configurable allowlist (default: none).
+- Block host netns (`--net=host`) unless the container is coold itself.
+
+Anything not above is not coold's job. No `/apps`, `/deployments`, `/compose`, `/build`, `/podman/raw`. coold does not parse compose, Dockerfiles, buildpacks, or any app-level config — central compiles these into sequences of the primitive ops above and streams them down.
+
+#### Networks
+
+Default = shared `coolify-mesh` bridge. Containers get `.coolify.internal` DNS + flat L3 across the mesh. Users may define extra podman networks per app (docker-compose `networks:` style) via `POST /networks` + container attach on create. Central compiles compose into network-create + container-attach primitives.
+
 #### coold deployment
 
-coold runs as a privileged container on each host (or as a host systemd service). v5 control plane installs it via `coolify init apply` after the mesh + podman + bridge are up — OR `coolify init` could grow a `--coold` flag that installs it as part of bootstrap (out of scope for v1, but trivial extension).
+coold runs as a privileged container on each host (or as a host systemd service). `coolify init apply --install-coold` puts it in place at bootstrap time: binary, systemd unit with `COOLD_API_BIND=<wg0-mgmt-ip>:8443`, random per-host bearer token at `/etc/coolify/api-token` (mode 0600), outbound stream config written atomically to `/etc/coolify/coold.env`.
 
-Reference container spec:
+Reference container spec (equivalent to systemd-service deployment):
 ```bash
 podman run -d --name coold --restart=always \
   --network coolify-mesh --ip 10.210.X.2 \
@@ -80,9 +165,53 @@ podman run -d --name coold --restart=always \
   ghcr.io/coollabs/coold:latest
 ```
 
-- Listens on host's WG mgmt IP only (`100.64.0.X:8443`) — unreachable from public internet.
-- TLS cert + bearer token auth on every request.
-- Allow rule needed in `COOLIFY-ALLOW`: central Coolify host's mgmt IP → this host's `100.64.0.X:8443`. (Alternatively: skip default-deny for mgmt subnet — see §3.)
+- **Outbound stream**: coold dials `wss://<central-host>/v1/agent` (or gRPC bidi) on start, presenting its per-host JWT. Central routes commands to it by host id over the open stream. Stream is the primary control channel for both self-hosted and cloud SaaS — same code path, same binary.
+- **Local REST on wg0 mgmt IP (`100.64.0.X:8443`)**: accepts intra-mesh callers only (the `coolify firewall` CLI via SSH-bounce, other coolds in the same mesh, a per-customer gateway). Not reachable from public internet — wg0 is the L3 boundary. Bearer-token auth on every request.
+- **No inbound from central**: central never dials coold. All mutations arrive over the coold-initiated stream; no `COOLIFY-ALLOW` rule for "central → host:8443" needed. Works through NAT/corp firewalls.
+
+#### Control channel transport (stream)
+
+Two candidates; spec-time decision, not per-host:
+
+| Option | Pros | Cons |
+|---|---|---|
+| **gRPC bidi stream over HTTP/2** *(chosen)* | typed Protobuf schemas, native server-streaming for logs/exec, versionable wire | stricter proxy requirements (some corp proxies still mangle HTTP/2); larger runtime |
+| WebSocket (WSS over :443) *(fallback)* | traverses every proxy, tiny overhead, libs everywhere | framing is custom-on-top; manual request/response correlation |
+
+**Decision: gRPC bidi + Protobuf.** Typed schemas + native server-streaming for logs and exec outweigh the proxy risk; WSS remains the documented fallback if gRPC-through-proxy issues show up in the field. Both run on :443, so customer-side egress rules stay unchanged either way.
+
+#### Enrollment
+
+coold registers once at install using a one-time token from central:
+
+```bash
+coolify init apply --install-coold \
+  --central-url https://cloud.coolify.io \
+  --enroll-token <one-time-hex>
+```
+
+1. coold POSTs `(host_id, wg0_mgmt_ip, container_subnet, enroll_token)` to `https://<central>/v1/enroll`.
+2. Central validates the enroll token (scoped to a tenant, single-use, short TTL) and issues a long-lived per-host JWT + TLS-pinned central cert. Response stored in `/etc/coolify/coold.env` (mode 0600).
+3. coold burns the enroll token and switches to JWT for the persistent stream.
+4. Central revokes by invalidating the JWT in its own DB; next stream reconnect fails auth and the host is quarantined until re-enrolled.
+
+#### Reconnect + fleet-restart storms
+
+Single-central-restart would otherwise trigger simultaneous reconnects from every host. Mitigations:
+
+- **Jittered backoff**: exponential from 1s up to 60s with full jitter. 10k hosts reconnecting spread across ~minutes, not seconds.
+- **Resumable streams**: stream carries a monotonic `last_seq` per host so central can replay missed commands after reconnect without central-side queueing beyond an in-memory ring buffer.
+- **Region sharding**: DNS round-robin or geo-steering across multiple central stream gateways; each gateway holds O(10k) streams. Stateful routing via consistent-hashing on host_id so a host lands on the same gateway across reconnects (cache affinity).
+
+#### Per-customer gateway (optional)
+
+For customers with 50+ hosts, one designated mesh host runs a **gateway mode coold** (same binary, different role):
+
+- Dials central like any other coold.
+- Accepts incoming streams from its peer coolds over wg0 (they dial `wss://<gateway-mgmt-ip>:8443/v1/agent-peer` instead of central).
+- Relays commands down, responses up. Maintains O(hosts-in-mesh) inbound streams + 1 outbound to central.
+
+Saves N-1 WAN streams at central per customer; costs one hop of latency + one more thing to keep alive. Opt-in via `coolify init apply --gateway-for-mesh` on the chosen host; peers get `--via-gateway <gateway-mgmt-ip>` at install.
 
 ### 3. Network policy (firewall)
 
@@ -94,11 +223,13 @@ When host has `--default-deny` enabled, **all cross-host container traffic is dr
 |---|---|---|
 | Chain scaffold (COOLIFY-INTRA, COOLIFY-ALLOW, FORWARD jumps, conntrack early-accept, POSTROUTING RETURN) | `coolify init apply` (one-shot) | Install + idempotently re-converge on flag change. Never touches individual allow rules. |
 | Rule metadata (who/when/why, audit log, RBAC, tenant scoping, app→rule mapping) | **Coolify central DB** | Authoritative store. All rich queries, audit trails, and access control live here. |
-| Raw rule tuples `(src, dst, proto, port)` on the host | **coold** (future) / **`coolify firewall`** CLI (pre-coold) | Apply to kernel + snapshot to `/etc/coolify/allow.rules` for reboot. Stateless-ish — just a cache of what central told it to apply. No metadata, no DB. |
+| Raw rule tuples `(src, dst, proto, port)` on the host | **coold** (single writer) | Apply to kernel + snapshot to `/etc/coolify/allow.rules` for reboot. Stateless-ish — just a cache of what the caller (central Coolify or `coolify firewall` CLI) told it to apply. No metadata, no DB. |
 
 **Key split**: central Coolify owns rich state (metadata, audit, RBAC). Per-host coold owns only the raw rules needed to program the kernel + survive reboot. This keeps coold small and lets a single central DB be the source of truth for all cross-cutting concerns.
 
-**`coolify init` is intentionally not the rule store.** Bootstrap creates the empty allow chain. Pre-coold, the `coolify firewall` CLI fills it; post-coold, coold takes over (same file format).
+**App-topology compilation happens in central.** coold applies the rule tuples it is told to apply; it does not generate rules from app intent (e.g. "allow service `web` → `db`"). Central compiles that from the app model and sends individual `POST /firewall/allow` frames.
+
+**`coolify init` is intentionally not the rule store.** Bootstrap creates the empty allow chain. coold is the sole writer into it. Callers reach coold via two paths: (a) central Coolify over the coold-initiated outbound stream, (b) intra-mesh callers (`coolify firewall` CLI via SSH-bounce, other coolds, optional per-customer gateway) via coold's local REST API on wg0 mgmt IP.
 
 #### Reboot persistence
 
@@ -107,7 +238,7 @@ Works the same pre- and post-coold because both use the same file format:
 - `/etc/coolify/allow.rules` — filter-table fragment, `:COOLIFY-ALLOW` + `-A COOLIFY-ALLOW` lines only. Written atomically (`.tmp` + `mv`) on every rule change.
 - `/etc/systemd/system/coolify-mesh-allow.service` — `Type=oneshot`, `After=coolify-mesh-fw.service`, `Wants=coolify-mesh-fw.service`. `ExecStart=iptables-restore --noflush /etc/coolify/allow.rules`. `--noflush` means only `COOLIFY-ALLOW` is populated; nothing else is disturbed.
 
-Pre-coold: the `coolify firewall` CLI writes this file directly over SSH. Post-coold: coold writes it on every API mutate, keeping the file in sync with kernel. The systemd unit is the same either way — coold takes over the writer, not the file format. No migration step beyond "coold starts being the writer".
+coold owns the file: it rewrites `/etc/coolify/allow.rules` on every successful API mutate, keeping it in sync with the live kernel. The `coolify firewall` CLI never touches the file — it POSTs/DELETEs through coold and coold handles persistence + systemd unit install. One writer, one format.
 
 #### Allow-rule lifecycle
 
@@ -137,10 +268,10 @@ Source of truth for **the set of rules that should exist** = central Coolify DB.
 Every mutating call from central → coold follows this sequence:
 
 1. **Central writes to its own DB first** (with its own audit/tenant metadata). Durable with the rest of Coolify's state.
-2. **Central sends REST call to coold** with just `(src, dst, proto, port)`.
+2. **Central sends command over the open stream** to coold with just `(src, dst, proto, port)`. No inbound connection to coold — the stream was already established by coold at boot.
 3. **coold applies `iptables -A/-D`** to kernel.
 4. **coold regenerates `/etc/coolify/allow.rules`** via `iptables-save` (atomic `.tmp` + `mv`).
-5. **coold returns success to central**.
+5. **coold returns success to central** over the same stream (response carries the request id).
 6. **On any failure in 3–5**, central marks the row "pending" in its DB and retries / surfaces to operator. Nothing is lost because step 1 is already durable.
 
 Consequences:
@@ -163,7 +294,9 @@ coold detects backend (`iptables --version` or presence of nftables socket) and 
 
 For **systemctl restart coolify-mesh-fw.service** (e.g. `coolify init apply` re-runs after a flag flip): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — existing rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`, crash mid-write), central's reconcile loop compares its own DB against `iptables -S COOLIFY-ALLOW` from each host and re-pushes any missing tuples within the reconcile interval.
 
-#### Allow API surface (central Coolify → coold REST)
+#### Allow API surface
+
+Same method/path set is served on both transports — stream (central → coold) and local REST (intra-mesh → coold). Stream = JSON-RPC frames carrying the same `(method, path, body)` tuple; REST = plain HTTP on wg0 mgmt IP :8443.
 
 ```
 POST   /api/v1/firewall/allow          {src, dst, proto?, port?, comment?}    → returns id
@@ -361,7 +494,9 @@ Resolver returns ALL healthy A records. Apps with proper conn pools (postgres, r
 | Container has no `--dns` (created outside coold) | No cluster resolution. Document: only coold-managed containers get discovery. |
 | Cross-region high latency | Slower convergence; stale DNS for 10–30s. Acceptable v1. |
 
-#### API surface (central Coolify → coold REST)
+#### API surface
+
+Same dual-transport model as the firewall API — stream from central, REST from intra-mesh callers.
 
 ```
 POST   /api/v1/services/register      {service_id, app_id, name, namespace, port, container_id, container_ip, host_mgmt_ip}
@@ -373,6 +508,8 @@ GET    /api/v1/dns/stats              (qps, hit/miss/forward counts)
 ```
 
 Most ops are automatic side effects of deploy/scale/health-check. Central rarely calls `/services/register` directly — coold registers on container create, deregisters on remove.
+
+coold writes Corrosion rows on behalf of central (explicit `POST /services/register` frames); it does not infer service identity from container labels. Central supplies `service_id` explicitly so naming policy stays in one place.
 
 #### Bootstrap impact
 
@@ -406,35 +543,116 @@ Important: ingress proxy needs its own podman network OR can share `coolify-mesh
 
 ### 7. Deployment workflows
 
-- Image pull on target host(s) via `/images/pull`.
-- Rolling deploy: create new container with new tag, healthcheck, swap proxy upstream, remove old.
-- Volume + secrets mounted before start.
-- Build pipeline: per-host build runner (separate podman socket call) or central builder + image push to registry.
+Deploy is a **central-side state machine** that compiles app intent (compose / Dockerfile / buildpack / Nixpacks / raw image) into a sequence of coold primitives (see §2 wire surface). coold does not participate in planning — it executes one primitive per frame.
+
+#### Build pipeline (not in coold)
+
+```
+git push
+   │
+   ▼
+Central receives webhook
+   │
+   ▼
+Builder (BuildKit / Buildpacks / Nixpacks)             ← coold NOT involved
+  - Self-hosted: first mesh host by default;
+    central may pin via target_host_id per build.
+  - Cloud: central-run.
+   │
+   ▼
+Push to registry (registry.coolify.io or customer's)   ← coold NOT involved
+   │
+   ▼
+Central deploy controller → primitive op stream → coold on target host
+```
+
+coold's only role in the build path: `POST /images/pull` once the tag exists in the registry.
+
+#### Deploy flow (T0–T10 — every frame = one §2 primitive)
+
+```
+T0  Central builder clones source, invokes BuildKit / buildpack / nixpacks.
+    Output: OCI image @ registry.coolify.io/tenant/web:v2.
+
+T1  Central deploy controller picks target host H (scheduler = least-loaded / pin).
+
+T2  Frame: POST /images/pull {ref: "registry.coolify.io/tenant/web:v2"}
+    coold@H calls podman.sock /images/create, streams progress back.
+
+T3  Frame: POST /volumes {name: "web-data", driver: "local"}
+    coold@H idempotent; no-op if exists.
+
+T4  Frame: POST /containers  (central templates from compose + resolved secrets)
+    body:
+      {
+        "image": "registry.coolify.io/tenant/web:v2",
+        "name": "web-v2-a3f91",
+        "network": "coolify-mesh",
+        "ip": "10.210.H.42",
+        "dns": ["10.210.H.1"],
+        "dns_search": ["coolify.internal"],
+        "env": {"DATABASE_URL": "postgres://…"},
+        "mounts": [{"volume": "web-data", "target": "/data"}],
+        "healthcheck": {"test": ["CMD","curl","-f","http://localhost/"], "interval": "5s"},
+        "labels": {"coolify.app": "web", "coolify.version": "v2"}
+      }
+    coold checks deny filter → calls podman.sock /containers/create → returns id.
+
+T5  Frame: POST /containers/{id}/start
+    coold starts container.
+
+T6  Central polls GET /containers/{id} or subscribes to events.
+    Wait for healthy; abort + rollback on timeout.
+
+T7  Frame: POST /services/register
+    coold writes Corrosion row. Gossip distributes; DNS now answers new IP.
+
+T8  Frame: POST /firewall/allow  (on dst host — coold = sole kernel writer)
+    {src: proxy-ip, dst: 10.210.H.42, proto: "tcp", port: 80}
+
+T9  Central ingress controller regenerates proxy config (Caddy/Traefik/nginx)
+    → upstreams point to new container IP.
+    Frame: POST /containers/{proxy-id}/exec (reload)  or proxy-specific reload.
+
+T10 Cutover complete. Central retires the old container:
+      POST /containers/{old-id}/stop {timeout: 10}
+      DELETE /containers/{old-id}
+      DELETE /services/web/endpoints/{old-container-id}
+      DELETE /firewall/allow/{old-rule-id}
+```
+
+Every T-frame is one of the narrow primitives in §2. coold never runs compose, never builds, never picks hosts, never reads app config. If a future verb is needed, it gets added to §2 and the coold release, not smuggled through a passthrough.
+
+**coold non-goals for deploy**: no compose parser, no buildpacks, no Dockerfile handler, no Nixpacks, no scheduler, no ingress templating, no rollback orchestration, no secrets store.
 
 ### 8. Storage & volumes
 
 - Local podman volumes per host (`/var/lib/containers/storage/volumes`).
 - Cross-host: distributed FS (out of scope) OR pin stateful services to a host (anti-affinity rules in scheduler).
 - Backup: `podman volume export` + scp to backup target. Coolify orchestrates schedule.
+- **v5 alpha decision**: stateful services **pin to host**. Cross-host volume movement / distributed FS is post-alpha.
 
 ### 9. Scheduling
 
-When user creates an app, control plane decides which host runs it:
+**Placement lives in central.** coold provides facts (`GET /host/info`, `/host/stats`, `/host/containers`); central consumes them, picks the target host, and sends the resulting primitives. coold has no placement logic.
+
+When user creates an app, central decides which host runs it:
 - Round-robin / least-loaded / explicit pin.
-- Pinned services (DB, persistent volumes) tracked in DB.
+- Pinned services (DB, persistent volumes) tracked in central DB.
 - Re-schedule on host failure (wg0 down, last-handshake stale).
 
-Failure detection: poll `wg show wg0 latest-handshakes` on every host, parse seconds-since-handshake; alert if > N seconds.
+Failure detection: central polls `wg show wg0 latest-handshakes` via `GET /host/info` on every host, parses seconds-since-handshake; alerts if > N seconds.
 
 ### 10. Observability
 
-Per host metrics (over wg0):
-- `podman info` → version, storage driver, free space.
-- `podman ps -a --format json` → container state.
-- `podman stats --no-stream --format json` → CPU/mem per container.
-- `wg show wg0 dump` → peer state, transfer bytes, latest handshake.
-- `cat /proc/meminfo /proc/loadavg` → host load.
-- `iptables -nvL COOLIFY-ALLOW` → allow rules + match counters (for audit).
+coold exposes read-only `/host/*` endpoints surfacing the facts below. Central (or a central-side scraper) pulls from each host and feeds Prometheus / VictoriaMetrics. coold does **not** push metrics.
+
+Per host metrics (over wg0 via coold endpoints):
+- `GET /host/info` → podman info (version, storage driver, free space), kernel, wg state, load.
+- `GET /host/containers` → `podman ps -a --format json` state.
+- `GET /host/stats` → `podman stats --no-stream --format json` CPU/mem per container.
+- Wg handshake + transfer bytes via `GET /host/info` (`wg show wg0 dump` internally).
+- `iptables -nvL COOLIFY-ALLOW` match counters (for audit) exposed through `GET /firewall/allow` with counters.
 
 Stream into central time-series store (Prometheus / VictoriaMetrics).
 
@@ -449,13 +667,13 @@ Stream into central time-series store (Prometheus / VictoriaMetrics).
 - **Private keys never leave hosts**: WG private key generated on remote, never transits SSH (already done by bootstrap).
 - **Podman socket access**: `/run/podman/podman.sock` stays as a rootful Unix socket on each host — **NEVER exposed on TCP**. Only **coold** (per-host agent, see §2) has access via bind-mount. coold surfaces a curated REST API over wg0 with TLS + bearer auth. This means:
   - Compromise of a non-coold container does NOT grant podman API access.
-  - All container ops are auditable at the coold API layer (RBAC, rate limit, deny dangerous flags like `--privileged`).
+  - coold enforces bearer-token authn and can deny dangerous flags (e.g. `--privileged`) at the API surface. RBAC, per-user/tenant scoping, and business audit live **only** in central Coolify (see §3 split).
   - No `podman system service tcp://...` listener; no need for socket-level TLS.
   - Central Coolify only knows the coold endpoint, not the underlying socket.
 - **SSH access**: bootstrap uses key-based SSH. Control plane should rotate SSH keys per agent install, store in encrypted DB. After bootstrap, day-to-day ops go via coold REST — SSH is for re-bootstrap only.
 - **Host firewall (iptables INPUT chain)**: bootstrap doesn't lock down INPUT. v5 should drop public access to ports other than `:51820/udp` (WG), `:22/tcp` (SSH), `:80/:443` (ingress). coold's `:8443` binds to the wg0 IP only, so it's already not on the public interface.
-- **coold port reachability**: with `--default-deny`, central Coolify needs an allow in COOLIFY-ALLOW on each managed host: `-s <central-mgmt-ip>/32 -d <host-mgmt-ip>/32 -p tcp --dport 8443 -j ACCEPT`. v5 installs this allow as part of "host join" workflow.
-- **Audit**: log every COOLIFY-ALLOW change with who-when-why metadata; coold mirrors with API-level audit log.
+- **coold port reachability**: central never dials in — coold's outbound stream is the control path — so no `COOLIFY-ALLOW` rule for central is needed. coold's local REST on wg0 mgmt IP (`:8443`) is reachable only from inside the mesh, and is used by (a) the `coolify firewall` CLI via SSH-bounce, (b) other coolds in the same mesh, (c) an optional per-customer gateway. Nothing on the public internet reaches coold. Outbound TLS :443 to central must be permitted by the customer's egress firewall — standard for any SaaS agent.
+- **Audit**: central Coolify is the sole authoritative audit log — who-when-why metadata for every COOLIFY-ALLOW change. coold writes only an ops/debug request log (request id, endpoint, status, duration) for troubleshooting; it never sees the identity of the human caller, only the bearer token used to reach it.
 
 ### 13. Failure modes & recovery
 
@@ -502,10 +720,10 @@ Not in v1 or v5 initial.
 ```
 coolify deploy <app>                                      # build + push + run
 coolify scale <app> --replicas N
-coolify firewall containers --servers A,B ...             # discover mesh containers (implemented, pre-coold CLI)
-coolify firewall list --servers A,B ...                   # list COOLIFY-ALLOW rules across hosts (implemented)
-coolify firewall allow --from <ref> --to <ref> --port N   # add allow rule (implemented; SSHes directly pre-coold, will switch to coold REST)
-coolify firewall revoke --from <ref> --to <ref> --port N  # remove allow rule (implemented)
+coolify firewall containers --servers A,B ...             # discover mesh containers (SSH+podman)
+coolify firewall list --servers A,B ...                   # list allow rules across hosts (coold GET /allow, SSH-bounced)
+coolify firewall allow --from <ref> --to <ref> --port N   # add allow rule (coold POST /allow, SSH-bounced)
+coolify firewall revoke --from <ref> --to <ref> --port N  # remove allow rule (coold DELETE /allow/{id})
 coolify host list                                         # show mesh state, last-handshake, container count
 coolify host add <ip> --ssh-key K
 coolify host remove <ip>
@@ -513,7 +731,9 @@ coolify logs <container>
 coolify exec <container> -- sh
 ```
 
-`coolify firewall` is implemented today; it SSHes directly because coold doesn't exist yet. When coold ships, the CLI will keep the same flag surface but call coold's REST API (§3 above) instead of SSH+iptables. Everything else wraps podman API calls + mesh state queries over wg0.
+`coolify firewall` is implemented today as a thin SSH-bounced REST client of coold (§3 above). The laptop running the CLI isn't a mesh peer, so every call SSHes into the target host and runs `curl "http://<wg0-mgmt-ip>:8443/api/v1/firewall/..."` against coold locally. Per-host bearer tokens are fetched from `/etc/coolify/api-token` on demand (with `--coold-token` as an override for homogeneous test clusters).
+
+Everything else on the roadmap (`coolify deploy`, `coolify scale`, `coolify logs`, `coolify exec`) targets the **central** API (SaaS or self-hosted central), not coold directly. Central compiles the request into the primitive-op sequence in §7 and streams it to coold. Only `coolify firewall` currently bypasses central and hits coold directly — legacy + test harness until central wires up `/firewall/*` itself.
 
 ---
 
@@ -522,13 +742,18 @@ coolify exec <container> -- sh
 `coolify init apply` does the **one-shot host bootstrap**: WG mesh, podman runtime, bridge network, default-deny scaffold. After that, **everything dynamic is the v5 control plane's job**: container lifecycle, allow rules in COOLIFY-ALLOW (via systemd dropins for persistence), scheduling, observability, ingress, updates.
 
 The pieces communicate via:
-1. **SSH** for bootstrap + re-converge (idempotent re-runs).
-2. **coold REST API** over wg0 mgmt IPs (`https://100.64.0.X:8443`) for runtime ops. coold is the *only* process with access to the local podman socket AND the sole owner of allow rules in COOLIFY-ALLOW.
+1. **SSH** for bootstrap + re-converge (idempotent `coolify init apply` re-runs). SSH is the installer channel only, not a steady-state control path.
+2. **coold → central outbound stream** (WSS / gRPC bidi on :443) for day-to-day runtime ops from central. One topology for self-hosted and cloud SaaS; central never dials coold, never joins any mesh. Per-customer gateway (optional) collapses N streams into 1 per mesh.
+3. **coold local REST API** on wg0 mgmt IP (`http://100.64.0.X:8443`) for intra-mesh callers: the `coolify firewall` CLI via SSH-bounce, other coolds, the per-customer gateway. Never reachable from the public internet.
+
+coold is the *only* process with access to the local podman socket AND the sole writer of allow rules in COOLIFY-ALLOW. Both transports hit the same API surface.
 
 Persistence model:
 - Bootstrap state (chains, jumps, conntrack accept) → idempotent `coolify init apply` re-runs.
 - Rule metadata (who/when/why, audit, RBAC, tenant scoping) → central Coolify DB only. coold does not duplicate this.
-- Kernel rules → programmed by coold on every central API call; mirrored to `/etc/coolify/allow.rules` for reboot via `coolify-mesh-allow.service` (oneshot `iptables-restore --noflush`). Same file format pre- and post-coold.
-- Pre-coold: `coolify firewall` CLI is the writer and plays the role central will later play.
+- Kernel rules → programmed by coold on every API call (from either central Coolify or the `coolify firewall` CLI); mirrored to `/etc/coolify/allow.rules` for reboot via `coolify-mesh-allow.service` (oneshot `iptables-restore --noflush`).
+- Today the `coolify firewall` CLI is the primary caller of coold (SSH-bounced REST client with per-host `/etc/coolify/api-token` resolution). Central Coolify will call the same API once wired.
 
-The podman socket is host-local. There is no TCP podman API. coold is the security/audit boundary between central Coolify and the host, AND the kernel-rule applier — but central is the authoritative store for rule existence and metadata. Until coold ships, `coolify firewall` is a thin test harness that writes allow rules the same way coold will.
+The podman socket is host-local. There is no TCP podman API. coold is the **authn + privilege boundary** between any caller (central Coolify over the outbound stream, or the `coolify firewall` CLI via SSH-bounced local REST) and the host, AND the kernel-rule applier. Central Coolify owns RBAC, tenant scoping, and the business audit log (who/when/why). coold only verifies a bearer token (per-host static for local REST; per-host JWT for the stream), applies the rule, and keeps an ops/debug request log. `coolify firewall` exercises the local REST surface today; central will exercise the stream surface — same code path end-to-end, different transport.
+
+**coold stays small.** All app-aware logic (compose, Dockerfile, buildpacks, Nixpacks, scheduling, rollback, ingress templating, RBAC, audit) lives in central. coold's wire surface is enumerable (§2); new verbs require a coold release, not a `/podman/raw` passthrough. If coold ever grows a `/apps` or `/compose` endpoint, that is the wrong layer.

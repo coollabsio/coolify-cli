@@ -295,22 +295,24 @@ go test ./internal/wireguard/... ./cmd/init/... -v
 
 Use the SSH `Runner` interface for mocking — never open real SSH connections in unit tests. `internal/ssh/fanout.go` is generic; reuse for any per-server fanout.
 
-## `coolify firewall` — cross-host allow-rule test harness (alpha, v5)
+## `coolify firewall` — cross-host allow-rule client (alpha, v5)
 
-**This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It SSHes into mesh hosts and manages the `COOLIFY-ALLOW` iptables chain that `coolify init --default-deny` installed. It exists so the full v5 firewall flow (default-deny → allow → connectivity → revoke → reboot persistence) can be validated end-to-end BEFORE the coold agent exists. Once coold ships, coold's REST API owns this surface and the CLI becomes a thin client of that API. Until then, this CLI IS the control plane for allow rules.
+**This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It is a thin REST client of the **coold** per-host agent installed by `coolify init --install-coold`. `allow` / `revoke` / `list` all go through coold's REST API (`/api/v1/firewall/allow`). `containers` stays SSH+podman because coold has no container surface yet. Transport is **SSH-bounce**: the laptop running the CLI is not a mesh peer, so it SSHes into the target host and the shell there runs `curl "http://$(wg0-mgmt-ip):8443/api/v1/firewall/..."` against coold on localhost.
+
+coold owns all kernel-rule + persistence logic (iptables/nft backend detection, `/etc/coolify/allow.rules` snapshot, `coolify-mesh-allow.service`). The CLI never writes iptables or systemd units directly.
 
 ### What it does
 
-- Discovers containers on the `coolify-mesh` bridge across all listed hosts.
-- Adds/removes `ACCEPT` rules in `COOLIFY-ALLOW` on the host that **owns the destination IP** (per `CONTROL_PLANE.md §3`: rules go on dst host, where `COOLIFY-INTRA` would DROP).
-- Installs companion systemd unit `coolify-mesh-allow.service` on first `allow` per host → restores `COOLIFY-ALLOW` from `/etc/coolify/allow.rules` on boot via `iptables-restore --noflush`.
-- Idempotent: `-C` check before `-A`/`-D`, chain auto-created (`iptables -N … || true`) if missing.
+- Discovers containers on the `coolify-mesh` bridge across all listed hosts (SSH + `podman ps`).
+- `POST /api/v1/firewall/allow` / `DELETE /api/v1/firewall/allow/{id}` / `GET /api/v1/firewall/allow` against coold on the host that **owns the destination IP** (per `CONTROL_PLANE.md §3`: rules go on dst host).
+- Per-host bearer tokens fetched on demand from `/etc/coolify/api-token` (see `EnsureCooldAPITokenCommand` in `internal/services/coold.go` — each host generates its own random 32-byte hex token at install time).
+- Idempotent at the coold level: POST of an identical tuple returns the existing id; DELETE of an unknown id returns 204.
 
 ### Subcommands
 
 ```bash
-coolify firewall containers   # discover containers on coolify-mesh across hosts
-coolify firewall list         # show all rules in COOLIFY-ALLOW across hosts
+coolify firewall containers   # discover containers on coolify-mesh across hosts (SSH+podman)
+coolify firewall list         # GET /allow on every host and merge
 coolify firewall allow --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
 coolify firewall revoke --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
 ```
@@ -330,7 +332,14 @@ Persistent (inherited from `cmd/common/sshmesh.go` — shared with `coolify init
 | `--ssh-port` | `22` | SSH port |
 | `--concurrency` | `10` | parallel SSH connections |
 | `--ssh-timeout` | `30s` | SSH connect timeout |
-| `--podman-network` | `coolify-mesh` | bridge network name (must match `coolify init --podman-network`) |
+
+Firewall-specific persistent:
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--podman-network` | `coolify-mesh` | bridge network name (must match `coolify init --podman-network`) — used by `containers` discovery |
+| `--coold-port` | `8443` | TCP port coold's REST API listens on (wg0 mgmt IP). Must match `COOLD_API_BIND` emitted by `internal/services/coold.go` |
+| `--coold-token` | `""` | **optional** bearer-token override (also reads `COOLIFY_COOLD_TOKEN` env). When empty (the default), the CLI SSHes each host and reads `/etc/coolify/api-token` — tokens are per-host, not centrally shared |
 
 Allow/revoke local:
 
@@ -344,66 +353,64 @@ Allow/revoke local:
 
 ### Rule identity
 
-Every rule carries an iptables `-m comment --comment "cid:<12-hex>"` where `<12-hex>` = `sha256(src|dst|proto|port)[:12]`. Stable across `allow`/`revoke` calls — revoke-by-flags rebuilds the same hash and matches. Used as the user-facing rule ID in `firewall list` output.
+`cid = sha256(src|dst|proto|port)[:12]`. coold computes it server-side on POST and returns it in the body; the CLI surfaces it as the user-facing rule ID in `firewall list` output and uses it for DELETE. Stable across calls: `revoke --from … --to …` rebuilds the same cid and matches.
 
-### SSH command shape
+### SSH-bounce transport
 
-**Apply** (on dst host):
+Every coold call is wrapped in a single SSH command that first discovers the host's own wg0 mgmt IP and then curls coold on localhost:
+
 ```sh
-iptables -N COOLIFY-ALLOW || true                                # ensure chain
-<install coolify-mesh-allow.service if missing; daemon-reload; enable>
-iptables -C COOLIFY-ALLOW <spec> -j ACCEPT 2>/dev/null \
-  || iptables -A COOLIFY-ALLOW <spec> -j ACCEPT
-<save filter rules to /etc/coolify/allow.rules.tmp; mv>
+# emitted for POST / DELETE (hard-fails if wg0 missing — no coold means nothing to apply to)
+MGMT=$(ip -4 -o addr show wg0 2>/dev/null | awk '{print $4}' | cut -d/ -f1)
+test -n "$MGMT" || { echo "coold mgmt IP (wg0) not found on $(hostname)" >&2; exit 1; }
+curl -fsS --max-time 10 \
+  -H 'Authorization: Bearer <token>' \
+  -H 'Content-Type: application/json' \
+  -X POST -d '{"src":"...","dst":"...","proto":"tcp","port":80}' \
+  "http://$MGMT:8443/api/v1/firewall/allow"
 ```
 
-**Revoke** (on dst host):
-```sh
-iptables -L COOLIFY-ALLOW -n >/dev/null 2>&1 || exit 0           # no-op if chain gone
-iptables -C COOLIFY-ALLOW <spec> -j ACCEPT 2>/dev/null \
-  && iptables -D COOLIFY-ALLOW <spec> -j ACCEPT || true
-<save>
-```
+`list` uses the **soft** variant: missing wg0 emits `[]` and exits 0 so a partially-deployed mesh doesn't abort the whole fanout.
 
-Save command:
-```sh
-mkdir -p /etc/coolify
-iptables-save -t filter | awk '/^\*filter/,/^COMMIT/' \
-  | grep -E '^(\*filter|COMMIT|:COOLIFY-ALLOW|-A COOLIFY-ALLOW)' \
-  > /etc/coolify/allow.rules.tmp
-mv /etc/coolify/allow.rules.tmp /etc/coolify/allow.rules
-```
+### Per-host token resolution
+
+`cmd/firewall/helpers.go::tokenResolver` hands out tokens per host with a sync.Mutex-guarded cache:
+
+- `--coold-token` (or `COOLIFY_COOLD_TOKEN` env) set → closure returns the override for every host; no SSH fetch.
+- Otherwise → first access per host SSHes `cat /etc/coolify/api-token`, caches the result for the rest of the run. Token-fetch failures surface as a `ServerResult.Err` on the owning host (won't poison others).
+
+The cache is scoped to one CLI invocation — no on-disk caching.
 
 ### Persistence across reboots
 
-Rules stored at `/etc/coolify/allow.rules` (filter-table fragment, only `:COOLIFY-ALLOW` + `-A COOLIFY-ALLOW` lines). Restored on boot by companion unit `coolify-mesh-allow.service`, ordered `After=coolify-mesh-fw.service` (which creates the chain) and `Wants=` it. Uses `iptables-restore --noflush` → only `COOLIFY-ALLOW` is touched; nothing else in the filter table is disturbed.
-
-Unit is installed idempotently on first `allow` per host (atomic `.tmp` + `mv` + `daemon-reload` + `enable`). `coolify-mesh-fw.service` (installed by init) is untouched by this command.
+**coold owns this now.** On every API mutate, coold regenerates `/etc/coolify/allow.rules` (flat `iptables-save` fragment) and the companion `coolify-mesh-allow.service` restores it on boot via `iptables-restore --noflush`. Pre-coold persistence scaffolding was removed from the CLI when it migrated to REST — same file format, different writer.
 
 ### Code layout
 
 - `cmd/common/sshmesh.go` — shared SSH/mesh flag struct `SSHMeshFlags` + `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`. Embedded by both `cmd/init/InitFlags` and `cmd/firewall/FirewallFlags`.
-- `cmd/firewall/` — Cobra layer (`firewall`, `containers`, `list`, `allow`, `revoke`).
+- `cmd/firewall/` — Cobra layer.
   - `firewall.go` — `NewFirewallCommand()` parent + subcommand registration.
-  - `flags.go` — `FirewallFlags` embeds `common.SSHMeshFlags` + `PodmanNetworkName`.
-  - `allow.go` — `allowRevokeFlags`, `emitAllowRevoke` (discover → resolve → build rule → apply/revoke).
+  - `flags.go` — `FirewallFlags` embeds `common.SSHMeshFlags` + `PodmanNetworkName` + `CooldToken` + `CooldPort`. `ResolveCooldToken()` returns the override or `""` (meaning "fetch per host").
+  - `allow.go` — `allowRevokeFlags`, `emitAllowRevoke` (discover → resolve → build rule → coold POST/DELETE per rule, resolving token per host).
+  - `list.go` — `emitList` fans out `CooldList` via `CooldListAll` using the per-host token resolver.
+  - `containers.go` — `containers` subcommand (still SSH+podman; no coold dependency).
   - `resolve.go` — `resolveEndpoint(ref, []Container)` (name / host:name / short-id / raw IP).
-  - `containers.go`, `list.go`, `helpers.go` — thin subcommand + fanout wrappers.
-- `internal/firewall/` — pure + SSH boundary (same pattern as `internal/wireguard/`).
-  - `rule.go` — `AllowRule`, `ComputeID`, `RenderAppend/Delete/Check`, `ParseChainLine`. Const `ChainName = "COOLIFY-ALLOW"`.
-  - `discover.go` — `Container` type, `discoverScript`, `DiscoverContainers`, `DiscoverAll` (parallel).
-  - `list.go` — `ListAllow`, `ListAll` (parse `iptables -S COOLIFY-ALLOW`).
-  - `apply.go` — `ApplyAllow`, `RevokeAllow`, `buildApplyCmd`, `buildRevokeCmd` (pure string builders; SSH at boundary).
-  - `persist.go` — `AllowPersistUnit()`, `SaveRulesCommand()`, `InstallPersistenceCommand()`. Consts `RulesPath`, `PersistUnitName`, `PersistUnitPath`.
+  - `helpers.go` — `discoverAllViaPkg`, `tokenResolver` (per-host cached bearer-token closure).
+- `internal/firewall/` — REST client + discovery.
+  - `coold_client.go` — `FetchCooldToken`, `CooldApply`, `CooldRevoke`, `CooldList`, `CooldListAll`. `buildCurlAllow/Revoke/List`, `shellSingleQuote`, `mgmtIPScript` / `mgmtIPScriptSoft`. Consts `CooldAPIBasePath = "/api/v1/firewall"`, `CooldAPITokenPath = "/etc/coolify/api-token"`.
+  - `discover.go` — `Container`, `discoverScript`, `DiscoverContainers`, `DiscoverAll` (parallel).
+  - `rule.go` — `AllowRule`, `ComputeID`. Chain-rendering helpers were removed along with `apply.go` / `list.go` / `persist.go` (coold owns kernel + snapshot now).
 - `internal/models/firewall.go` — table/JSON row types (`ContainerRow`, `AllowRuleRow`).
+- `internal/services/coold.go` — `EnsureCooldAPITokenCommand` (installer writes `/etc/coolify/api-token`, mode 0600), `CooldServiceUnit` emits `COOLD_API_BIND=<mgmt-ip>:8443` + `COOLD_API_TOKEN_FILE=/etc/coolify/api-token`.
 
 ### Key invariants
 
 - **Destination-host ownership**: every rule lives on exactly one host — the one whose `/24` contains the destination IP. `--bidirectional` adds the reverse rule on the src host.
-- **coold-compatible state**: when coold ships, it reads `/etc/coolify/allow.rules` as initial state, replays into its DB, then takes over. CLI and coold share the same persistence format.
-- **Same reconstructed-state philosophy as init**: no local state file. `firewall list` always probes live hosts.
+- **coold is the only kernel writer**: the CLI never runs `iptables` or touches `/etc/coolify/allow.rules` directly. Everything flows through coold's REST API.
+- **Per-host tokens by default**: each coold generates its own random token at install. `--coold-token` is an escape hatch for homogeneous test / CI environments, not the common path.
 - **Bidirectional is opt-in**: conntrack ESTABLISHED accept (installed by `coolify-mesh-fw.service`) handles reply packets for client-initiated flows. Only set `--bidirectional` for protocols that actually open new connections in both directions.
-- **Rule identity is hash, not UUID**: stable across calls so `revoke` by flags hits the same rule `allow` created.
+- **Rule identity is hash, not UUID**: coold computes it server-side so CLI and any future writer agree on the same id for the same tuple.
+- **Transient token exposure on remote `/proc`**: `curl -H "Authorization: Bearer $TOKEN"` is visible in `/proc/<curl-pid>/cmdline` for the ~ms lifetime of the call, root-only. Acceptable for alpha; TLS + stdin-fed tokens are a follow-up.
 
 ### Testing firewall
 
@@ -411,18 +418,20 @@ Unit is installed idempotently on first `allow` per host (atomic `.tmp` + `mv` +
 go test ./internal/firewall/... ./cmd/firewall/... ./cmd/common/... -v
 ```
 
-Uses `fakeRunner`/`cmdFakeRunner` pattern (substring → canned stdout map) — same as `cmd/init/plan_test.go`. All SSH calls mocked at the `ssh.Runner` boundary; no real SSH in unit tests. Coverage ≥77% on new packages.
+Uses `fakeCooldRunner` / `cmdFakeRunner` pattern (substring → canned stdout map) — same as `cmd/init/plan_test.go`. All SSH calls mocked at the `ssh.Runner` boundary; no real SSH in unit tests. Token-fetch, mgmt-IP script, curl shape, JSON payload, and error propagation are all covered.
 
 ### End-to-end flow (verified on real hosts)
 
-After `coolify init apply --podman --default-deny --servers A,B ...` ran:
+After `coolify init apply --podman --default-deny --install-coold --servers A,B ...` ran (coold must be up):
 
 1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA`.
-2. `coolify firewall containers` → discovery table.
-3. `coolify firewall allow --from client --to web --port 80` → rule on dst host, traffic flows.
-4. `coolify firewall list` → shows the rule with its `cid:…` ID.
-5. `coolify firewall revoke …` → rule gone, traffic DROPped again.
-6. Reboot → `coolify-mesh-allow.service` restores from `/etc/coolify/allow.rules`.
+2. `coolify firewall containers --servers A,B --ssh-key KEY` → discovery table.
+3. `coolify firewall allow --servers A,B --ssh-key KEY --from client --to web --port 80` → CLI SSH-fetches each host's token, POSTs to coold on the dst host, traffic flows.
+4. `coolify firewall list --servers A,B --ssh-key KEY` → merged rules from every host with their coold-assigned `cid:…` ID.
+5. `coolify firewall revoke …` → coold DELETE, rule gone, traffic DROPped again.
+6. Reboot → `coolify-mesh-allow.service` (installed by coold) restores from `/etc/coolify/allow.rules`.
+
+Add `--coold-token <hex>` only when every host was bootstrapped with the same token (CI fixtures, homogeneous test clusters).
 
 ## Testing Requirements
 
