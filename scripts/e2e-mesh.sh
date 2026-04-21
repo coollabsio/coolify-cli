@@ -5,9 +5,14 @@
 #   2. Start one nginx ("web-*") on SERVER_A and one alpine client ("client-*")
 #      on SERVER_B inside each namespace — static --ip, --dns <bridge-gw>,
 #      --restart=always so they survive reboot.
+#      Also start client2-default on SERVER_A (same bridge as web-default) to
+#      test intra-host nft bridge-family deny.
 #   3. Verify cross-host traffic is DROPped by default (wget times out).
-#   4. `coolify firewall allow` per namespace.
-#   5. Verify wget succeeds in both namespaces.
+#   4. Verify intra-host same-bridge traffic is DROPped by default (nft plane).
+#   5. Verify nft bridge table coolify_bridge present on both hosts.
+#   6. `coolify firewall allow` per namespace (cross-host + intra-host).
+#   7. Verify wget succeeds in both planes.
+#   8. Re-run init apply to verify nft scaffold idempotency.
 #
 # Usage:
 #   SERVERS=1.2.3.4,5.6.7.8 scripts/e2e-mesh.sh
@@ -57,6 +62,8 @@ IP_WEB_DEFAULT=10.210.0.10      # host A, namespace default
 IP_CLIENT_DEFAULT=10.210.1.10   # host B, namespace default
 IP_WEB_ALPHA=10.210.2.10        # host A, namespace alpha
 IP_CLIENT_ALPHA=10.210.3.10     # host B, namespace alpha
+# Intra-host client on same bridge as web-default (host A, namespace default).
+IP_CLIENT2_DEFAULT=10.210.0.11  # host A, namespace default
 
 NGINX_IMAGE=docker.io/library/nginx:alpine
 ALPINE_IMAGE=docker.io/library/alpine
@@ -86,15 +93,33 @@ cli() {
   fi
 }
 
+# assert_blocked <host> <container> <target-ip-or-hostname>
+assert_blocked() {
+  local host="$1" client="$2" target="$3"
+  if ssh_exec "$host" "podman exec $client wget -T 4 -qO- http://$target" >/dev/null 2>&1; then
+    fail "expected timeout for $client@$host → $target but request succeeded"
+  fi
+  printf '  blocked: %s@%s → %s ✓\n' "$client" "$host" "$target"
+}
+
+# assert_flows <host> <container> <target-ip-or-hostname>
+assert_flows() {
+  local host="$1" client="$2" target="$3"
+  if ! ssh_exec "$host" "podman exec $client wget -T 5 -qO- http://$target" | grep -q 'nginx'; then
+    fail "$client@$host → $target failed to reach nginx"
+  fi
+  printf '  OK: %s@%s → %s ✓\n' "$client" "$host" "$target"
+}
+
 # ─── 1. init apply ────────────────────────────────────────────────────────────
-say "1/5 coolify init apply on $SERVERS (namespaces: default, alpha)"
+say "1/8 coolify init apply on $SERVERS (namespaces: default, alpha)"
 cli init apply \
   --servers "$SERVERS" \
   --namespaces default,alpha \
   --yes
 
 # ─── 2. containers ────────────────────────────────────────────────────────────
-say "2/5 creating containers with --ip / --dns / --restart=always"
+say "2/8 creating containers with --ip / --dns / --restart=always"
 
 run_container() {
   local host="$1" name="$2" network="$3" ip="$4" gw="$5" image="$6"; shift 6
@@ -112,22 +137,31 @@ run_container "$SERVER_A" web-alpha   coolify-alpha-mesh   "$IP_WEB_ALPHA"   "$G
 run_container "$SERVER_B" client-default coolify-default-mesh "$IP_CLIENT_DEFAULT" "$GW_B_DEFAULT" "$ALPINE_IMAGE" sleep infinity
 run_container "$SERVER_B" client-alpha   coolify-alpha-mesh   "$IP_CLIENT_ALPHA"   "$GW_B_ALPHA"   "$ALPINE_IMAGE" sleep infinity
 
-# ─── 3. verify default-deny ───────────────────────────────────────────────────
-say "3/5 confirming default-deny blocks cross-host traffic (expect timeouts)"
+# host A: 2nd client on same bridge as web-default — tests intra-host nft plane
+run_container "$SERVER_A" client2-default coolify-default-mesh "$IP_CLIENT2_DEFAULT" "$GW_A_DEFAULT" "$ALPINE_IMAGE" sleep infinity
 
-assert_blocked() {
-  local client="$1" target="$2"
-  if ssh_exec "$SERVER_B" "podman exec $client wget -T 4 -qO- http://$target" >/dev/null 2>&1; then
-    fail "expected timeout for $client → $target but request succeeded"
-  fi
-  printf '  blocked: %s → %s ✓\n' "$client" "$target"
-}
+# ─── 3. cross-host default-deny ───────────────────────────────────────────────
+say "3/8 confirming default-deny blocks cross-host traffic (expect timeouts)"
 
-assert_blocked client-default web-default.default.coolify.internal
-assert_blocked client-alpha   web-alpha.alpha.coolify.internal
+assert_blocked "$SERVER_B" client-default web-default.default.coolify.internal
+assert_blocked "$SERVER_B" client-alpha   web-alpha.alpha.coolify.internal
 
-# ─── 4. allow rules ───────────────────────────────────────────────────────────
-say "4/5 adding allow rules (namespace-scoped)"
+# ─── 4. intra-host same-bridge default-deny (nft bridge plane) ────────────────
+say "4/8 confirming intra-host same-bridge traffic blocked (nft bridge plane)"
+# Raw IP intentional — DNS via bridge gateway also crosses the nft bridge hook;
+# using raw IP isolates the firewall check from DNS-path correctness.
+assert_blocked "$SERVER_A" client2-default "$IP_WEB_DEFAULT"
+
+# ─── 5. nft table present on both hosts ───────────────────────────────────────
+say "5/8 verifying nft bridge table coolify_bridge present on both hosts"
+for host in "$SERVER_A" "$SERVER_B"; do
+  ssh_exec "$host" "nft list table bridge coolify_bridge" >/dev/null \
+    || fail "nft table coolify_bridge missing on $host"
+  printf '  present: %s ✓\n' "$host"
+done
+
+# ─── 6. allow rules ───────────────────────────────────────────────────────────
+say "6/8 adding allow rules (cross-host + intra-host)"
 
 cli firewall allow \
   --servers "$SERVERS" \
@@ -139,18 +173,29 @@ cli firewall allow \
   --namespace alpha \
   --from client-alpha --to web-alpha --port 80
 
-# ─── 5. verify flow ───────────────────────────────────────────────────────────
-say "5/5 verifying cross-host HTTP now flows"
+# Intra-host allow: client2-default → web-default on host A.
+# Rule lands on host A (destination-host ownership); passing both servers is
+# idempotent on the non-owner side.
+cli firewall allow \
+  --servers "$SERVERS" \
+  --namespace default \
+  --from client2-default --to web-default --port 80
 
-assert_flows() {
-  local client="$1" target="$2"
-  if ! ssh_exec "$SERVER_B" "podman exec $client wget -T 5 -qO- http://$target" | grep -q 'nginx'; then
-    fail "$client → $target failed to reach nginx"
-  fi
-  printf '  OK: %s → %s ✓\n' "$client" "$target"
-}
+# ─── 7. verify flow ───────────────────────────────────────────────────────────
+say "7/8 verifying HTTP flows in both planes"
 
-assert_flows client-default web-default.default.coolify.internal
-assert_flows client-alpha   web-alpha.alpha.coolify.internal
+# Cross-host (iptables FORWARD plane)
+assert_flows "$SERVER_B" client-default web-default.default.coolify.internal
+assert_flows "$SERVER_B" client-alpha   web-alpha.alpha.coolify.internal
+
+# Intra-host (nft bridge plane) — raw IP, same rationale as step 4
+assert_flows "$SERVER_A" client2-default "$IP_WEB_DEFAULT"
+
+# ─── 8. re-apply idempotency ──────────────────────────────────────────────────
+say "8/8 re-running init apply — verifies nft scaffold idempotency (chain already exists regression)"
+cli init apply \
+  --servers "$SERVERS" \
+  --namespaces default,alpha \
+  --yes
 
 say "all checks passed"
