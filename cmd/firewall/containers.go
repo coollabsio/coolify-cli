@@ -14,7 +14,7 @@ import (
 )
 
 // newContainersCommand builds `coolify firewall containers`.
-func newContainersCommand(flags *FirewallFlags) *cobra.Command {
+func newContainersCommand(flags *Flags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "containers",
 		Short: "List containers on the Coolify mesh bridge across all servers",
@@ -24,8 +24,8 @@ func newContainersCommand(flags *FirewallFlags) *cobra.Command {
 	}
 }
 
-func runContainers(ctx context.Context, cmd *cobra.Command, flags *FirewallFlags) error {
-	if err := flags.SSHMeshFlags.Validate(); err != nil {
+func runContainers(ctx context.Context, cmd *cobra.Command, flags *Flags) error {
+	if err := flags.Validate(); err != nil {
 		return err
 	}
 	runner, err := flags.BuildSSHClient()
@@ -39,7 +39,7 @@ func runContainers(ctx context.Context, cmd *cobra.Command, flags *FirewallFlags
 func emitContainers(
 	ctx context.Context,
 	cmd *cobra.Command,
-	flags *FirewallFlags,
+	flags *Flags,
 	runner ssh.Runner,
 ) error {
 	var (
@@ -48,10 +48,7 @@ func emitContainers(
 	)
 	if flags.AllNamespaces {
 		// Discover across every managed network on each host.
-		nsList, nsResults, nsErr := discoverNamespacesOnHosts(ctx, runner, flags)
-		if nsErr != nil {
-			return nsErr
-		}
+		nsList, nsResults := discoverNamespacesOnHosts(ctx, runner, flags)
 		for _, r := range nsResults {
 			if r.Err != nil {
 				results = append(results, ssh.ServerResult[[]ifw.Container]{

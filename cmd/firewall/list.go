@@ -14,7 +14,7 @@ import (
 )
 
 // newListCommand builds `coolify firewall list`.
-func newListCommand(flags *FirewallFlags) *cobra.Command {
+func newListCommand(flags *Flags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List installed allow rules across all servers",
@@ -24,8 +24,8 @@ func newListCommand(flags *FirewallFlags) *cobra.Command {
 	}
 }
 
-func runList(ctx context.Context, cmd *cobra.Command, flags *FirewallFlags) error {
-	if err := flags.SSHMeshFlags.Validate(); err != nil {
+func runList(ctx context.Context, cmd *cobra.Command, flags *Flags) error {
+	if err := flags.Validate(); err != nil {
 		return err
 	}
 	runner, err := flags.BuildSSHClient()
@@ -38,7 +38,7 @@ func runList(ctx context.Context, cmd *cobra.Command, flags *FirewallFlags) erro
 func emitList(
 	ctx context.Context,
 	cmd *cobra.Command,
-	flags *FirewallFlags,
+	flags *Flags,
 	runner ssh.Runner,
 ) error {
 	tokenFor := tokenResolver(ctx, runner, flags)

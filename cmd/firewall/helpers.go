@@ -12,7 +12,7 @@ import (
 )
 
 // discoverAllViaPkg is a thin wrapper around ifw.DiscoverAll /
-// ifw.DiscoverAllNamespaces that threads the FirewallFlags in. Used by
+// ifw.DiscoverAllNamespaces that threads the Flags in. Used by
 // `containers` (SSH+podman) and by `allow` / `revoke` for endpoint
 // resolution; `list` goes straight to coold REST.
 //
@@ -23,7 +23,7 @@ import (
 func discoverAllViaPkg(
 	ctx context.Context,
 	runner ssh.Runner,
-	flags *FirewallFlags,
+	flags *Flags,
 ) ([]ifw.Container, []ssh.ServerResult[[]ifw.Container]) {
 	return ifw.DiscoverAll(ctx, runner, flags.Servers, flags.SSHUser,
 		flags.SSHPort, flags.Namespace, flags.PodmanNetworkName(),
@@ -36,7 +36,7 @@ func discoverAllViaPkg(
 func discoverAcrossNamespaces(
 	ctx context.Context,
 	runner ssh.Runner,
-	flags *FirewallFlags,
+	flags *Flags,
 	namespaces []string,
 ) ([]ifw.Container, []ssh.ServerResult[[]ifw.Container]) {
 	return ifw.DiscoverAllNamespaces(ctx, runner, flags.Servers,
@@ -52,8 +52,8 @@ func discoverAcrossNamespaces(
 func discoverNamespacesOnHosts(
 	ctx context.Context,
 	runner ssh.Runner,
-	flags *FirewallFlags,
-) ([]string, []ssh.ServerResult[[]string], error) {
+	flags *Flags,
+) ([]string, []ssh.ServerResult[[]string]) {
 	// `podman network ls`'s `{{.Labels}}` renders as a comma-separated `k=v`
 	// string (not a map, unlike `podman network inspect`), so `index` can't be
 	// used — pull `io.coolify.namespace=<val>` out with sed instead.
@@ -90,7 +90,7 @@ func discoverNamespacesOnHosts(
 		all = append(all, ns)
 	}
 	sort.Strings(all)
-	return all, results, nil
+	return all, results
 }
 
 // tokenResolver returns a closure that hands out coold bearer tokens
@@ -101,7 +101,7 @@ func discoverNamespacesOnHosts(
 func tokenResolver(
 	ctx context.Context,
 	runner ssh.Runner,
-	flags *FirewallFlags,
+	flags *Flags,
 ) func(host string) (string, error) {
 	if override, _ := flags.ResolveCooldToken(); override != "" {
 		return func(string) (string, error) { return override, nil }

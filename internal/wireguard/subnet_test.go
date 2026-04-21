@@ -16,16 +16,6 @@ func mustParseCIDR(s string) *net.IPNet {
 	return n
 }
 
-// mustParseHostCIDR parses a CIDR where the host bits may be non-zero
-// (e.g. "10.210.0.1/24") and returns the host IP + network.
-func mustParseHostCIDR(s string) (*net.IP, *net.IPNet) {
-	ip, n, err := net.ParseCIDR(s)
-	if err != nil {
-		panic(err)
-	}
-	return &ip, n
-}
-
 func TestMachineIP(t *testing.T) {
 	tests := []struct {
 		subnet string

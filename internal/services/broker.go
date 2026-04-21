@@ -2,7 +2,7 @@ package services
 
 import "fmt"
 
-// BrokerGRPCPort is the TCP port coolify-broker listens on for coold gRPC streams.
+// BrokerGRPCPort is the TCP port broker listens on for coold gRPC streams.
 const BrokerGRPCPort = 6443
 
 // BrokerJWTPubPath is the on-host path where the broker reads the ES256 public key.
@@ -14,7 +14,7 @@ const BrokerJWTPrivPath = "/etc/coolify/jwt.priv"
 // HostJWTPath is the on-host path where coold reads its bearer JWT.
 const HostJWTPath = "/etc/coolify/host-jwt"
 
-// BrokerServiceUnit returns the systemd unit text for coolify-broker.
+// BrokerServiceUnit returns the systemd unit text for broker.
 //
 // grpcBind is "ip:port" for the gRPC listener (e.g. "100.64.0.1:6443").
 // redisURL is the Redis connection URL (e.g. "redis://127.0.0.1:6379").
@@ -29,7 +29,7 @@ Wants=redis-server.service redis.service
 Environment=BROKER_GRPC_BIND=%s
 Environment=BROKER_REDIS_URL=%s
 Environment=BROKER_JWT_PUBLIC_KEY_PATH=%s
-ExecStart=/usr/local/bin/coolify-broker
+ExecStart=/usr/local/bin/broker
 Restart=on-failure
 RestartSec=2s
 
@@ -39,7 +39,7 @@ WantedBy=multi-user.target
 }
 
 // BrokerInstallCommand returns a shell snippet that downloads and installs
-// coolify-broker from the GitHub release for the given version tag.
+// broker from the GitHub release for the given version tag.
 func BrokerInstallCommand(version string) string {
 	return fmt.Sprintf(`set -e
 ARCH_RAW=$(uname -m)
@@ -48,15 +48,15 @@ case "$ARCH_RAW" in
   aarch64) ARCH=arm64 ;;
   *) echo "unsupported arch: $ARCH_RAW" >&2; exit 1 ;;
 esac
-URL="https://github.com/coollabsio/coold/releases/download/%s/coolify-broker-linux-${ARCH}.tar.gz"
+URL="https://github.com/coollabsio/coold/releases/download/%s/broker-linux-${ARCH}.tar.gz"
 DLDIR=$(mktemp -d)
 trap 'rm -rf "$DLDIR"' EXIT
 curl -fsSL --retry 3 --max-time 120 -o "$DLDIR/broker.tar.gz" "$URL"
 tar -xzf "$DLDIR/broker.tar.gz" -C "$DLDIR"
-test -f "$DLDIR/coolify-broker" || { echo "coolify-broker binary not found in tarball" >&2; exit 1; }
-install -m 0755 "$DLDIR/coolify-broker" /usr/local/bin/coolify-broker.tmp
-mv /usr/local/bin/coolify-broker.tmp /usr/local/bin/coolify-broker
-echo '%s' > /usr/local/bin/coolify-broker.version`, version, version)
+test -f "$DLDIR/broker" || { echo "broker binary not found in tarball" >&2; exit 1; }
+install -m 0755 "$DLDIR/broker" /usr/local/bin/broker.tmp
+mv /usr/local/bin/broker.tmp /usr/local/bin/broker
+echo '%s' > /usr/local/bin/broker.version`, version, version)
 }
 
 // EnsureJWTKeypairCommand returns a shell snippet that generates an EC P-256

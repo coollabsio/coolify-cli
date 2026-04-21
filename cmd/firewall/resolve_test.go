@@ -52,7 +52,7 @@ func TestResolveEndpoint_ByRawIP(t *testing.T) {
 func TestResolveEndpoint_UnknownRawIP_Synthetic(t *testing.T) {
 	c, err := resolveEndpoint("10.99.99.99", cs())
 	assert.NoError(t, err)
-	assert.Equal(t, "", c.Host)
+	assert.Empty(t, c.Host)
 	assert.Equal(t, "10.99.99.99", c.IP.String())
 }
 

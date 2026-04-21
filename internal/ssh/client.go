@@ -109,7 +109,7 @@ func (c *Client) dial(ctx context.Context, host, user string, port int) (*gossh.
 
 	sshConn, chans, reqs, err := gossh.NewClientConn(netConn, addr, cfg)
 	if err != nil {
-		netConn.Close()
+		_ = netConn.Close()
 		return nil, fmt.Errorf("SSH handshake %s: %w", addr, err)
 	}
 	return gossh.NewClient(sshConn, chans, reqs), nil

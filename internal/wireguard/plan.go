@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 
 	"github.com/coollabsio/coolify-cli/internal/services"
@@ -542,12 +541,4 @@ func truncateKey(key string) string {
 		return key
 	}
 	return key[:8] + "..."
-}
-
-// nsSortedCopy returns a fresh sorted copy (package-private helper exposed
-// for tests and for callers that can't reach into DesiredMesh directly).
-func nsSortedCopy(ns []string) []string {
-	out := append([]string(nil), ns...)
-	sort.Strings(out)
-	return out
 }

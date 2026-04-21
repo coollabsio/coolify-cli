@@ -1,8 +1,6 @@
 package initcmd
 
 import (
-	"context"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,21 +52,6 @@ func TestValidatePlanFlags(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid namespace")
 	})
-}
-
-// fakeSSHRunner is a deterministic ssh.Runner for unit tests.
-type fakeSSHRunner struct {
-	// responses maps a command substring to the stdout to return.
-	responses map[string]string
-}
-
-func (f *fakeSSHRunner) Run(_ context.Context, _, _, _ string, _ int, cmd string) (string, string, error) {
-	for substr, resp := range f.responses {
-		if strings.Contains(cmd, substr) {
-			return resp, "", nil
-		}
-	}
-	return "", "", nil
 }
 
 // TestShouldSkipGate verifies the alpha gate bypass logic.

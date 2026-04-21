@@ -14,11 +14,11 @@ import (
 	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 )
 
-// FirewallFlags is the shared flag set for every `coolify firewall`
+// Flags is the shared flag set for every `coolify firewall`
 // subcommand: SSH plumbing (via embed) + namespace selection + coold REST
 // endpoint/token. The podman network name is derived from the namespace
 // (coolify-<ns>-mesh) so the CLI and `coolify init` stay in sync.
-type FirewallFlags struct {
+type Flags struct {
 	common.SSHMeshFlags
 
 	// Namespace is the mesh namespace the command operates against. Derives
@@ -45,8 +45,8 @@ type FirewallFlags struct {
 	WGInterface string
 }
 
-// bindFirewallFlags registers the persistent flags on the parent command.
-func bindFirewallFlags(cmd *cobra.Command, f *FirewallFlags) {
+// bindFlags registers the persistent flags on the parent command.
+func bindFlags(cmd *cobra.Command, f *Flags) {
 	common.BindSSHMeshFlags(cmd, &f.SSHMeshFlags)
 	common.BindMeshNetSingleFlags(cmd, &f.Namespace)
 	pf := cmd.PersistentFlags()
@@ -65,7 +65,7 @@ func bindFirewallFlags(cmd *cobra.Command, f *FirewallFlags) {
 // ResolveCooldToken returns the bearer-token override supplied via flag or
 // env, or "" when neither is set. Callers treat an empty string as "no
 // override — SSH-fetch the per-host token instead".
-func (f *FirewallFlags) ResolveCooldToken() (string, error) {
+func (f *Flags) ResolveCooldToken() (string, error) {
 	if f.CooldToken != "" {
 		return f.CooldToken, nil
 	}
@@ -77,6 +77,6 @@ func (f *FirewallFlags) ResolveCooldToken() (string, error) {
 
 // PodmanNetworkName returns the podman bridge that backs the selected
 // namespace on every host. Used by container discovery.
-func (f *FirewallFlags) PodmanNetworkName() string {
+func (f *Flags) PodmanNetworkName() string {
 	return common.PodmanNetworkFor(f.Namespace)
 }

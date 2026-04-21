@@ -7,7 +7,7 @@ import (
 // NewFirewallCommand creates the parent `coolify firewall` command.
 // On bare invocation (no subcommand) it prints help.
 func NewFirewallCommand() *cobra.Command {
-	flags := &FirewallFlags{}
+	flags := &Flags{}
 
 	cmd := &cobra.Command{
 		Use:   "firewall",
@@ -28,7 +28,7 @@ Subcommands:
 		},
 	}
 
-	bindFirewallFlags(cmd, flags)
+	bindFlags(cmd, flags)
 
 	cmd.AddCommand(newContainersCommand(flags))
 	cmd.AddCommand(newListCommand(flags))

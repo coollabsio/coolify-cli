@@ -18,7 +18,7 @@ const CooldAPIBasePath = "/api/v1/firewall"
 // CooldAPITokenPath is the remote file coold reads its bearer token from.
 // Kept in sync with internal/services/coold.go — the CLI falls back to
 // reading this file over SSH when the user hasn't supplied --coold-token.
-const CooldAPITokenPath = "/etc/coolify/api-token"
+const CooldAPITokenPath = "/etc/coolify/api-token" //nolint:gosec // filesystem path, not a credential
 
 // FetchCooldToken SSHes into host and reads the coold bearer token at
 // CooldAPITokenPath. Each host generates its own random token at install

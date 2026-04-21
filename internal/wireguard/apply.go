@@ -519,7 +519,7 @@ chmod %[4]o %[1]s.tmp
 mv %[1]s.tmp %[1]s`, remotePath, body, tag, mode)
 }
 
-// phase4Central installs Redis, coolify-broker, generates the JWT keypair, and
+// phase4Central installs Redis, broker, generates the JWT keypair, and
 // enables the broker systemd service on the central host.
 func phase4Central(
 	ctx context.Context,
@@ -538,10 +538,10 @@ func phase4Central(
 		return out, err
 	}
 
-	// 2. Install coolify-broker binary.
+	// 2. Install broker binary.
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionInstallBroker, "", services.BrokerInstallCommand(desired.BrokerVersion),
-		fmt.Sprintf("install coolify-broker on %s", host)); err != nil {
+		fmt.Sprintf("install broker on %s", host)); err != nil {
 		return out, err
 	}
 
@@ -556,14 +556,14 @@ func phase4Central(
 	mgmtIP := mgmtAssignments[host]
 	grpcBind := fmt.Sprintf("%s:%d", mgmtIP, services.BrokerGRPCPort)
 	brokerUnit := services.BrokerServiceUnit(grpcBind, "redis://127.0.0.1:6379", services.BrokerJWTPubPath)
-	serviceCmd := heredocWrite("/etc/systemd/system/coolify-broker.service",
+	serviceCmd := heredocWrite("/etc/systemd/system/broker.service",
 		brokerUnit, "COOLIFY_BROKER_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +
-		` && systemctl enable coolify-broker` +
-		` && systemctl restart coolify-broker`
+		` && systemctl enable broker` +
+		` && systemctl restart broker`
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionInstallBrokerService, "", serviceCmd,
-		fmt.Sprintf("install coolify-broker service on %s", host)); err != nil {
+		fmt.Sprintf("install broker service on %s", host)); err != nil {
 		return out, err
 	}
 
@@ -578,7 +578,7 @@ func phase5PerHost(
 	host, user string,
 	port int,
 	desired *DesiredMesh,
-	fresh MeshState,
+	_ MeshState,
 	mgmtAssignments map[string]net.IP,
 	containerAssignments map[string]map[string]*net.IPNet,
 	privKeyPEM []byte,

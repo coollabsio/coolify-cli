@@ -14,7 +14,7 @@ func TestEmitContainers_RunsAndFormatsTable(t *testing.T) {
 	fr := &cmdFakeRunner{responses: map[string]string{
 		"podman ps": "aaa111111111|web|10.210.0.10",
 	}}
-	parent := &FirewallFlags{
+	parent := &Flags{
 		SSHMeshFlags: common.SSHMeshFlags{
 			Servers: []string{"h1"}, SSHUser: "root", SSHPort: 22, Concurrency: 1,
 		},
@@ -33,7 +33,7 @@ func TestEmitContainers_RunsAndFormatsTable(t *testing.T) {
 
 func TestEmitContainers_EmptyOutput(t *testing.T) {
 	fr := &cmdFakeRunner{responses: map[string]string{}}
-	parent := &FirewallFlags{
+	parent := &Flags{
 		SSHMeshFlags: common.SSHMeshFlags{
 			Servers: []string{"h1"}, SSHUser: "root", SSHPort: 22, Concurrency: 1,
 		},
@@ -56,7 +56,7 @@ func TestEmitContainers_AllNamespaces_FansOutAcrossNetworks(t *testing.T) {
 		// Every subsequent podman-ps returns the same container.
 		"podman ps": "aaa111111111|web|10.210.0.10",
 	}}
-	parent := &FirewallFlags{
+	parent := &Flags{
 		SSHMeshFlags: common.SSHMeshFlags{
 			Servers: []string{"h1"}, SSHUser: "root", SSHPort: 22, Concurrency: 1,
 		},

@@ -127,9 +127,9 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 	assert.Equal(t, "tcp", rules[0].Proto)
 	assert.Equal(t, 80, rules[0].Port)
 	// Rule without proto/port/id comes through with zero values, no cid.
-	assert.Equal(t, "", rules[1].Proto)
+	assert.Empty(t, rules[1].Proto)
 	assert.Equal(t, 0, rules[1].Port)
-	assert.Equal(t, "", rules[1].Comment)
+	assert.Empty(t, rules[1].Comment)
 }
 
 func TestCooldList_EmptyBody(t *testing.T) {

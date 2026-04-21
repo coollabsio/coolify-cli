@@ -129,10 +129,10 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 }
 
 func validatePlanFlags(f *InitFlags) error {
-	if err := f.SSHMeshFlags.Validate(); err != nil {
+	if err := f.Validate(); err != nil {
 		return err
 	}
-	return f.MeshNetFlags.ValidateNamespaces()
+	return f.ValidateNamespaces()
 }
 
 // warningsToStrings formats allocator warnings as human-readable strings.

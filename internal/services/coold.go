@@ -17,7 +17,7 @@ const CooldAPIPort = 8443
 // for the firewall REST API. The file is generated once by `coolify init
 // apply --install-coold` (random 32-byte hex via `openssl rand`) and kept
 // mode 0600.
-const CooldAPITokenPath = "/etc/coolify/api-token"
+const CooldAPITokenPath = "/etc/coolify/api-token" //nolint:gosec // filesystem path, not a credential
 
 // CooldNamespace describes one namespace for coold's env var. coold's
 // embedded DNS binds <BridgeGateway>:53 per namespace, and its sync loop

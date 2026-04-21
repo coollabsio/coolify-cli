@@ -26,7 +26,7 @@ type allowRevokeFlags struct {
 }
 
 // newAllowCommand builds `coolify firewall allow`.
-func newAllowCommand(parent *FirewallFlags) *cobra.Command {
+func newAllowCommand(parent *Flags) *cobra.Command {
 	local := &allowRevokeFlags{}
 	cmd := &cobra.Command{
 		Use:   "allow",
@@ -40,7 +40,7 @@ func newAllowCommand(parent *FirewallFlags) *cobra.Command {
 }
 
 // newRevokeCommand builds `coolify firewall revoke`.
-func newRevokeCommand(parent *FirewallFlags) *cobra.Command {
+func newRevokeCommand(parent *Flags) *cobra.Command {
 	local := &allowRevokeFlags{}
 	cmd := &cobra.Command{
 		Use:   "revoke",
@@ -86,11 +86,11 @@ func validateAllowRevokeFlags(f *allowRevokeFlags) error {
 func runAllowRevoke(
 	ctx context.Context,
 	cmd *cobra.Command,
-	parent *FirewallFlags,
+	parent *Flags,
 	local *allowRevokeFlags,
 	revoke bool,
 ) error {
-	if err := parent.SSHMeshFlags.Validate(); err != nil {
+	if err := parent.Validate(); err != nil {
 		return err
 	}
 	if err := common.ValidateNamespace(parent.Namespace); err != nil {
@@ -111,7 +111,7 @@ func runAllowRevoke(
 func emitAllowRevoke(
 	ctx context.Context,
 	cmd *cobra.Command,
-	parent *FirewallFlags,
+	parent *Flags,
 	local *allowRevokeFlags,
 	runner ssh.Runner,
 	revoke bool,

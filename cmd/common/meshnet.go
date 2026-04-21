@@ -1,3 +1,9 @@
+// Package common holds flag structs and helpers shared between the
+// `coolify init` and `coolify firewall` command trees. Kept intentionally
+// small: only cross-command plumbing (SSH mesh flags, namespace validation)
+// lives here.
+//
+//nolint:revive // "common" is the conventional sharing point for these cobra subtrees
 package common
 
 import (

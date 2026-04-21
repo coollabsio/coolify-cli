@@ -56,9 +56,9 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 	pf.BoolVarP(&f.Yes, "yes", "y", false,
 		"Skip the interactive alpha confirmation prompt")
 	pf.StringVar(&f.CentralHost, "central", "",
-		`SSH address of the central VM that will run coolify-broker + Redis (and later Laravel).
+		`SSH address of the central VM that will run broker + Redis (and later Laravel).
 Must be one of the --servers entries. When set, phases 4+5 install Redis + broker on that host
 and push a per-host JWT to every other server. Leave empty to skip broker setup.`)
 	pf.StringVar(&f.BrokerVersion, "broker-version", "nightly",
-		`Release tag to download for coolify-broker (e.g. "nightly", "v1.2.3").`)
+		`Release tag to download for broker (e.g. "nightly", "v1.2.3").`)
 }

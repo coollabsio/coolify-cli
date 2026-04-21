@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/coollabsio/coolify-cli/cmd/common"
 	"github.com/coollabsio/coolify-cli/internal/ssh"
@@ -15,30 +16,30 @@ import (
 func TestValidateAllowRevokeFlags(t *testing.T) {
 	t.Run("missing from", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{To: "x", Port: 80, Proto: "tcp"})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--from")
 	})
 	t.Run("missing to", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{From: "x", Port: 80, Proto: "tcp"})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--to")
 	})
 	t.Run("missing port with proto", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{From: "a", To: "b", Proto: "tcp"})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--port")
 	})
 	t.Run("bad proto", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{From: "a", To: "b", Proto: "icmp", Port: 1})
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 	t.Run("ok tcp", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{From: "a", To: "b", Proto: "tcp", Port: 80})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 	t.Run("ok no-proto no-port", func(t *testing.T) {
 		err := validateAllowRevokeFlags(&allowRevokeFlags{From: "a", To: "b", Proto: "", Port: 0})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -61,17 +62,16 @@ func (f *cmdFakeRunner) Run(_ context.Context, _, _ string, _ int, cmd string) (
 
 var _ ssh.Runner = (*cmdFakeRunner)(nil)
 
-func rootCmdFor(cmd *cobra.Command) *cobra.Command {
+func rootCmdFor(cmd *cobra.Command) {
 	root := &cobra.Command{Use: "coolify"}
 	root.PersistentFlags().String("format", "table", "")
 	root.AddCommand(cmd)
-	return root
 }
 
-// parentWithToken builds a FirewallFlags pre-wired for the REST path:
+// parentWithToken builds a Flags pre-wired for the REST path:
 // single test host, coold port 8443, non-empty bearer token.
-func parentWithToken() *FirewallFlags {
-	return &FirewallFlags{
+func parentWithToken() *Flags {
+	return &Flags{
 		SSHMeshFlags: common.SSHMeshFlags{
 			Servers: []string{"h1"}, SSHUser: "root", SSHPort: 22, Concurrency: 1,
 		},

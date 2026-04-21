@@ -180,8 +180,8 @@ func TestInstallFirewallCommand_WritesBridgeScaffoldFile(t *testing.T) {
 	// without it, `cat > .tmp` fails on fresh hosts.
 	mkdirIdx := strings.Index(cmd, "mkdir -p /etc/coolify")
 	tmpIdx := strings.Index(cmd, "bridge-fw.nft.tmp")
-	assert.True(t, mkdirIdx >= 0, "mkdir -p /etc/coolify must be present")
-	assert.True(t, mkdirIdx < tmpIdx, "mkdir must run before bridge-fw.nft.tmp write")
+	assert.GreaterOrEqual(t, mkdirIdx, 0, "mkdir -p /etc/coolify must be present")
+	assert.Less(t, mkdirIdx, tmpIdx, "mkdir must run before bridge-fw.nft.tmp write")
 }
 
 func TestInstallFirewallCommand_DefaultDenyOff_RemovesBridgeScaffold(t *testing.T) {
@@ -201,7 +201,7 @@ func TestFirewallServiceUnit_GoldenFixture_TwoNamespaces(t *testing.T) {
 
 	fixturePath := filepath.Join("..", "..", "test", "fixtures", "firewall_unit_deny_two_ns.txt")
 	if os.Getenv("UPDATE_GOLDEN") == "1" {
-		err := os.WriteFile(fixturePath, []byte(got), 0o644)
+		err := os.WriteFile(fixturePath, []byte(got), 0o600)
 		require.NoError(t, err, "failed to write golden fixture")
 		t.Logf("golden fixture updated: %s", fixturePath)
 		return

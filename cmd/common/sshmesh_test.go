@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSSHMeshFlags_ParseSSHTimeout(t *testing.T) {
@@ -27,30 +28,30 @@ func TestSSHMeshFlags_ParseSSHTimeout(t *testing.T) {
 func TestSSHMeshFlags_Validate(t *testing.T) {
 	t.Run("missing servers", func(t *testing.T) {
 		err := (&SSHMeshFlags{SSHKey: "/k"}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--servers")
 	})
 	t.Run("missing ssh key", func(t *testing.T) {
 		err := (&SSHMeshFlags{Servers: []string{"1.1.1.1"}}).Validate()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--ssh-key")
 	})
 	t.Run("valid", func(t *testing.T) {
 		err := (&SSHMeshFlags{Servers: []string{"1.1.1.1"}, SSHKey: "/k"}).Validate()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
 func TestSSHMeshFlags_ResolvePassphrase_Env(t *testing.T) {
 	t.Setenv("COOLIFY_SSH_PASSPHRASE", "hunter2")
 	pass, err := (&SSHMeshFlags{}).ResolvePassphrase()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []byte("hunter2"), pass)
 }
 
 func TestSSHMeshFlags_ResolvePassphrase_NoPrompt(t *testing.T) {
 	t.Setenv("COOLIFY_SSH_PASSPHRASE", "")
 	pass, err := (&SSHMeshFlags{SSHPassphrasePrompt: false}).ResolvePassphrase()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, pass)
 }
