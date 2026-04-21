@@ -442,8 +442,10 @@ func TestBuildPlan_DefaultDenyDriftReinstalls(t *testing.T) {
 	// Both hosts converged in mode A (default-deny OFF) — must reinstall to flip on.
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
 	srvA.DefaultDenyActive = false
+	srvA.NftAvailable = true
 	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
 	srvB.DefaultDenyActive = false
+	srvB.NftAvailable = true
 	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
 
 	plan, err := BuildPlan(desired, current)
@@ -467,10 +469,12 @@ func TestBuildPlan_DefaultDenyConverged(t *testing.T) {
 
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
 	srvA.DefaultDenyActive = true
+	srvA.NftAvailable = true
 	srvA.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
 		[]string{"default"}, []*net.IPNet{mustParseCIDR("10.210.0.0/24")}, true)))
 	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
 	srvB.DefaultDenyActive = true
+	srvB.NftAvailable = true
 	srvB.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
 		[]string{"default"}, []*net.IPNet{mustParseCIDR("10.210.1.0/24")}, true)))
 	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}

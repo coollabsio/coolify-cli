@@ -73,6 +73,18 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 		return nil, fmt.Errorf("at least one namespace is required")
 	}
 
+	// Validate per-host preconditions before computing actions.
+	for _, host := range desired.Hosts {
+		if state, ok := current.Servers[host]; ok && desired.DefaultDenyContainers {
+			if !state.NftAvailable {
+				return nil, fmt.Errorf(
+					"host %s: nft binary not available; install nftables or pass --skip-default-deny",
+					host,
+				)
+			}
+		}
+	}
+
 	mgmtAssignments, mgmtWarns, err := AllocateMgmtIPs(desired.MgmtPool, current.AssignedMgmtIPs(), desired.Hosts)
 	if err != nil {
 		return nil, fmt.Errorf("mgmt IP allocation: %w", err)

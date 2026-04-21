@@ -38,7 +38,7 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 	pf.IntVar(&f.WGListenPort, "wg-listen-port", 51820,
 		"WireGuard UDP listen port")
 	pf.BoolVar(&f.SkipDefaultDeny, "skip-default-deny", false,
-		"Skip installing the default-deny iptables scaffold (COOLIFY-INTRA / COOLIFY-ALLOW). By default, cross-host container traffic is blocked except where coold installs allow rules. Intra-host (same bridge) traffic is NOT enforced — defer to per-app podman networks")
+		"Skip installing the default-deny firewall scaffold. By default, both cross-host and intra-host (same bridge) container traffic is blocked; coold manages the allow list at runtime")
 	pf.StringVar(&f.CooldVersion, "coold-version", "nightly",
 		`Release tag to download for coold (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.`)
 	pf.StringVar(&f.CorrosionVersion, "corrosion-version", "nightly",

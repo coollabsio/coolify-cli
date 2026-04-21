@@ -118,8 +118,24 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 	stdout, _, _ = runner.Run(ctx, host, user, port,
 		`iptables -nL COOLIFY-INTRA 2>/dev/null | grep -q DROP && echo yes || echo no`)
 	if strings.TrimSpace(stdout) == "yes" {
-		state.DefaultDenyActive = true
+		state.DefaultDenyActive = true // will be AND-ed with BridgeTableExists below
 	}
+
+	// 10a. nft binary available.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`command -v nft >/dev/null 2>&1 && echo yes || echo no`)
+	if strings.TrimSpace(stdout) == "yes" {
+		state.NftAvailable = true
+	}
+
+	// 10b. nft bridge table for intra-namespace default-deny present.
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`nft list table bridge coolify_bridge >/dev/null 2>&1 && echo yes || echo no`)
+	if strings.TrimSpace(stdout) == "yes" {
+		state.BridgeTableExists = true
+	}
+
+	state.DefaultDenyActive = state.DefaultDenyActive && state.BridgeTableExists
 
 	// 11. Corrosion binary installed.
 	stdout, _, _ = runner.Run(ctx, host, user, port,
