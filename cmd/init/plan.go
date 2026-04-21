@@ -52,11 +52,11 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		InstallPodman:         true,
 		Namespaces:            flags.Namespaces,
 		DefaultDenyContainers: !flags.SkipDefaultDeny,
-		InstallCoold:        true,
-		CooldVersion:        flags.CooldVersion,
-		CorrosionVersion:    flags.CorrosionVersion,
-		CorrosionGossipPort: flags.CorrosionGossipPort,
-		CorrosionAPIPort:    flags.CorrosionAPIPort,
+		InstallCoold:          true,
+		CooldVersion:          flags.CooldVersion,
+		CorrosionVersion:      flags.CorrosionVersion,
+		CorrosionGossipPort:   flags.CorrosionGossipPort,
+		CorrosionAPIPort:      flags.CorrosionAPIPort,
 	}
 
 	// Build SSH runner (handles passphrase resolution).

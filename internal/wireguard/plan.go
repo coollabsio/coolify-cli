@@ -408,8 +408,8 @@ func buildNamespaceConfigs(host string, nsSorted []string, assignments map[strin
 			continue
 		}
 		out = append(out, services.CooldNamespace{
-			Name:       ns,
-			Network:    PodmanNetworkFor(ns),
+			Name:          ns,
+			Network:       PodmanNetworkFor(ns),
 			BridgeGateway: MachineIP(subnet),
 		})
 	}

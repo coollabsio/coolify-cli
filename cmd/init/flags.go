@@ -26,7 +26,7 @@ type InitFlags struct {
 	// CentralHost is the SSH address of the central VM (from --central flag).
 	// When non-empty, phases 4+5 install Redis + broker on that host and push
 	// per-host JWTs to all other hosts. Default empty = no broker setup.
-	CentralHost  string
+	CentralHost   string
 	BrokerVersion string
 }
 

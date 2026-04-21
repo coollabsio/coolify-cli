@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,13 +14,18 @@ import (
 
 // fakeCooldRunner is a minimal Runner for client-level tests. It captures
 // every command and replies based on substring-matched canned responses.
+// mu guards calls against concurrent appends from ForEachServer's parallel
+// goroutines.
 type fakeCooldRunner struct {
+	mu        sync.Mutex
 	responses map[string]string
 	calls     []string
 }
 
 func (f *fakeCooldRunner) Run(_ context.Context, _, _ string, _ int, cmd string) (string, string, error) {
+	f.mu.Lock()
 	f.calls = append(f.calls, cmd)
+	f.mu.Unlock()
 	for sub, resp := range f.responses {
 		if strings.Contains(cmd, sub) {
 			return resp, "", nil

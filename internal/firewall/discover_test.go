@@ -3,6 +3,7 @@ package firewall
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,14 +40,18 @@ func TestParseDiscoverLine(t *testing.T) {
 }
 
 // fakeRunner is a deterministic ssh.Runner for firewall tests. Responses
-// map a command substring to its canned stdout.
+// map a command substring to its canned stdout. mu guards calls against
+// concurrent appends from ForEachServer's parallel goroutines.
 type fakeRunner struct {
+	mu        sync.Mutex
 	responses map[string]string
 	calls     []string
 }
 
 func (f *fakeRunner) Run(_ context.Context, _, _ string, _ int, cmd string) (string, string, error) {
+	f.mu.Lock()
 	f.calls = append(f.calls, cmd)
+	f.mu.Unlock()
 	for sub, resp := range f.responses {
 		if strings.Contains(cmd, sub) {
 			return resp, "", nil

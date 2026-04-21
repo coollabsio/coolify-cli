@@ -37,13 +37,13 @@ func convergedServer(host, pubkey, peerKey, mgmtIP, contSubnet string) *ServerSt
 	sn := mustParseCIDR(contSubnet)
 	firewallHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []string{"default"}, []*net.IPNet{sn}, false)))
 	return &ServerState{
-		Host:               host,
-		Installed:          true,
-		KeysExist:          true,
-		PublicKey:          pubkey,
-		WireGuardMgmtIP:    net.ParseIP(mgmtIP).To4(),
-		ListenPort:         51820,
-		Active:             true,
+		Host:            host,
+		Installed:       true,
+		KeysExist:       true,
+		PublicKey:       pubkey,
+		WireGuardMgmtIP: net.ParseIP(mgmtIP).To4(),
+		ListenPort:      51820,
+		Active:          true,
 		Peers: []Peer{{
 			PublicKey:  peerKey,
 			AllowedIPs: []string{peerMgmtForPub(peerKey), peerSubnetForPub(peerKey)},
@@ -564,11 +564,11 @@ func TestBuildPlan_PodmanRequiresNamespace(t *testing.T) {
 
 func TestBinaryVersionDrift(t *testing.T) {
 	tests := []struct {
-		name            string
-		desiredVersion  string
-		installed       bool
-		haveVersion     string
-		wantDrift       bool
+		name           string
+		desiredVersion string
+		installed      bool
+		haveVersion    string
+		wantDrift      bool
 	}{
 		{"not installed", "nightly", false, "", true},
 		{"installed no marker", "nightly", true, "", true},

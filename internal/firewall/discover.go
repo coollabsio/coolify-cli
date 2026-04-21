@@ -139,9 +139,9 @@ func DiscoverAllNamespaces(
 	concurrency int,
 ) ([]Container, []ssh.ServerResult[[]Container]) {
 	var (
-		all         []Container
-		allResults  []ssh.ServerResult[[]Container]
-		seenHosts   = map[string]struct{}{}
+		all        []Container
+		allResults []ssh.ServerResult[[]Container]
+		seenHosts  = map[string]struct{}{}
 	)
 	for _, ns := range namespaces {
 		nsContainers, results := DiscoverAll(ctx, runner, hosts, user, port,
