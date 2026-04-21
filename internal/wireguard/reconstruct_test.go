@@ -1,13 +1,29 @@
 package wireguard
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// fakeReconRunner is a deterministic ssh.Runner for reconstruct unit tests.
+type fakeReconRunner struct {
+	responses map[string]string
+}
+
+func (f *fakeReconRunner) Run(_ context.Context, _, _ string, _ int, cmd string) (string, string, error) {
+	for substr, resp := range f.responses {
+		if strings.Contains(cmd, substr) {
+			return resp, "", nil
+		}
+	}
+	return "", "", nil
+}
 
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
@@ -146,4 +162,58 @@ func TestTruncateKey(t *testing.T) {
 	for _, tt := range tests {
 		assert.Equal(t, tt.want, truncateKey(tt.input), "input: %q", tt.input)
 	}
+}
+
+func TestProbe_NftAvailableAndBridgeTableExists_True(t *testing.T) {
+	runner := &fakeReconRunner{
+		responses: map[string]string{
+			"dpkg-query":                                              "1\n",
+			"wg show":                                                 "",
+			"cat /etc/wireguard/":                                     "",
+			"wg pubkey":                                               "",
+			"ip -4 -o addr show":                                      "",
+			"systemctl is-active wg-quick":                            "active\n",
+			"podman --version":                                        "podman version 4.9.0\n",
+			"systemctl is-active podman.socket":                       "active\n",
+			"sysctl net.ipv4.ip_forward":                              "net.ipv4.ip_forward = 1\n",
+			"podman network inspect":                                   `[{"name":"coolify-default-mesh","subnets":[{"subnet":"10.210.0.0/24","gateway":"10.210.0.1"}],"dns_enabled":false,"labels":{"io.coolify.managed":"true","io.coolify.namespace":"default"}}]` + "\n",
+			"systemctl is-active coolify-mesh-fw":                     "active\n",
+			"sha256sum /etc/systemd/system/coolify-mesh-fw.service":   "",
+			"iptables -nL COOLIFY-INTRA":                              "yes\n",
+			"command -v nft":                                          "yes\n",
+			"nft list table bridge coolify_bridge":                    "yes\n",
+			"test -x /usr/local/bin/corrosion":                       "yes\n",
+			"systemctl is-active corrosion":                          "active\n",
+			"sha256sum /etc/corrosion/config.toml":                   "",
+			"test -x /usr/local/bin/coold":                           "yes\n",
+			"systemctl is-active coold":                              "active\n",
+			"cat /etc/coolify/coold-version":                         "",
+			"cat /etc/coolify/corrosion-version":                     "",
+		},
+	}
+
+	state, err := Probe(context.Background(), runner, "1.1.1.1", "root", 22, "wg0", []string{"default"})
+	require.NoError(t, err)
+	assert.True(t, state.NftAvailable, "NftAvailable should be true")
+	assert.True(t, state.BridgeTableExists, "BridgeTableExists should be true")
+	// DefaultDenyActive = COOLIFY-INTRA DROP && BridgeTableExists
+	assert.True(t, state.DefaultDenyActive, "DefaultDenyActive should be true when both conditions met")
+}
+
+func TestProbe_NftNotAvailable_BridgeTableAbsent(t *testing.T) {
+	runner := &fakeReconRunner{
+		responses: map[string]string{
+			"dpkg-query":                                              "1\n",
+			"iptables -nL COOLIFY-INTRA":                              "yes\n",
+			"command -v nft":                                          "no\n",
+			"nft list table bridge coolify_bridge":                    "no\n",
+		},
+	}
+
+	state, err := Probe(context.Background(), runner, "1.1.1.1", "root", 22, "wg0", []string{"default"})
+	require.NoError(t, err)
+	assert.False(t, state.NftAvailable, "NftAvailable should be false")
+	assert.False(t, state.BridgeTableExists, "BridgeTableExists should be false")
+	// DefaultDenyActive must be false even though COOLIFY-INTRA has DROP
+	assert.False(t, state.DefaultDenyActive, "DefaultDenyActive should be false when BridgeTableExists is false")
 }

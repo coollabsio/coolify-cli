@@ -426,6 +426,28 @@ func TestBuildPlan_FirewallMissing(t *testing.T) {
 	assert.Equal(t, []ActionType{ActionInstallFirewall}, aTypes)
 }
 
+func TestBuildPlan_NftUnavailable_ReturnsError(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.DefaultDenyContainers = true
+
+	current := MeshState{
+		Servers: map[string]*ServerState{
+			"1.1.1.1": {
+				Host:         "1.1.1.1",
+				NftAvailable: false,
+			},
+			"2.2.2.2": {
+				Host:         "2.2.2.2",
+				NftAvailable: false,
+			},
+		},
+	}
+
+	_, err := BuildPlan(desired, current)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nft binary not available")
+}
+
 func TestBuildPlan_DefaultDenyRequiresPodman(t *testing.T) {
 	desired := desiredTwoHosts()
 	desired.DefaultDenyContainers = true // InstallPodman left false

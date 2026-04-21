@@ -1,0 +1,51 @@
+[Unit]
+Description=Coolify mesh firewall rules
+After=wg-quick@wg0.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+ExecStart=/bin/sh -c "/usr/sbin/iptables -t nat -C POSTROUTING -s 10.210.0.0/24 -o wg0 -j RETURN 2>/dev/null || /usr/sbin/iptables -t nat -I POSTROUTING -s 10.210.0.0/24 -o wg0 -j RETURN"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -t nat -C POSTROUTING -s 10.220.0.0/24 -o wg0 -j RETURN 2>/dev/null || /usr/sbin/iptables -t nat -I POSTROUTING -s 10.220.0.0/24 -o wg0 -j RETURN"
+# Remove blanket ACCEPT from prior mode-A run.
+ExecStart=/bin/sh -c "/usr/sbin/iptables -D FORWARD -s 10.210.0.0/24 -j ACCEPT 2>/dev/null || true"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -D FORWARD -d 10.210.0.0/24 -j ACCEPT 2>/dev/null || true"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -D FORWARD -s 10.220.0.0/24 -j ACCEPT 2>/dev/null || true"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -D FORWARD -d 10.220.0.0/24 -j ACCEPT 2>/dev/null || true"
+
+# Create chains (idempotent).
+ExecStart=/bin/sh -c "/usr/sbin/iptables -N COOLIFY-ALLOW 2>/dev/null || true"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -N COOLIFY-INTRA 2>/dev/null || true"
+
+# Flush COOLIFY-INTRA so order is deterministic on every restart.
+ExecStart=/usr/sbin/iptables -F COOLIFY-INTRA
+ExecStart=/usr/sbin/iptables -A COOLIFY-INTRA -j COOLIFY-ALLOW
+ExecStart=/usr/sbin/iptables -A COOLIFY-INTRA -j DROP
+
+# Repopulate COOLIFY-ALLOW from coold's canonical snapshot. File is rewritten
+# by coold on every rule mutate, so it is the source of truth across reboots
+# and service restarts. Flush first because 'iptables-restore --noflush'
+# leaves existing chain contents in place and would otherwise duplicate every
+# rule on re-run.
+ExecStart=/bin/sh -c "[ -s /etc/coolify/allow.rules ] && /usr/sbin/iptables -F COOLIFY-ALLOW && /usr/sbin/iptables-restore --noflush < /etc/coolify/allow.rules || true"
+
+# Conntrack early-accept at top of FORWARD (idempotent).
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I FORWARD 1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT"
+
+# Top-level FORWARD jumps for every namespace's subnet (both directions).
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -d 10.210.0.0/24 -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -d 10.210.0.0/24 -j COOLIFY-INTRA"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -s 10.210.0.0/24 -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -s 10.210.0.0/24 -j COOLIFY-INTRA"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -d 10.220.0.0/24 -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -d 10.220.0.0/24 -j COOLIFY-INTRA"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -s 10.220.0.0/24 -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -s 10.220.0.0/24 -j COOLIFY-INTRA"
+# Bridge-family nft scaffold — intra-namespace default-deny.
+ExecStart=/bin/sh -c "nft list table bridge coolify_bridge >/dev/null 2>&1 || nft add table bridge coolify_bridge"
+ExecStart=/bin/sh -c "nft add chain bridge coolify_bridge coolify_allow '{ }' 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft delete chain bridge coolify_bridge forward 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft delete chain bridge coolify_bridge coolify_intra 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft -f /etc/coolify/bridge-fw.nft"
+ExecStart=/bin/sh -c "[ -s /etc/coolify/allow.nft ] && nft -f /etc/coolify/allow.nft || true"
+
+[Install]
+WantedBy=multi-user.target

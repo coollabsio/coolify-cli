@@ -2,9 +2,13 @@ package wireguard
 
 import (
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFirewallServiceUnit_DefaultDenyOff(t *testing.T) {
@@ -111,6 +115,82 @@ func TestInstallFirewallCommand_DefaultDenyEmbedded(t *testing.T) {
 
 	// Default-deny variant of unit must be embedded in the heredoc.
 	assert.Contains(t, cmd, "-A COOLIFY-INTRA -j DROP")
+}
+
+func TestFirewallServiceUnit_BridgeScaffold_DefaultDenyOn(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, true)
+
+	assert.Contains(t, got, "nft list table bridge coolify_bridge")
+	assert.Contains(t, got, "nft add table bridge coolify_bridge")
+	assert.Contains(t, got, "nft add chain bridge coolify_bridge coolify_allow")
+	assert.Contains(t, got, "nft delete chain bridge coolify_bridge forward")
+	assert.Contains(t, got, "nft delete chain bridge coolify_bridge coolify_intra")
+	assert.Contains(t, got, "nft -f /etc/coolify/bridge-fw.nft")
+	assert.Contains(t, got, "/etc/coolify/allow.nft")
+	assert.NotContains(t, got, "-X COOLIFY-ALLOW")
+}
+
+func TestFirewallServiceUnit_BridgeScaffold_DefaultDenyOff(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, false)
+
+	assert.Contains(t, got, "nft delete table bridge coolify_bridge")
+	assert.NotContains(t, got, "nft add table bridge coolify_bridge")
+	assert.NotContains(t, got, "nft -f /etc/coolify/bridge-fw.nft")
+}
+
+func TestFirewallServiceUnit_BridgeSetStableSortedNamespaces(t *testing.T) {
+	subnets := []*net.IPNet{
+		mustParseCIDR("10.210.1.0/24"),
+		mustParseCIDR("10.220.1.0/24"),
+	}
+	// renderBridgeScaffold is embedded in InstallFirewallCommand, so check that.
+	cmd := InstallFirewallCommand("wg0", []string{"alpha", "default"}, subnets, true)
+
+	assert.Contains(t, cmd, `"coolify-alpha-mesh"`)
+	assert.Contains(t, cmd, `"coolify-default-mesh"`)
+
+	alphaIdx := strings.Index(cmd, `"coolify-alpha-mesh"`)
+	defaultIdx := strings.Index(cmd, `"coolify-default-mesh"`)
+	assert.True(t, alphaIdx < defaultIdx, "alpha must appear before default (sorted)")
+}
+
+func TestInstallFirewallCommand_WritesBridgeScaffoldFile(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	cmd := InstallFirewallCommand("wg0", []string{"default"}, subnets, true)
+
+	assert.Contains(t, cmd, "/etc/coolify/bridge-fw.nft")
+	assert.Contains(t, cmd, "COOLIFY_BR_EOF")
+	assert.Contains(t, cmd, "bridge-fw.nft.tmp")
+}
+
+func TestInstallFirewallCommand_DefaultDenyOff_RemovesBridgeScaffold(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	cmd := InstallFirewallCommand("wg0", []string{"default"}, subnets, false)
+
+	assert.Contains(t, cmd, "rm -f /etc/coolify/bridge-fw.nft")
+	assert.NotContains(t, cmd, "COOLIFY_BR_EOF")
+}
+
+func TestFirewallServiceUnit_GoldenFixture_TwoNamespaces(t *testing.T) {
+	subnets := []*net.IPNet{
+		mustParseCIDR("10.210.0.0/24"),
+		mustParseCIDR("10.220.0.0/24"),
+	}
+	got := FirewallServiceUnit("wg0", []string{"alpha", "default"}, subnets, true)
+
+	fixturePath := filepath.Join("..", "..", "test", "fixtures", "firewall_unit_deny_two_ns.txt")
+	if os.Getenv("UPDATE_GOLDEN") == "1" {
+		err := os.WriteFile(fixturePath, []byte(got), 0o644)
+		require.NoError(t, err, "failed to write golden fixture")
+		t.Logf("golden fixture updated: %s", fixturePath)
+		return
+	}
+
+	b, err := os.ReadFile(fixturePath)
+	require.NoError(t, err, "golden fixture missing — run with UPDATE_GOLDEN=1 to create it")
+	assert.Equal(t, string(b), got)
 }
 
 func TestFirewallServiceUnit_MultipleNamespacesEmitPerSubnetRules(t *testing.T) {
