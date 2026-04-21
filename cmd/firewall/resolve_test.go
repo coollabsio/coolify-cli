@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 )
@@ -19,20 +20,20 @@ func cs() []ifw.Container {
 
 func TestResolveEndpoint_ByName_Unique(t *testing.T) {
 	c, err := resolveEndpoint("api", cs())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "h2", c.Host)
 	assert.Equal(t, "10.210.1.10", c.IP.String())
 }
 
 func TestResolveEndpoint_ByName_Ambiguous(t *testing.T) {
 	_, err := resolveEndpoint("web", cs())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ambiguous")
 }
 
 func TestResolveEndpoint_ByShortID(t *testing.T) {
 	c, err := resolveEndpoint("bbb", cs())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "h2", c.Host)
 }
 

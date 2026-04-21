@@ -10,10 +10,6 @@ import (
 func TestNewConfigCommand(t *testing.T) {
 	cmd := NewConfigCommand()
 
-	if cmd == nil {
-		t.Fatal("NewConfigCommand() returned nil")
-	}
-
 	if cmd.Use != "config" {
 		t.Errorf("Expected Use to be 'config', got '%s'", cmd.Use)
 	}
