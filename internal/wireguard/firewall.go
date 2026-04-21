@@ -84,21 +84,20 @@ RemainAfterExit=yes
 ExecStart=/bin/sh -c "/usr/sbin/iptables -D FORWARD -s %[1]s -j COOLIFY-INTRA 2>/dev/null || true"
 `, sn.String())
 		}
-		fmt.Fprint(&b, `ExecStart=/bin/sh -c "/usr/sbin/iptables -F COOLIFY-INTRA 2>/dev/null || true"
+		fmt.Fprintf(&b, `ExecStart=/bin/sh -c "/usr/sbin/iptables -F COOLIFY-INTRA 2>/dev/null || true"
 ExecStart=/bin/sh -c "/usr/sbin/iptables -X COOLIFY-INTRA 2>/dev/null || true"
 # COOLIFY-ALLOW intentionally NOT removed — preserves runtime allows for re-enable.
+# Remove bridge-family scaffold (permissive mode) before installing blanket ACCEPT.
+ExecStart=/bin/sh -c "nft delete table bridge %[1]s 2>/dev/null || true"
 
 # Blanket ACCEPT — allow all traffic to/from every namespace's container subnet.
-`)
+`, BridgeTableName)
 		for _, sn := range containerSubnets {
 			fmt.Fprintf(&b,
 				`ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -s %[1]s -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I FORWARD -s %[1]s -j ACCEPT"
 ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -d %[1]s -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I FORWARD -d %[1]s -j ACCEPT"
 `, sn.String())
 		}
-		fmt.Fprint(&b, `# Remove bridge-family scaffold (permissive mode).
-ExecStart=/bin/sh -c "nft delete table bridge coolify_bridge 2>/dev/null || true"
-`)
 	} else {
 		fmt.Fprint(&b, `# Remove blanket ACCEPT from prior mode-A run.
 `)
@@ -136,12 +135,14 @@ ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -m conntrack --ctstate ESTAB
 ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -s %[1]s -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -s %[1]s -j COOLIFY-INTRA"
 `, sn.String())
 		}
-		fmt.Fprint(&b, `# Bridge-family nft scaffold — intra-namespace default-deny.
-ExecStart=/bin/sh -c "nft list table bridge coolify_bridge >/dev/null 2>&1 || nft add table bridge coolify_bridge"
-ExecStart=/bin/sh -c "nft add chain bridge coolify_bridge coolify_allow '{ }' 2>/dev/null || true"
-ExecStart=/bin/sh -c "nft -f /etc/coolify/bridge-fw.nft"
-ExecStart=/bin/sh -c "[ -s /etc/coolify/allow.nft ] && nft -f /etc/coolify/allow.nft || true"
-`)
+		fmt.Fprintf(&b, `# Bridge-family nft scaffold — intra-namespace default-deny.
+ExecStart=/bin/sh -c "nft list table bridge %[1]s >/dev/null 2>&1 || nft add table bridge %[1]s"
+ExecStart=/bin/sh -c "nft add chain bridge %[1]s coolify_allow '{ }' 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft delete chain bridge %[1]s forward 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft delete chain bridge %[1]s coolify_intra 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft -f %[2]s"
+ExecStart=/bin/sh -c "[ -s %[3]s ] && nft -f %[3]s || true"
+`, BridgeTableName, BridgeScaffoldPath, BridgeAllowRulesPath)
 	}
 
 	b.WriteString(`
@@ -186,7 +187,7 @@ func renderBridgeScaffold(namespaces []string) string {
 	sort.Strings(sorted)
 
 	// Build quoted iifname/oifname set: { "coolify-ns1-mesh", "coolify-ns2-mesh" }
-	var ifNames []string
+	ifNames := make([]string, 0, len(sorted))
 	for _, ns := range sorted {
 		ifNames = append(ifNames, fmt.Sprintf(`"coolify-%s-mesh"`, ns))
 	}
