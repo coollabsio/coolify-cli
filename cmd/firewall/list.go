@@ -42,19 +42,27 @@ func emitList(
 	runner ssh.Runner,
 ) error {
 	tokenFor := tokenResolver(ctx, runner, flags)
+
+	// --all-namespaces → omit the query param so coold returns the union.
+	ns := flags.Namespace
+	if flags.AllNamespaces {
+		ns = ""
+	}
 	all, results := ifw.CooldListAll(ctx, runner, flags.Servers, flags.SSHUser,
-		flags.SSHPort, flags.CooldPort, flags.WGInterface, tokenFor, flags.Concurrency)
+		flags.SSHPort, flags.CooldPort, flags.WGInterface, tokenFor,
+		flags.Concurrency, ns)
 
 	rows := make([]models.AllowRuleRow, 0, len(all))
 	for _, r := range all {
 		rows = append(rows, models.AllowRuleRow{
-			Host:    r.Host,
-			ID:      r.Comment,
-			Src:     r.Src.String(),
-			Dst:     r.Dst.String(),
-			Proto:   r.Proto,
-			Port:    r.Port,
-			Comment: r.Comment,
+			Host:      r.Host,
+			Namespace: r.Namespace,
+			ID:        r.Comment,
+			Src:       r.Src.String(),
+			Dst:       r.Dst.String(),
+			Proto:     r.Proto,
+			Port:      r.Port,
+			Comment:   r.Comment,
 		})
 	}
 

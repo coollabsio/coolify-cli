@@ -13,10 +13,11 @@ import (
 // Probe SSHes into host and reads its current WireGuard + Podman state.
 // All commands use `|| true` so a missing package or interface never
 // causes a non-zero exit that would abort the probe.
-func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, iface, podmanNetName string) (*ServerState, error) {
+func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, iface string, namespaces []string) (*ServerState, error) {
 	state := &ServerState{
-		Host:      host,
-		Interface: iface,
+		Host:       host,
+		Interface:  iface,
+		Namespaces: map[string]*NamespaceServerState{},
 	}
 
 	// 1. Check if WireGuard is installed.
@@ -62,27 +63,32 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 		state.PodmanSocketActive = true
 	}
 
-	// 7. Podman network exists + read its subnet (only if Podman installed).
-	if state.PodmanInstalled && podmanNetName != "" {
-		stdout, _, _ = runner.Run(ctx, host, user, port,
-			fmt.Sprintf(`podman network exists %s 2>/dev/null && echo yes || echo no`, podmanNetName))
-		if strings.TrimSpace(stdout) == "yes" {
-			state.PodmanNetExists = true
-			// Read the subnet so the allocator can preserve stable assignments.
+	// 7. Per-namespace podman network state.
+	if state.PodmanInstalled {
+		for _, ns := range namespaces {
+			nss := &NamespaceServerState{Namespace: ns}
+			netName := PodmanNetworkFor(ns)
 			stdout, _, _ = runner.Run(ctx, host, user, port,
-				fmt.Sprintf(`podman network inspect %s -f '{{(index .Subnets 0).Subnet}}' 2>/dev/null || true`, podmanNetName))
-			if s := strings.TrimSpace(stdout); s != "" {
-				if _, n, err := net.ParseCIDR(s); err == nil {
-					state.ContainerSubnet = n
+				fmt.Sprintf(`podman network exists %s 2>/dev/null && echo yes || echo no`, netName))
+			if strings.TrimSpace(stdout) == "yes" {
+				nss.NetworkExists = true
+				stdout, _, _ = runner.Run(ctx, host, user, port,
+					fmt.Sprintf(`podman network inspect %s -f '{{(index .Subnets 0).Subnet}}' 2>/dev/null || true`, netName))
+				if s := strings.TrimSpace(stdout); s != "" {
+					if _, n, err := net.ParseCIDR(s); err == nil {
+						nss.ContainerSubnet = n
+					}
 				}
+				stdout, _, _ = runner.Run(ctx, host, user, port,
+					fmt.Sprintf(`podman network inspect %s -f '{{.DNSEnabled}}' 2>/dev/null || true`, netName))
+				if strings.TrimSpace(stdout) == "true" {
+					nss.DNSEnabled = true
+				}
+				stdout, _, _ = runner.Run(ctx, host, user, port,
+					fmt.Sprintf(`podman network inspect %s -f '{{index .Labels "io.coolify.namespace"}}' 2>/dev/null || true`, netName))
+				nss.Label = strings.TrimSpace(stdout)
 			}
-			// dns_enabled: when true, netavark holds bridge gateway :53 via
-			// aardvark-dns, which would collide with coold's cluster DNS.
-			stdout, _, _ = runner.Run(ctx, host, user, port,
-				fmt.Sprintf(`podman network inspect %s -f '{{.DNSEnabled}}' 2>/dev/null || true`, podmanNetName))
-			if strings.TrimSpace(stdout) == "true" {
-				state.PodmanDNSEnabled = true
-			}
+			state.Namespaces[ns] = nss
 		}
 	}
 
@@ -98,6 +104,14 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 		`systemctl is-active coolify-mesh-fw.service 2>/dev/null || true`)
 	if strings.TrimSpace(stdout) == "active" {
 		state.FirewallActive = true
+	}
+
+	// 9a. Firewall unit hash — detects drift when the desired namespace set
+	// changes (FORWARD jumps gain/lose subnets).
+	stdout, _, _ = runner.Run(ctx, host, user, port,
+		`sha256sum /etc/systemd/system/coolify-mesh-fw.service 2>/dev/null | awk '{print $1}' || true`)
+	if h := strings.TrimSpace(stdout); h != "" {
+		state.FirewallUnitSha256 = h
 	}
 
 	// 10. Default-deny scaffold present (COOLIFY-INTRA chain ends in DROP).
@@ -189,11 +203,11 @@ func Reconstruct(
 	user string,
 	port int,
 	iface string,
-	podmanNetName string,
+	namespaces []string,
 	concurrency int,
 ) (MeshState, error) {
 	results := ssh.ForEachServer(ctx, hosts, concurrency, func(ctx context.Context, host string) (*ServerState, error) {
-		return Probe(ctx, runner, host, user, port, iface, podmanNetName)
+		return Probe(ctx, runner, host, user, port, iface, namespaces)
 	})
 
 	mesh := MeshState{Servers: make(map[string]*ServerState, len(hosts))}
@@ -201,7 +215,7 @@ func Reconstruct(
 	for _, r := range results {
 		if r.Err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", r.Host, r.Err))
-			mesh.Servers[r.Host] = &ServerState{Host: r.Host, Interface: iface}
+			mesh.Servers[r.Host] = &ServerState{Host: r.Host, Interface: iface, Namespaces: map[string]*NamespaceServerState{}}
 			continue
 		}
 		mesh.Servers[r.Host] = r.Result

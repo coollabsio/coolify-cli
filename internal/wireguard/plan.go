@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sort"
+	"strings"
 
 	"github.com/coollabsio/coolify-cli/internal/services"
 )
@@ -38,9 +40,10 @@ const (
 
 // PlannedAction is one step that apply must execute on a host.
 type PlannedAction struct {
-	Host   string
-	Type   ActionType
-	Detail string
+	Host      string
+	Namespace string // empty for host-global actions
+	Type      ActionType
+	Detail    string
 }
 
 // Plan is the list of actions needed to converge the mesh to the desired state.
@@ -48,8 +51,8 @@ type Plan struct {
 	Actions []PlannedAction
 	// MgmtAssignments maps host → planned WG management /32 IP.
 	MgmtAssignments map[string]net.IP
-	// SubnetAssignments maps host → planned container /24 subnet.
-	SubnetAssignments map[string]*net.IPNet
+	// SubnetAssignments maps namespace → host → planned container subnet.
+	SubnetAssignments map[string]map[string]*net.IPNet
 	// Warnings contains non-fatal conflict messages from the IP allocator.
 	Warnings []Warning
 }
@@ -66,14 +69,18 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	if desired.InstallCoold && !desired.InstallPodman {
 		return nil, fmt.Errorf("--install-coold requires --podman")
 	}
+	if desired.InstallPodman && len(desired.Namespaces) == 0 {
+		return nil, fmt.Errorf("at least one namespace is required")
+	}
 
 	mgmtAssignments, mgmtWarns, err := AllocateMgmtIPs(desired.MgmtPool, current.AssignedMgmtIPs(), desired.Hosts)
 	if err != nil {
 		return nil, fmt.Errorf("mgmt IP allocation: %w", err)
 	}
 
-	containerAssignments, contWarns, err := Allocate(desired.ContainerPool, desired.ContainerPrefix,
-		current.AssignedContainerSubnets(), desired.Hosts)
+	containerAssignments, contWarns, err := AllocateNamespaced(
+		desired.ContainerPool, desired.ContainerPrefix,
+		current.AssignedContainerSubnets(), desired.Namespaces, desired.Hosts)
 	if err != nil {
 		return nil, fmt.Errorf("container subnet allocation: %w", err)
 	}
@@ -84,10 +91,15 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 		Warnings:          append(mgmtWarns, contWarns...),
 	}
 
+	nsSorted := desired.SortedNamespaces()
+
 	for _, host := range desired.Hosts {
 		state, ok := current.Servers[host]
 		if !ok {
-			state = &ServerState{Host: host}
+			state = &ServerState{Host: host, Namespaces: map[string]*NamespaceServerState{}}
+		}
+		if state.Namespaces == nil {
+			state.Namespaces = map[string]*NamespaceServerState{}
 		}
 
 		// --- WireGuard installation ---
@@ -119,16 +131,20 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 			})
 		}
 
-		// --- Container subnet allocation (only when --podman is set) ---
-		contSubnet := containerAssignments[host]
+		// --- Container subnet allocation (one per namespace) ---
 		if desired.InstallPodman {
-			if state.ContainerSubnet == nil ||
-				state.ContainerSubnet.String() != contSubnet.String() {
-				plan.Actions = append(plan.Actions, PlannedAction{
-					Host:   host,
-					Type:   ActionAllocateContainerSubnet,
-					Detail: contSubnet.String(),
-				})
+			for _, ns := range nsSorted {
+				contSubnet := containerAssignments[ns][host]
+				current := state.Namespaces[ns]
+				if current == nil || current.ContainerSubnet == nil ||
+					current.ContainerSubnet.String() != contSubnet.String() {
+					plan.Actions = append(plan.Actions, PlannedAction{
+						Host:      host,
+						Namespace: ns,
+						Type:      ActionAllocateContainerSubnet,
+						Detail:    contSubnet.String(),
+					})
+				}
 			}
 		}
 
@@ -169,7 +185,9 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 
 		// --- Config write ---
 		mgmtMismatch := state.WireGuardMgmtIP == nil || !state.WireGuardMgmtIP.Equal(mgmtIP)
+		allowedIPsDrift := allowedIPsNeedsRewrite(host, desired, current, containerAssignments, mgmtAssignments, state)
 		needsConfig := mgmtMismatch ||
+			allowedIPsDrift ||
 			len(plan.actionsForHost(host, ActionAddPeer)) > 0 ||
 			len(plan.actionsForHost(host, ActionRemovePeer)) > 0 ||
 			!state.KeysExist ||
@@ -222,24 +240,66 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 					Detail: "net.ipv4.ip_forward=1",
 				})
 			}
-			if !state.PodmanNetExists {
-				plan.Actions = append(plan.Actions, PlannedAction{
-					Host:   host,
-					Type:   ActionCreatePodmanNet,
-					Detail: fmt.Sprintf("%s subnet=%s gateway=%s", desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet)),
-				})
-			} else if state.PodmanDNSEnabled {
-				plan.Actions = append(plan.Actions, PlannedAction{
-					Host:   host,
-					Type:   ActionRecreatePodmanNet,
-					Detail: fmt.Sprintf("%s dns_enabled=true — recreate with --disable-dns (frees bridge :53 for coold)", desired.PodmanNetworkName),
-				})
+
+			for _, ns := range nsSorted {
+				contSubnet := containerAssignments[ns][host]
+				netName := PodmanNetworkFor(ns)
+				nss := state.Namespaces[ns]
+				gw := MachineIP(contSubnet)
+
+				if nss == nil || !nss.NetworkExists {
+					plan.Actions = append(plan.Actions, PlannedAction{
+						Host:      host,
+						Namespace: ns,
+						Type:      ActionCreatePodmanNet,
+						Detail:    fmt.Sprintf("%s subnet=%s gateway=%s", netName, contSubnet, gw),
+					})
+					continue
+				}
+				if nss.DNSEnabled ||
+					(nss.ContainerSubnet != nil && nss.ContainerSubnet.String() != contSubnet.String()) ||
+					nss.Label != ns {
+					reasons := []string{}
+					if nss.DNSEnabled {
+						reasons = append(reasons, "dns_enabled=true")
+					}
+					if nss.ContainerSubnet != nil && nss.ContainerSubnet.String() != contSubnet.String() {
+						reasons = append(reasons, fmt.Sprintf("subnet drift (have %s, want %s)", nss.ContainerSubnet, contSubnet))
+					}
+					if nss.Label != ns {
+						reasons = append(reasons, fmt.Sprintf("label=%q mismatch", nss.Label))
+					}
+					plan.Actions = append(plan.Actions, PlannedAction{
+						Host:      host,
+						Namespace: ns,
+						Type:      ActionRecreatePodmanNet,
+						Detail:    fmt.Sprintf("%s — %s", netName, strings.Join(reasons, "; ")),
+					})
+				}
 			}
-			if !state.FirewallActive || state.DefaultDenyActive != desired.DefaultDenyContainers {
+
+			// Expected firewall unit text — hash it and compare against the
+			// remote unit so adding/removing a namespace reinstalls the unit.
+			var subnets []*net.IPNet
+			for _, ns := range nsSorted {
+				subnets = append(subnets, containerAssignments[ns][host])
+			}
+			expectedUnit := FirewallServiceUnit(desired.Interface, subnets, desired.DefaultDenyContainers)
+			expectedUnitHash := sha256Hex([]byte(expectedUnit))
+			unitDrift := state.FirewallUnitSha256 != expectedUnitHash
+
+			if !state.FirewallActive ||
+				state.DefaultDenyActive != desired.DefaultDenyContainers ||
+				unitDrift {
+				detail := fmt.Sprintf("coolify-mesh-fw.service (%s, %d namespace(s), default-deny=%v)",
+					desired.Interface, len(subnets), desired.DefaultDenyContainers)
+				if unitDrift && state.FirewallUnitSha256 != "" {
+					detail += " [unit drift]"
+				}
 				plan.Actions = append(plan.Actions, PlannedAction{
 					Host:   host,
 					Type:   ActionInstallFirewall,
-					Detail: fmt.Sprintf("coolify-mesh-fw.service (%s ↔ %s, default-deny=%v)", desired.Interface, contSubnet, desired.DefaultDenyContainers),
+					Detail: detail,
 				})
 			}
 		}
@@ -292,7 +352,9 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 					Detail: detail,
 				})
 			}
-			expectedCooldUnit := services.CooldServiceUnit(mgmtIP, MachineIP(contSubnet))
+
+			nsConfigs := buildNamespaceConfigs(host, nsSorted, containerAssignments)
+			expectedCooldUnit := services.CooldServiceUnit(mgmtIP, nsConfigs)
 			cooldUnitDrift := state.CooldUnitSha256 != sha256Hex([]byte(expectedCooldUnit))
 
 			if !state.CorrosionActive || configDrift || corrosionDrift || schemaDrift {
@@ -303,7 +365,7 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 				})
 			}
 			if !state.CooldActive || configDrift || cooldDrift || cooldUnitDrift {
-				detail := fmt.Sprintf("systemctl enable --now coold (mgmt=%s)", mgmtIP)
+				detail := fmt.Sprintf("systemctl enable --now coold (mgmt=%s, namespaces=%d)", mgmtIP, len(nsConfigs))
 				if cooldUnitDrift && state.CooldUnitSha256 != "" {
 					detail += " [unit drift]"
 				}
@@ -317,6 +379,97 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	}
 
 	return plan, nil
+}
+
+// buildNamespaceConfigs builds the per-namespace CooldNamespace slice for this
+// host, in namespace name order. Gateway IP for each namespace is the .1 of
+// that namespace's per-host container subnet.
+func buildNamespaceConfigs(host string, nsSorted []string, assignments map[string]map[string]*net.IPNet) []services.CooldNamespace {
+	out := make([]services.CooldNamespace, 0, len(nsSorted))
+	for _, ns := range nsSorted {
+		subnet := assignments[ns][host]
+		if subnet == nil {
+			continue
+		}
+		out = append(out, services.CooldNamespace{
+			Name:       ns,
+			Network:    PodmanNetworkFor(ns),
+			BridgeGateway: MachineIP(subnet),
+		})
+	}
+	return out
+}
+
+// allowedIPsNeedsRewrite returns true when any [Peer] block on host does not
+// have the expected AllowedIPs (peer mgmt /32 + every namespace subnet).
+func allowedIPsNeedsRewrite(
+	host string,
+	desired *DesiredMesh,
+	current MeshState,
+	containerAssignments map[string]map[string]*net.IPNet,
+	mgmtAssignments map[string]net.IP,
+	state *ServerState,
+) bool {
+	if state == nil {
+		return false
+	}
+	nsSorted := desired.SortedNamespaces()
+
+	// Build pub-key → expected AllowedIPs set for every peer we should have.
+	want := map[string]map[string]struct{}{}
+	for _, peer := range desired.Hosts {
+		if peer == host {
+			continue
+		}
+		ps, ok := current.Servers[peer]
+		if !ok || ps.PublicKey == "" {
+			continue
+		}
+		mgmtIP := mgmtAssignments[peer]
+		if mgmtIP == nil {
+			continue
+		}
+		entries := map[string]struct{}{fmt.Sprintf("%s/32", mgmtIP): {}}
+		for _, ns := range nsSorted {
+			if sn := containerAssignments[ns][peer]; sn != nil {
+				entries[sn.String()] = struct{}{}
+			}
+		}
+		want[ps.PublicKey] = entries
+	}
+
+	// Compare against parsed peers in the current config. If any desired peer
+	// has different AllowedIPs (missing or extra), we need to rewrite.
+	have := map[string]map[string]struct{}{}
+	for _, p := range state.Peers {
+		s := map[string]struct{}{}
+		for _, a := range p.AllowedIPs {
+			s[strings.TrimSpace(a)] = struct{}{}
+		}
+		have[p.PublicKey] = s
+	}
+	for pk, wantSet := range want {
+		haveSet, ok := have[pk]
+		if !ok {
+			return true
+		}
+		if !sameStringSet(wantSet, haveSet) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameStringSet(a, b map[string]struct{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k := range a {
+		if _, ok := b[k]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // peerMgmtIPs returns the mgmt IPs of all hosts except self, drawn from the
@@ -357,4 +510,12 @@ func truncateKey(key string) string {
 		return key
 	}
 	return key[:8] + "..."
+}
+
+// nsSortedCopy returns a fresh sorted copy (package-private helper exposed
+// for tests and for callers that can't reach into DesiredMesh directly).
+func nsSortedCopy(ns []string) []string {
+	out := append([]string(nil), ns...)
+	sort.Strings(out)
+	return out
 }

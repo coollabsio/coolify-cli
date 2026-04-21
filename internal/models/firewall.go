@@ -2,21 +2,23 @@ package models
 
 // ContainerRow is a table-friendly row for `coolify firewall containers`.
 type ContainerRow struct {
-	Host string `json:"host"`
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	IP   string `json:"ip"`
+	Host      string `json:"host"`
+	Namespace string `json:"namespace"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	IP        string `json:"ip"`
 }
 
 // AllowRuleRow is a table-friendly row for `coolify firewall list`.
 type AllowRuleRow struct {
-	Host    string `json:"host"`
-	ID      string `json:"id"`
-	Src     string `json:"src"`
-	Dst     string `json:"dst"`
-	Proto   string `json:"proto,omitempty"`
-	Port    int    `json:"port,omitempty"`
-	Comment string `json:"comment,omitempty"`
+	Host      string `json:"host"`
+	Namespace string `json:"namespace"`
+	ID        string `json:"id"`
+	Src       string `json:"src"`
+	Dst       string `json:"dst"`
+	Proto     string `json:"proto,omitempty"`
+	Port      int    `json:"port,omitempty"`
+	Comment   string `json:"comment,omitempty"`
 }
 
 // FirewallContainersOutput is the JSON output for `firewall containers`.

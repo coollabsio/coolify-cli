@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net"
+	"strings"
 )
 
 // DefaultCooldDNSZone is the DNS zone served by coold's embedded resolver.
@@ -18,24 +19,49 @@ const CooldAPIPort = 8443
 // mode 0600.
 const CooldAPITokenPath = "/etc/coolify/api-token"
 
+// CooldNamespace describes one namespace for coold's env var. coold's
+// embedded DNS binds <BridgeGateway>:53 per namespace, and its sync loop
+// iterates `Network` to discover containers.
+type CooldNamespace struct {
+	Name          string // e.g. "default", "alpha"
+	Network       string // e.g. "coolify-default-mesh" — podman bridge name
+	BridgeGateway net.IP // the .1 of that namespace's per-host container subnet
+}
+
+// CooldNamespacesEnvValue renders the COOLD_NAMESPACES env value. Shape:
+//
+//	default:coolify-default-mesh:10.210.0.1,alpha:coolify-alpha-mesh:10.220.0.1
+//
+// Triples are comma-separated; fields within a triple are colon-separated.
+// Empty slice yields empty string so callers can omit the env var entirely.
+func CooldNamespacesEnvValue(ns []CooldNamespace) string {
+	parts := make([]string, 0, len(ns))
+	for _, n := range ns {
+		parts = append(parts, fmt.Sprintf("%s:%s:%s", n.Name, n.Network, n.BridgeGateway))
+	}
+	return strings.Join(parts, ",")
+}
+
 // CooldServiceUnit returns the systemd unit text for coold.
 //
 // mgmtIP is this host's wg0 management IP (coold writes rows scoped to it and
 // binds its REST API to mgmtIP:CooldAPIPort).
 //
-// bridgeGatewayIP is the .1 of this host's container subnet — coold's embedded
-// DNS server (CONTROL_PLANE.md §5) binds UDP/TCP :53 here. Pass nil to skip
-// DNS env injection (e.g. in tests that don't care about DNS).
-func CooldServiceUnit(mgmtIP, bridgeGatewayIP net.IP) string {
+// namespaces is the ordered list of namespaces coold manages on this host.
+// Each gets its own podman network (coolify-<ns>-mesh) and its own DNS bind
+// (bridge gateway :53). Pass nil to skip namespace env injection (e.g. tests
+// that don't care about namespaces); coold's config.rs defaults to a single
+// `default` entry.
+func CooldServiceUnit(mgmtIP net.IP, namespaces []CooldNamespace) string {
 	// Wants (not Requires) on corrosion: if corrosion crashes/restarts we want
 	// coold to stay up and retry — reconcile_once already backs off for 1s on
 	// error, so it self-heals once corrosion is back. Requires would cascade
 	// stop coold and leave it down until someone restarted it.
-	dnsEnv := ""
-	if bridgeGatewayIP != nil {
-		dnsEnv = fmt.Sprintf(`Environment=COOLD_BRIDGE_GATEWAY_IP=%s
+	nsEnv := ""
+	if len(namespaces) > 0 {
+		nsEnv = fmt.Sprintf(`Environment=COOLD_NAMESPACES=%s
 Environment=COOLD_DNS_ZONE=%s
-`, bridgeGatewayIP, DefaultCooldDNSZone)
+`, CooldNamespacesEnvValue(namespaces), DefaultCooldDNSZone)
 	}
 	// Firewall REST API binds wg0-only (never a public interface) and requires
 	// a bearer token. Plain HTTP for alpha — TLS material is managed by the
@@ -57,7 +83,7 @@ RestartSec=2s
 
 [Install]
 WantedBy=multi-user.target
-`, mgmtIP, dnsEnv, apiEnv)
+`, mgmtIP, nsEnv, apiEnv)
 }
 
 // EnsureCooldAPITokenCommand returns a shell snippet that creates the

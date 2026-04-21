@@ -15,11 +15,22 @@ import (
 )
 
 // FirewallFlags is the shared flag set for every `coolify firewall`
-// subcommand: SSH plumbing (via embed) + podman network name + coold REST
-// endpoint/token.
+// subcommand: SSH plumbing (via embed) + namespace selection + coold REST
+// endpoint/token. The podman network name is derived from the namespace
+// (coolify-<ns>-mesh) so the CLI and `coolify init` stay in sync.
 type FirewallFlags struct {
 	common.SSHMeshFlags
-	PodmanNetworkName string
+
+	// Namespace is the mesh namespace the command operates against. Derives
+	// the podman network (common.PodmanNetworkFor) and is forwarded to coold
+	// as part of every rule / list query.
+	Namespace string
+
+	// AllNamespaces, when true, makes namespace-aware subcommands operate
+	// across every namespace the mesh carries. Each subcommand interprets it
+	// contextually (list: union across namespaces; containers: discover every
+	// coolify-<ns>-mesh network on each host).
+	AllNamespaces bool
 
 	// CooldToken is an optional bearer-token override for coold's REST API.
 	// When unset (and COOLIFY_COOLD_TOKEN env is unset), the CLI SSHes into
@@ -37,10 +48,11 @@ type FirewallFlags struct {
 // bindFirewallFlags registers the persistent flags on the parent command.
 func bindFirewallFlags(cmd *cobra.Command, f *FirewallFlags) {
 	common.BindSSHMeshFlags(cmd, &f.SSHMeshFlags)
+	common.BindMeshNetSingleFlags(cmd, &f.Namespace)
 	pf := cmd.PersistentFlags()
-	pf.StringVar(&f.PodmanNetworkName, "podman-network",
-		"coolify-mesh",
-		"Podman bridge network name (must match --podman-network used at init)")
+	pf.BoolVar(&f.AllNamespaces, "all-namespaces", false,
+		"Operate across every mesh namespace on each host (list/containers fan out; "+
+			"allow/revoke still require a specific --namespace)")
 	pf.StringVar(&f.CooldToken, "coold-token", "",
 		"Bearer token override for coold REST API (also reads COOLIFY_COOLD_TOKEN env). "+
 			"When unset, CLI reads /etc/coolify/api-token over SSH per host.")
@@ -61,4 +73,10 @@ func (f *FirewallFlags) ResolveCooldToken() (string, error) {
 		return env, nil
 	}
 	return "", nil
+}
+
+// PodmanNetworkName returns the podman bridge that backs the selected
+// namespace on every host. Used by container discovery.
+func (f *FirewallFlags) PodmanNetworkName() string {
+	return common.PodmanNetworkFor(f.Namespace)
 }

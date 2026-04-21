@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
 	"github.com/coollabsio/coolify-cli/internal/ssh"
@@ -41,12 +42,34 @@ func emitContainers(
 	flags *FirewallFlags,
 	runner ssh.Runner,
 ) error {
-	all, results := discoverAllViaPkg(ctx, runner, flags)
+	var (
+		all     []ifw.Container
+		results []ssh.ServerResult[[]ifw.Container]
+	)
+	if flags.AllNamespaces {
+		// Discover across every managed network on each host.
+		nsList, nsResults, nsErr := discoverNamespacesOnHosts(ctx, runner, flags)
+		if nsErr != nil {
+			return nsErr
+		}
+		for _, r := range nsResults {
+			if r.Err != nil {
+				results = append(results, ssh.ServerResult[[]ifw.Container]{
+					Host: r.Host, Err: r.Err,
+				})
+			}
+		}
+		var containerResults []ssh.ServerResult[[]ifw.Container]
+		all, containerResults = discoverAcrossNamespaces(ctx, runner, flags, nsList)
+		results = append(results, containerResults...)
+	} else {
+		all, results = discoverAllViaPkg(ctx, runner, flags)
+	}
 
 	rows := make([]models.ContainerRow, 0, len(all))
 	for _, c := range all {
 		rows = append(rows, models.ContainerRow{
-			Host: c.Host, ID: c.ID, Name: c.Name, IP: c.IP.String(),
+			Host: c.Host, Namespace: c.Namespace, ID: c.ID, Name: c.Name, IP: c.IP.String(),
 		})
 	}
 
@@ -74,7 +97,11 @@ func emitContainers(
 		})
 	}
 	if len(rows) == 0 {
-		fmt.Fprintf(os.Stderr, "No containers found on %s network.\n", flags.PodmanNetworkName)
+		if flags.AllNamespaces {
+			fmt.Fprintln(os.Stderr, "No containers found on any coolify-<ns>-mesh network.")
+		} else {
+			fmt.Fprintf(os.Stderr, "No containers found on %s network.\n", flags.PodmanNetworkName())
+		}
 		return nil
 	}
 	return formatter.Format(rows)

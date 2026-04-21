@@ -66,7 +66,7 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		ContainerPrefix:       flags.ContainerPrefix,
 		ListenPort:            flags.WGListenPort,
 		InstallPodman:         true,
-		PodmanNetworkName:     flags.PodmanNetworkName,
+		Namespaces:            flags.Namespaces,
 		DefaultDenyContainers: !flags.SkipDefaultDeny,
 		InstallCoold:          true,
 		CooldBinaryPath:       flags.CooldBinaryPath,
@@ -87,7 +87,7 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 
 	current, err := wireguard.Reconstruct(ctx, sshClient, flags.Servers,
 		flags.SSHUser, flags.SSHPort, flags.WGInterface,
-		flags.PodmanNetworkName, flags.Concurrency)
+		flags.Namespaces, flags.Concurrency)
 	if err != nil {
 		// Non-fatal: partial state is still usable for plan display.
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
@@ -147,7 +147,10 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 }
 
 func validatePlanFlags(f *InitFlags) error {
-	return f.SSHMeshFlags.Validate()
+	if err := f.SSHMeshFlags.Validate(); err != nil {
+		return err
+	}
+	return f.MeshNetFlags.ValidateNamespaces()
 }
 
 // warningsToStrings formats allocator warnings as human-readable strings.

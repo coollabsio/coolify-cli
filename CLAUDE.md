@@ -182,16 +182,16 @@ type Resource struct {
 
 - Establishes a full-mesh WireGuard overlay across N hosts.
 - Each host gets a mgmt IP `/32` from `--wg-mgmt-pool` (default `100.64.0.0/16`, RFC 6598 CGNAT) on `wg0`.
-- Each host gets a container subnet `/<container-prefix>` from `--container-pool` (default `10.210.0.0/16`, default prefix `/24`) owned by a Podman bridge named `coolify-mesh`.
-- Installs Podman + enables `podman.socket` + creates the bridge + installs `coolify-mesh-fw.service` (always; required for v5 runtime).
-- Installs coold + corrosion (v5 control-plane agents; always) from `--coold-binary` / `--corrosion-binary`.
-- Installs default-deny firewall scaffold by default — `COOLIFY-INTRA` + empty `COOLIFY-ALLOW` chains. Use `--skip-default-deny` to fall back to blanket-allow (mode A) for testing.
+- For every namespace (see **Namespaces** below; default: just `default`), each host gets a container subnet `/<container-prefix>` carved from the shared `--container-pool` (default `10.210.0.0/16`, default prefix `/24`). Each namespace is owned by its own Podman bridge named `coolify-<namespace>-mesh` (default → `coolify-default-mesh`).
+- Installs Podman + enables `podman.socket` + creates every namespace bridge + installs `coolify-mesh-fw.service` (always; required for v5 runtime).
+- Installs coold + corrosion (v5 control-plane agents; always) from `--coold-binary` / `--corrosion-binary`. coold receives the full namespace list via `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,...` so it can bind DNS and track rules per namespace.
+- Installs default-deny firewall scaffold by default — host-global `COOLIFY-INTRA` + empty `COOLIFY-ALLOW` chains, with FORWARD jumps for every namespace subnet. Use `--skip-default-deny` to fall back to blanket-allow (mode A) for testing.
 
 ### Architecture (why this layout)
 
 The mgmt pool and container pool are **separate** so the Podman bridge can own the full container `/24` without conflicting with `wg0`. Pattern adopted from uncloud (psviderski/uncloud).
 
-WG config per host (e.g. host A):
+WG config per host (e.g. host A with two namespaces `default` + `alpha`):
 ```
 [Interface]
 Address    = 100.64.0.1/32      # mgmt IP, NOT in container pool
@@ -200,18 +200,18 @@ PrivateKey = <gen on host>
 
 [Peer]                          # one per other host
 PublicKey  = <peer pubkey>
-AllowedIPs = 100.64.0.2/32, 10.210.1.0/24    # peer mgmt + peer container subnet
+AllowedIPs = 100.64.0.2/32, 10.210.1.0/24, 10.220.1.0/24   # mgmt + every namespace subnet
 Endpoint   = <peer SSH ip>:51820
 ```
 
-Critical: `AllowedIPs` lists the peer's full `/24` so kernel routes `10.210.<peer>.0/24 dev wg0`. This is what makes cross-host container traffic work.
+Critical: `AllowedIPs` lists the peer's full per-namespace `/24`s so the kernel routes each namespace subnet via `wg0`. Namespace order is deterministic (sorted) so `wg0.conf` is stable across re-runs.
 
-Podman network `coolify-mesh` is created with `--disable-dns` — bridge gateway `10.210.X.1:53` is reserved for coold's embedded cluster DNS (see CONTROL_PLANE.md §5). Pre-alpha networks with `dns_enabled=true` are detected on re-run and recreated.
+Every namespace bridge `coolify-<ns>-mesh` is created with `--disable-dns --label io.coolify.managed=true --label io.coolify.namespace=<ns>` — the bridge gateway `:53` is reserved for coold's embedded cluster DNS (see CONTROL_PLANE.md §5). Pre-alpha networks with `dns_enabled=true` are detected on re-run and recreated.
 
-Firewall service (`coolify-mesh-fw.service`) installed unconditionally:
-- POSTROUTING `RETURN` rule prevents Podman MASQUERADE from rewriting container egress source on `wg0` (would break reverse routing because wg0 has no IP in the container subnet).
-- Mode A (`--skip-default-deny`): blanket FORWARD ACCEPT for container subnet.
-- Mode B (default): COOLIFY-INTRA chain (ESTABLISHED accept → COOLIFY-ALLOW → DROP), FORWARD jumps for `-s/-d <container-subnet>`. v5 control plane fills `COOLIFY-ALLOW`.
+Firewall service (`coolify-mesh-fw.service`) installed unconditionally and stays host-global:
+- POSTROUTING `RETURN` rule per namespace subnet prevents Podman MASQUERADE from rewriting container egress source on `wg0`.
+- Mode A (`--skip-default-deny`): blanket FORWARD ACCEPT for every namespace subnet.
+- Mode B (default): `COOLIFY-INTRA` chain (ESTABLISHED accept → `COOLIFY-ALLOW` → DROP), FORWARD jumps for `-s/-d <ns-subnet>` per namespace. v5 control plane (coold) fills `COOLIFY-ALLOW`.
 
 ### Cross-host vs intra-host firewall
 
@@ -242,7 +242,7 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-defaul
 | `--container-prefix` | `24` | per-host container subnet prefix |
 | `--wg-interface` | `wg0` | WG iface name on remote |
 | `--wg-listen-port` | `51820` | WG UDP port |
-| `--podman-network` | `coolify-mesh` | bridge network name |
+| `--namespaces` | `default` | comma-separated list of namespaces. Each creates its own `coolify-<ns>-mesh` bridge with its own per-host `/24` carved from `--container-pool` |
 | `--skip-default-deny` | false | skip the default-deny firewall scaffold. Default installs COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
 | `--coold-binary` | `$HOME/devel/coold/target/release/coold` | local path to the coold Linux/arm64 binary (required — uploaded to every host) |
 | `--corrosion-binary` | `$HOME/devel/corrosion/target/release/corrosion` | local path to the corrosion Linux/arm64 binary (required — uploaded to every host) |
@@ -252,21 +252,45 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-defaul
 | `--ssh-timeout` | `30s` | SSH connect timeout |
 | `--yes`, `-y` | false | skip alpha confirmation prompt |
 
+### Namespaces
+
+Namespaces are the tenancy unit the mesh carries. A namespace is:
+
+- **A podman bridge network** on every host, named `coolify-<ns>-mesh` (default → `coolify-default-mesh`), labelled `io.coolify.managed=true` + `io.coolify.namespace=<ns>`.
+- **A per-host `/<container-prefix>` subnet** carved from the shared `--container-pool`. Allocation is deterministic across `(namespace, host)` pairs so re-runs reproduce the same layout.
+- **A DNS view** coold serves on that bridge's gateway: records take the shape `<container>.<namespace>.coolify.internal`. Bare `<container>.coolify.internal` is deliberately NXDOMAIN — callers must fully qualify.
+- **A firewall tenant**: allow-rule cids hash the namespace in, so identical src/dst/proto/port tuples in different namespaces are distinct rules. iptables chains stay host-global (`COOLIFY-INTRA` / `COOLIFY-ALLOW`) for alpha; namespace isolation comes from separate podman bridges + namespace-qualified allow rules.
+
+Config knobs:
+
+- `coolify init --namespaces default,alpha,beta` provisions every namespace on every host in one pass. Re-running with an added namespace installs only the new per-namespace assets (bridge + FORWARD jumps + WG `AllowedIPs` refresh). Removing a namespace is **not** idempotent today — destroy/rebuild is the documented path for alpha.
+- `coolify firewall --namespace <ns>` (default `default`) scopes allow/revoke/list/containers to one namespace. `list` and `containers` also accept `--all-namespaces` for cross-namespace observability.
+- coold receives the full namespace list via `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,…` (see `internal/services/coold.go`). DNS binds and rule storage derive from that.
+
+Deliberately deferred (tracked in the active plan):
+
+- Per-namespace iptables chains. Host-global keeps kernel state simple; revisit when a user asks for kernel-enforced per-namespace default-deny.
+- Cross-namespace L2 bridging. Different namespaces = different podman bridges = no intra-host connectivity. Cross-namespace flows require explicit allow rules + dual-attach containers.
+- Wildcard / DNS search domain. Start strict; loosen once real workloads push back.
+
 ### Code layout
 
+- `cmd/common/` — flag structs shared between `init` and `firewall`.
+  - `sshmesh.go` — `SSHMeshFlags` + `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`.
+  - `meshnet.go` — `MeshNetFlags` (namespaces + container pool/prefix) + `BindMeshNetMultiFlags` (init-style: many namespaces) + `BindMeshNetSingleFlags` (firewall-style: one namespace) + `PodmanNetworkFor(ns)` + `ValidateNamespaces` / `ValidateNamespace` (DNS-label check).
 - `cmd/init/` — Cobra subcommands (`init`, `init plan`, `init apply`).
-  - `flags.go` — `InitFlags` struct + bindings + SSH client builder.
-  - `plan.go` — `runPlan`: parse pools, build SSH client, probe, plan, render.
+  - `flags.go` — `InitFlags` struct (embeds `common.SSHMeshFlags` + `common.MeshNetFlags`) + bindings + SSH client builder.
+  - `plan.go` — `runPlan`: parse pools, build SSH client, probe (per namespace), plan, render.
   - `apply.go` — `runApply`: alpha gate, probe, plan, execute, verify.
   - `init.go` — registers subcommands; package is `initcmd` (not `init` — Go reserved keyword).
 - `internal/wireguard/` — pure Go logic (no SSH, no I/O — `apply.go` is the SSH boundary).
-  - `state.go` — `ServerState`, `MeshState`, `DesiredMesh` types.
-  - `subnet.go` — `Allocate` (per-host subnets) + `AllocateMgmtIPs` (per-host /32) + conflict detection. Skips `.0` and broadcast for /32. Stable reuse + dedup-host check + warn-on-conflict.
-  - `config.go` — `RenderConfig` + `WriteConfigCommand` for `wg0.conf` (Address /32, AllowedIPs mgmt + container).
-  - `reconstruct.go` — `Probe` (SSH probes) + `Reconstruct` (parallel) + `parseConfigFile`.
-  - `plan.go` — `BuildPlan` (pure function: desired - actual = actions). `ActionType` enum.
-  - `apply.go` — `ApplyMesh` (2-phase fanout via `internal/ssh/fanout.go`). `runStep` helper.
-  - `firewall.go` — `coolify-mesh-fw.service` unit generator (two-mode: blanket allow vs default-deny).
+  - `state.go` — `ServerState` (with `Namespaces map[string]*NamespaceServerState`), `MeshState`, `DesiredMesh`.
+  - `subnet.go` — `Allocate` (per `(namespace, host)` pair: `map[ns]map[host]*net.IPNet`) + `AllocateMgmtIPs` (per-host /32) + conflict detection.
+  - `config.go` — `RenderConfig` + `WriteConfigCommand` for `wg0.conf` (Address /32, AllowedIPs = mgmt /32 + every peer namespace subnet, deterministic order).
+  - `reconstruct.go` — `Probe` (per-namespace podman network inspect + label read) + `Reconstruct` (parallel) + `parseConfigFile`.
+  - `plan.go` — `BuildPlan` (pure: desired - actual = actions). Podman actions carry a `Namespace` field; one create/recreate action per namespace per host.
+  - `apply.go` — `ApplyMesh` (2-phase fanout via `internal/ssh/fanout.go`). Phase 2 loops over namespaces per host; firewall unit takes the union of every namespace subnet.
+  - `firewall.go` — `coolify-mesh-fw.service` unit generator (two-mode: blanket allow vs default-deny, one FORWARD/POSTROUTING pair per namespace subnet).
 - `internal/ssh/` — generic SSH runner + parallel `ForEachServer[T]`.
 - `test/fixtures/wg/wg0.conf` — fixture for parser tests.
 
@@ -307,7 +331,7 @@ coold owns all kernel-rule + persistence logic (iptables/nft backend detection, 
 
 ### What it does
 
-- Discovers containers on the `coolify-mesh` bridge across all listed hosts (SSH + `podman ps`).
+- Discovers containers on the selected namespace's `coolify-<ns>-mesh` bridge (default `coolify-default-mesh`) across all listed hosts (SSH + `podman ps`). `--all-namespaces` fans out across every managed namespace.
 - `POST /api/v1/firewall/allow` / `DELETE /api/v1/firewall/allow/{id}` / `GET /api/v1/firewall/allow` against coold on the host that **owns the destination IP** (per `CONTROL_PLANE.md §3`: rules go on dst host).
 - Per-host bearer tokens fetched on demand from `/etc/coolify/api-token` (see `EnsureCooldAPITokenCommand` in `internal/services/coold.go` — each host generates its own random 32-byte hex token at install time).
 - Idempotent at the coold level: POST of an identical tuple returns the existing id; DELETE of an unknown id returns 204.
@@ -315,10 +339,10 @@ coold owns all kernel-rule + persistence logic (iptables/nft backend detection, 
 ### Subcommands
 
 ```bash
-coolify firewall containers   # discover containers on coolify-mesh across hosts (SSH+podman)
-coolify firewall list         # GET /allow on every host and merge
-coolify firewall allow --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
-coolify firewall revoke --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
+coolify firewall containers [--namespace <ns>] [--all-namespaces]    # discover containers on coolify-<ns>-mesh (SSH+podman)
+coolify firewall list [--namespace <ns>] [--all-namespaces]          # GET /allow on every host and merge
+coolify firewall allow   --namespace <ns> --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
+coolify firewall revoke  --namespace <ns> --from <ref> --to <ref> [--port N] [--proto tcp|udp] [--bidirectional]
 ```
 
 `<ref>` accepts: container name (unique across mesh), `host:name`, short 12-char podman ID, or raw IP.
@@ -341,7 +365,8 @@ Firewall-specific persistent:
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--podman-network` | `coolify-mesh` | bridge network name (must match `coolify init --podman-network`) — used by `containers` discovery |
+| `--namespace` | `default` | mesh namespace the command operates on. Derives podman network `coolify-<ns>-mesh` for container discovery and is sent to coold as part of every rule payload / list query |
+| `--all-namespaces` | false | applies to `list` + `containers` only — fans out across every namespace the mesh carries (`allow` / `revoke` still require a specific `--namespace`) |
 | `--coold-port` | `8443` | TCP port coold's REST API listens on (wg0 mgmt IP). Must match `COOLD_API_BIND` emitted by `internal/services/coold.go` |
 | `--coold-token` | `""` | **optional** bearer-token override (also reads `COOLIFY_COOLD_TOKEN` env). When empty (the default), the CLI SSHes each host and reads `/etc/coolify/api-token` — tokens are per-host, not centrally shared |
 
@@ -357,7 +382,7 @@ Allow/revoke local:
 
 ### Rule identity
 
-`cid = sha256(src|dst|proto|port)[:12]`. coold computes it server-side on POST and returns it in the body; the CLI surfaces it as the user-facing rule ID in `firewall list` output and uses it for DELETE. Stable across calls: `revoke --from … --to …` rebuilds the same cid and matches.
+`cid = sha256(namespace|src|dst|proto|port)[:12]`. Namespace defaults to `"default"` on the wire when empty so legacy coold peers keep working. coold computes the cid server-side on POST and returns it in the body; the CLI surfaces it as the user-facing rule ID in `firewall list` output and uses it for DELETE. Stable across calls: `revoke --namespace … --from … --to …` rebuilds the same cid and matches. Identical src/dst/proto/port tuples in different namespaces produce different cids and are managed independently.
 
 ### SSH-bounce transport
 
@@ -391,21 +416,22 @@ The cache is scoped to one CLI invocation — no on-disk caching.
 
 ### Code layout
 
-- `cmd/common/sshmesh.go` — shared SSH/mesh flag struct `SSHMeshFlags` + `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`. Embedded by both `cmd/init/InitFlags` and `cmd/firewall/FirewallFlags`.
+- `cmd/common/sshmesh.go` — shared SSH/mesh flag struct `SSHMeshFlags` (+ `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`).
+- `cmd/common/meshnet.go` — shared namespace plumbing: `MeshNetFlags` (namespaces + container pool/prefix), `BindMeshNetMultiFlags` (init: many), `BindMeshNetSingleFlags` (firewall: one), `PodmanNetworkFor(ns)`, `ValidateNamespaces` / `ValidateNamespace`.
 - `cmd/firewall/` — Cobra layer.
   - `firewall.go` — `NewFirewallCommand()` parent + subcommand registration.
-  - `flags.go` — `FirewallFlags` embeds `common.SSHMeshFlags` + `PodmanNetworkName` + `CooldToken` + `CooldPort`. `ResolveCooldToken()` returns the override or `""` (meaning "fetch per host").
-  - `allow.go` — `allowRevokeFlags`, `emitAllowRevoke` (discover → resolve → build rule → coold POST/DELETE per rule, resolving token per host).
-  - `list.go` — `emitList` fans out `CooldList` via `CooldListAll` using the per-host token resolver.
-  - `containers.go` — `containers` subcommand (still SSH+podman; no coold dependency).
+  - `flags.go` — `FirewallFlags` embeds `common.SSHMeshFlags` + `Namespace` + `AllNamespaces` + `CooldToken` + `CooldPort` + `WGInterface`. `PodmanNetworkName()` derives the bridge name from `Namespace`. `ResolveCooldToken()` returns the override or `""` (meaning "fetch per host").
+  - `allow.go` — `allowRevokeFlags`, `emitAllowRevoke` (discover → resolve → build rule with namespace → coold POST/DELETE per rule, resolving token per host).
+  - `list.go` — `emitList` fans out `CooldList` via `CooldListAll`, forwarding the namespace query param (or omitting it under `--all-namespaces`).
+  - `containers.go` — `containers` subcommand (still SSH+podman). Without `--all-namespaces`: single bridge. With `--all-namespaces`: SSH per host for `podman network ls --filter label=io.coolify.managed=true`, then per-namespace fanout.
   - `resolve.go` — `resolveEndpoint(ref, []Container)` (name / host:name / short-id / raw IP).
-  - `helpers.go` — `discoverAllViaPkg`, `tokenResolver` (per-host cached bearer-token closure).
+  - `helpers.go` — `discoverAllViaPkg`, `discoverAcrossNamespaces`, `discoverNamespacesOnHosts`, `tokenResolver` (per-host cached bearer-token closure).
 - `internal/firewall/` — REST client + discovery.
-  - `coold_client.go` — `FetchCooldToken`, `CooldApply`, `CooldRevoke`, `CooldList`, `CooldListAll`. `buildCurlAllow/Revoke/List`, `shellSingleQuote`, `mgmtIPScript` / `mgmtIPScriptSoft`. Consts `CooldAPIBasePath = "/api/v1/firewall"`, `CooldAPITokenPath = "/etc/coolify/api-token"`.
-  - `discover.go` — `Container`, `discoverScript`, `DiscoverContainers`, `DiscoverAll` (parallel).
-  - `rule.go` — `AllowRule`, `ComputeID`. Chain-rendering helpers were removed along with `apply.go` / `list.go` / `persist.go` (coold owns kernel + snapshot now).
-- `internal/models/firewall.go` — table/JSON row types (`ContainerRow`, `AllowRuleRow`).
-- `internal/services/coold.go` — `EnsureCooldAPITokenCommand` (installer writes `/etc/coolify/api-token`, mode 0600), `CooldServiceUnit` emits `COOLD_API_BIND=<mgmt-ip>:8443` + `COOLD_API_TOKEN_FILE=/etc/coolify/api-token`.
+  - `coold_client.go` — `FetchCooldToken`, `CooldApply`, `CooldRevoke`, `CooldList(… , namespace)`, `CooldListAll(… , namespace)`. `buildCurlAllow/Revoke/List`, `shellSingleQuote`, `mgmtIPScript` / `mgmtIPScriptSoft`. `cooldRulePayload` carries `namespace` (required on wire; empty normalized to `"default"`).
+  - `discover.go` — `Container` (with `Namespace`), `discoverScript`, `DiscoverContainers(… , namespace, network)`, `DiscoverAll`, `DiscoverAllNamespaces` (fan-out over a `networkFor(ns)` mapper).
+  - `rule.go` — `AllowRule` (with `Namespace`), `ComputeID(namespace, src, dst, proto, port)`.
+- `internal/models/firewall.go` — table/JSON row types (`ContainerRow`, `AllowRuleRow`) both now carry a `Namespace` column.
+- `internal/services/coold.go` — `EnsureCooldAPITokenCommand` (installer writes `/etc/coolify/api-token`, mode 0600), `CooldServiceUnit` emits `COOLD_API_BIND=<mgmt-ip>:8443` + `COOLD_API_TOKEN_FILE=/etc/coolify/api-token` + `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,…`.
 
 ### Key invariants
 
@@ -414,6 +440,7 @@ The cache is scoped to one CLI invocation — no on-disk caching.
 - **Per-host tokens by default**: each coold generates its own random token at install. `--coold-token` is an escape hatch for homogeneous test / CI environments, not the common path.
 - **Bidirectional is opt-in**: conntrack ESTABLISHED accept (installed by `coolify-mesh-fw.service`) handles reply packets for client-initiated flows. Only set `--bidirectional` for protocols that actually open new connections in both directions.
 - **Rule identity is hash, not UUID**: coold computes it server-side so CLI and any future writer agree on the same id for the same tuple.
+- **Namespace is part of identity**: `cid = sha256(namespace|src|dst|proto|port)[:12]`. Same tuple in two namespaces = two distinct rules. Empty-string namespace normalizes to `"default"` on the wire so legacy coold peers keep working.
 - **Transient token exposure on remote `/proc`**: `curl -H "Authorization: Bearer $TOKEN"` is visible in `/proc/<curl-pid>/cmdline` for the ~ms lifetime of the call, root-only. Acceptable for alpha; TLS + stdin-fed tokens are a follow-up.
 
 ### Testing firewall
@@ -426,14 +453,15 @@ Uses `fakeCooldRunner` / `cmdFakeRunner` pattern (substring → canned stdout ma
 
 ### End-to-end flow (verified on real hosts)
 
-After `coolify init apply --servers A,B ...` ran (coold must be up):
+After `coolify init apply --servers A,B --namespaces default,alpha ...` ran (coold must be up):
 
-1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA`.
-2. `coolify firewall containers --servers A,B --ssh-key KEY` → discovery table.
-3. `coolify firewall allow --servers A,B --ssh-key KEY --from client --to web --port 80` → CLI SSH-fetches each host's token, POSTs to coold on the dst host, traffic flows.
-4. `coolify firewall list --servers A,B --ssh-key KEY` → merged rules from every host with their coold-assigned `cid:…` ID.
-5. `coolify firewall revoke …` → coold DELETE, rule gone, traffic DROPped again.
-6. Reboot → `coolify-mesh-allow.service` (installed by coold) restores from `/etc/coolify/allow.rules`.
+1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA` in every namespace.
+2. `coolify firewall containers --servers A,B --ssh-key KEY --all-namespaces` → discovery table columned by namespace.
+3. `coolify firewall allow --servers A,B --ssh-key KEY --namespace default --from client --to web --port 80` → CLI SSH-fetches each host's token, POSTs to coold (body includes `"namespace":"default"`), traffic flows in the `default` namespace only.
+4. Same tuple with `--namespace alpha` → separate cid, separate rule; doesn't affect `default`.
+5. `coolify firewall list --servers A,B --ssh-key KEY --all-namespaces` → merged rules across every namespace on every host with their coold-assigned `cid:…` IDs.
+6. `coolify firewall revoke --namespace <ns> …` → coold DELETE, rule gone, traffic DROPped again.
+7. Reboot → `coolify-mesh-allow.service` (installed by coold) restores from `/etc/coolify/allow.rules`.
 
 Add `--coold-token <hex>` only when every host was bootstrapped with the same token (CI fixtures, homogeneous test clusters).
 

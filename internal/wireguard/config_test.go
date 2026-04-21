@@ -23,16 +23,19 @@ func TestRenderConfig_WithPeers(t *testing.T) {
 	mgmtIP := net.ParseIP("100.64.0.1").To4()
 	peers := []PeerConfig{
 		{
-			Endpoint:        "203.0.113.11",
-			PublicKey:       "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-			MgmtIP:          net.ParseIP("100.64.0.1").To4(),
-			ContainerSubnet: mustParseCIDR("10.210.1.0/24"),
+			Endpoint:         "203.0.113.11",
+			PublicKey:        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+			MgmtIP:           net.ParseIP("100.64.0.1").To4(),
+			ContainerSubnets: []*net.IPNet{mustParseCIDR("10.210.1.0/24")},
 		},
 		{
-			Endpoint:        "203.0.113.12",
-			PublicKey:       "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
-			MgmtIP:          net.ParseIP("100.64.0.2").To4(),
-			ContainerSubnet: mustParseCIDR("10.210.2.0/24"),
+			Endpoint:  "203.0.113.12",
+			PublicKey: "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+			MgmtIP:    net.ParseIP("100.64.0.2").To4(),
+			ContainerSubnets: []*net.IPNet{
+				mustParseCIDR("10.210.2.0/24"),
+				mustParseCIDR("10.220.2.0/24"),
+			},
 		},
 	}
 
@@ -44,17 +47,18 @@ func TestRenderConfig_WithPeers(t *testing.T) {
 	assert.Contains(t, got, "AllowedIPs = 100.64.0.1/32, 10.210.1.0/24")
 	assert.Contains(t, got, "PersistentKeepalive = 25")
 	assert.Contains(t, got, "PublicKey = CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=")
-	assert.Contains(t, got, "AllowedIPs = 100.64.0.2/32, 10.210.2.0/24")
+	// Multi-namespace peer lists every namespace subnet after the mgmt /32.
+	assert.Contains(t, got, "AllowedIPs = 100.64.0.2/32, 10.210.2.0/24, 10.220.2.0/24")
 }
 
 func TestWriteConfigCommand_ContainsPrivkeyRead(t *testing.T) {
 	mgmtIP := net.ParseIP("100.64.0.1").To4()
 	peers := []PeerConfig{
 		{
-			Endpoint:        "203.0.113.11",
-			PublicKey:       "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-			MgmtIP:          net.ParseIP("100.64.0.1").To4(),
-			ContainerSubnet: mustParseCIDR("10.210.1.0/24"),
+			Endpoint:         "203.0.113.11",
+			PublicKey:        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+			MgmtIP:           net.ParseIP("100.64.0.1").To4(),
+			ContainerSubnets: []*net.IPNet{mustParseCIDR("10.210.1.0/24")},
 		},
 	}
 
@@ -63,6 +67,7 @@ func TestWriteConfigCommand_ContainsPrivkeyRead(t *testing.T) {
 	assert.Contains(t, cmd, "cat /etc/wireguard/privatekey")
 	assert.Contains(t, cmd, "$PRIVKEY")
 	assert.Contains(t, cmd, ".conf.tmp")
+	assert.Contains(t, cmd, "chmod 600 /etc/wireguard/wg0.conf.tmp")
 	assert.Contains(t, cmd, "mv /etc/wireguard/wg0.conf.tmp /etc/wireguard/wg0.conf")
 	// Host Address is the mgmt /32 — outside the container pool.
 	assert.Contains(t, cmd, "Address = 100.64.0.1/32")

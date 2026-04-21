@@ -156,6 +156,135 @@ func Allocate(
 	return result, warnings, nil
 }
 
+// AllocateNamespaced assigns a per-host /<hostPrefix> subnet for every
+// (namespace, host) pair in `namespaces × hosts`, carving them from a single
+// shared pool. Stable: existing valid assignments are preserved so re-runs
+// reproduce the same subnets. Invalid or duplicate existing assignments
+// produce a warning and get reassigned to the next free block.
+//
+// Iteration order is deterministic (namespaces then hosts as passed in),
+// which keeps warnings and subnet layout reproducible for tests.
+//
+// Returns nested map[namespace][host] = *net.IPNet.
+func AllocateNamespaced(
+	pool *net.IPNet,
+	hostPrefix int,
+	existing map[string]map[string]*net.IPNet,
+	namespaces []string,
+	hosts []string,
+) (map[string]map[string]*net.IPNet, []Warning, error) {
+	pool4 := pool.IP.To4()
+	if pool4 == nil {
+		return nil, nil, fmt.Errorf("only IPv4 pools are supported")
+	}
+
+	// Dedup hosts (user input bug).
+	hostCount := make(map[string]int, len(hosts))
+	for _, h := range hosts {
+		hostCount[h]++
+	}
+	for h, n := range hostCount {
+		if n > 1 {
+			return nil, nil, fmt.Errorf("duplicate host in --servers: %s", h)
+		}
+	}
+
+	// Dedup namespaces.
+	nsCount := make(map[string]int, len(namespaces))
+	for _, ns := range namespaces {
+		nsCount[ns]++
+	}
+	for ns, n := range nsCount {
+		if n > 1 {
+			return nil, nil, fmt.Errorf("duplicate namespace in --namespaces: %s", ns)
+		}
+	}
+
+	pool4Network := ipToUint32(pool4)
+	poolOnes, poolBits := pool.Mask.Size()
+	poolHostBits := poolBits - poolOnes
+	pool4Broadcast := pool4Network | (uint32(1)<<uint(poolHostBits) - 1)
+
+	result := make(map[string]map[string]*net.IPNet, len(namespaces))
+	for _, ns := range namespaces {
+		result[ns] = make(map[string]*net.IPNet, len(hosts))
+	}
+	usedNetworks := make(map[uint32]bool)
+	subnetClaim := make(map[uint32]string) // "ns/host" for conflict messages
+	var warnings []Warning
+
+	// 1. Seed from existing assignments in deterministic order.
+	nsSorted := append([]string(nil), namespaces...)
+	sort.Strings(nsSorted)
+	for _, ns := range nsSorted {
+		hostMap, ok := existing[ns]
+		if !ok {
+			continue
+		}
+		hostKeys := make([]string, 0, len(hostMap))
+		for h := range hostMap {
+			hostKeys = append(hostKeys, h)
+		}
+		sort.Strings(hostKeys)
+		for _, host := range hostKeys {
+			subnet := hostMap[host]
+			if subnet == nil {
+				continue
+			}
+			subnet4 := subnet.IP.To4()
+			ones, _ := subnet.Mask.Size()
+			if subnet4 == nil || !pool.Contains(subnet4) || ones != hostPrefix {
+				warnings = append(warnings, Warning{
+					Host:   host,
+					Reason: fmt.Sprintf("existing subnet %s in namespace %q is not a /%d inside pool %s, reassigning", subnet, ns, hostPrefix, pool),
+				})
+				continue
+			}
+			networkU32 := ipToUint32(subnet4)
+			if claimant, dup := subnetClaim[networkU32]; dup {
+				warnings = append(warnings, Warning{
+					Host:   host,
+					Reason: fmt.Sprintf("duplicate subnet %s in namespace %q (already claimed by %s), reassigning", subnet, ns, claimant),
+				})
+				continue
+			}
+			subnetClaim[networkU32] = ns + "/" + host
+			usedNetworks[networkU32] = true
+			result[ns][host] = cloneIPNet(subnet)
+		}
+	}
+
+	// 2. Assign remaining (ns, host) pairs in input order.
+	hostSubnetSize := 32 - hostPrefix
+	step := uint32(1) << uint(hostSubnetSize)
+	nextFree := func() (*net.IPNet, error) {
+		for u := pool4Network; u < pool4Broadcast; u += step {
+			if !usedNetworks[u] {
+				return &net.IPNet{IP: uint32ToIP(u), Mask: net.CIDRMask(hostPrefix, 32)}, nil
+			}
+		}
+		return nil, fmt.Errorf("pool %s is exhausted (no free /%d subnets)", pool, hostPrefix)
+	}
+
+	for _, ns := range namespaces {
+		for _, host := range hosts {
+			if _, ok := result[ns][host]; ok {
+				continue
+			}
+			subnet, err := nextFree()
+			if err != nil {
+				return nil, warnings, fmt.Errorf("allocating subnet for %s/%s: %w", ns, host, err)
+			}
+			u := ipToUint32(subnet.IP.To4())
+			usedNetworks[u] = true
+			subnetClaim[u] = ns + "/" + host
+			result[ns][host] = subnet
+		}
+	}
+
+	return result, warnings, nil
+}
+
 // AllocateMgmtIPs assigns a /32 management IP to every host in hosts from pool.
 // Wraps Allocate by promoting/demoting between net.IP and *net.IPNet.
 func AllocateMgmtIPs(

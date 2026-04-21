@@ -46,13 +46,15 @@ func FetchCooldToken(
 
 // cooldRulePayload mirrors the JSON shape coold's REST API expects on POST
 // and returns on GET /allow. Kept aligned with coold/src/firewall/rule.rs:
-// src/dst are string IPs, proto/port/id are omitted when absent.
+// namespace is required (defaults to "default" on the wire), src/dst are
+// string IPs, proto/port/id are omitted when absent.
 type cooldRulePayload struct {
-	Src   string `json:"src"`
-	Dst   string `json:"dst"`
-	Proto string `json:"proto,omitempty"`
-	Port  uint16 `json:"port,omitempty"`
-	ID    string `json:"id,omitempty"`
+	Namespace string `json:"namespace"`
+	Src       string `json:"src"`
+	Dst       string `json:"dst"`
+	Proto     string `json:"proto,omitempty"`
+	Port      uint16 `json:"port,omitempty"`
+	ID        string `json:"id,omitempty"`
 }
 
 // toAllowRule converts a payload coming back from coold into the CLI's
@@ -64,7 +66,17 @@ func (p cooldRulePayload) toAllowRule() (AllowRule, bool) {
 	if src == nil || dst == nil {
 		return AllowRule{}, false
 	}
-	r := AllowRule{Src: src, Dst: dst, Proto: p.Proto, Port: int(p.Port)}
+	ns := p.Namespace
+	if ns == "" {
+		ns = "default"
+	}
+	r := AllowRule{
+		Namespace: ns,
+		Src:       src,
+		Dst:       dst,
+		Proto:     p.Proto,
+		Port:      int(p.Port),
+	}
 	if p.ID != "" {
 		r.Comment = "cid:" + p.ID
 	}
@@ -73,8 +85,19 @@ func (p cooldRulePayload) toAllowRule() (AllowRule, bool) {
 
 // allowRulePayload converts an AllowRule into the wire shape coold accepts.
 // coold normalizes and computes the id itself, so we send only the tuple.
+// Empty namespace is materialized as "default" on the wire so older coold
+// builds with a default-only schema keep working.
 func allowRulePayload(r AllowRule) cooldRulePayload {
-	p := cooldRulePayload{Src: r.Src.String(), Dst: r.Dst.String(), Proto: r.Proto}
+	ns := r.Namespace
+	if ns == "" {
+		ns = "default"
+	}
+	p := cooldRulePayload{
+		Namespace: ns,
+		Src:       r.Src.String(),
+		Dst:       r.Dst.String(),
+		Proto:     r.Proto,
+	}
 	if r.Port > 0 {
 		p.Port = uint16(r.Port)
 	}
@@ -126,16 +149,18 @@ func CooldRevoke(
 }
 
 // CooldList GETs coold's /allow endpoint on host and returns the parsed
-// rules. Missing coold (no wg0 interface) is treated as an empty slice so a
-// partially-deployed mesh doesn't break `firewall list`.
+// rules. An empty namespace means "all namespaces"; a non-empty value is
+// forwarded to coold as `?namespace=<ns>`. Missing coold (no wg0 interface)
+// is treated as an empty slice so a partially-deployed mesh doesn't break
+// `firewall list`.
 func CooldList(
 	ctx context.Context,
 	runner ssh.Runner,
 	host, user string,
 	sshPort, cooldPort int,
-	iface, token string,
+	iface, token, namespace string,
 ) ([]AllowRule, error) {
-	cmd := buildCurlList(iface, token, cooldPort)
+	cmd := buildCurlList(iface, token, cooldPort, namespace)
 	stdout, stderr, err := runner.Run(ctx, host, user, sshPort, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("coold list on %s: %w (stderr: %s)",
@@ -165,7 +190,8 @@ func CooldList(
 // CooldListAll fans CooldList across every host in parallel and returns a
 // stably-sorted flattened slice plus the per-host results. tokenFor is
 // called once per host on its worker goroutine — fail here and the host
-// surfaces as a ServerResult.Err instead of polluting the rule slice.
+// surfaces as a ServerResult.Err instead of polluting the rule slice. An
+// empty namespace forwards `?namespace=` omitted (coold returns all).
 func CooldListAll(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -175,6 +201,7 @@ func CooldListAll(
 	iface string,
 	tokenFor func(host string) (string, error),
 	concurrency int,
+	namespace string,
 ) ([]AllowRule, []ssh.ServerResult[[]AllowRule]) {
 	results := ssh.ForEachServer(ctx, hosts, concurrency,
 		func(ctx context.Context, host string) ([]AllowRule, error) {
@@ -182,7 +209,7 @@ func CooldListAll(
 			if err != nil {
 				return nil, err
 			}
-			return CooldList(ctx, runner, host, user, sshPort, cooldPort, iface, token)
+			return CooldList(ctx, runner, host, user, sshPort, cooldPort, iface, token, namespace)
 		})
 	var all []AllowRule
 	for _, r := range results {
@@ -191,6 +218,9 @@ func CooldListAll(
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].Host != all[j].Host {
 			return all[i].Host < all[j].Host
+		}
+		if all[i].Namespace != all[j].Namespace {
+			return all[i].Namespace < all[j].Namespace
 		}
 		si, sj := all[i].Src.String(), all[j].Src.String()
 		if si != sj {
@@ -264,10 +294,15 @@ func buildCurlRevoke(iface, token string, port int, id string) string {
 
 // buildCurlList returns the shell one-liner that GETs /allow. A missing
 // WG interface returns an empty JSON array so the caller sees "no rules"
-// instead of a transport error.
-func buildCurlList(iface, token string, port int) string {
+// instead of a transport error. A non-empty namespace is forwarded as
+// ?namespace=<ns>.
+func buildCurlList(iface, token string, port int, namespace string) string {
+	query := ""
+	if namespace != "" {
+		query = "?namespace=" + namespace
+	}
 	return mgmtIPScriptSoft(iface) +
 		`curl -fsS --max-time 10 ` +
 		`-H ` + shellSingleQuote("Authorization: Bearer "+token) + ` ` +
-		fmt.Sprintf(`"http://$MGMT:%d%s/allow"`, port, CooldAPIBasePath)
+		fmt.Sprintf(`"http://$MGMT:%d%s/allow%s"`, port, CooldAPIBasePath, query)
 }

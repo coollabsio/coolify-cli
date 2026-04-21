@@ -112,16 +112,24 @@ func TestMeshState_AssignedMgmtIPs(t *testing.T) {
 func TestMeshState_AssignedContainerSubnets(t *testing.T) {
 	mesh := MeshState{
 		Servers: map[string]*ServerState{
-			"a": {Host: "a", ContainerSubnet: mustParseCIDR("10.210.0.0/24")},
-			"b": {Host: "b", ContainerSubnet: nil},
-			"c": {Host: "c", ContainerSubnet: mustParseCIDR("10.210.2.0/24")},
+			"a": {Host: "a", Namespaces: map[string]*NamespaceServerState{
+				DefaultNamespace: {Namespace: DefaultNamespace, ContainerSubnet: mustParseCIDR("10.210.0.0/24")},
+				"alpha":          {Namespace: "alpha", ContainerSubnet: mustParseCIDR("10.220.0.0/24")},
+			}},
+			"b": {Host: "b", Namespaces: map[string]*NamespaceServerState{
+				DefaultNamespace: {Namespace: DefaultNamespace}, // ContainerSubnet nil
+			}},
+			"c": {Host: "c", Namespaces: map[string]*NamespaceServerState{
+				DefaultNamespace: {Namespace: DefaultNamespace, ContainerSubnet: mustParseCIDR("10.210.2.0/24")},
+			}},
 		},
 	}
 	subs := mesh.AssignedContainerSubnets()
-	assert.Len(t, subs, 2)
-	assert.Contains(t, subs, "a")
-	assert.NotContains(t, subs, "b")
-	assert.Contains(t, subs, "c")
+	// Nested: namespace → host → subnet.
+	assert.Contains(t, subs[DefaultNamespace], "a")
+	assert.NotContains(t, subs[DefaultNamespace], "b")
+	assert.Contains(t, subs[DefaultNamespace], "c")
+	assert.Contains(t, subs["alpha"], "a")
 }
 
 func TestTruncateKey(t *testing.T) {

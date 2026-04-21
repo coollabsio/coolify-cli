@@ -55,11 +55,20 @@ func TestBuildCurlRevoke_Shape(t *testing.T) {
 }
 
 func TestBuildCurlList_SoftMgmtIP(t *testing.T) {
-	cmd := buildCurlList("wg0", "tok-xyz", 8443)
+	cmd := buildCurlList("wg0", "tok-xyz", 8443, "")
 	// Missing wg0 yields an empty array and success exit.
 	assert.Contains(t, cmd, `echo '[]'; exit 0`)
 	assert.Contains(t, cmd, "Authorization: Bearer tok-xyz")
 	assert.Contains(t, cmd, `:8443/api/v1/firewall/allow`)
+	// Empty namespace → no query string.
+	assert.NotContains(t, cmd, "namespace=")
+}
+
+// TestBuildCurlList_WithNamespace verifies that a non-empty namespace is
+// forwarded as ?namespace=<ns> so coold can filter on its side.
+func TestBuildCurlList_WithNamespace(t *testing.T) {
+	cmd := buildCurlList("wg0", "tok-xyz", 8443, "alpha")
+	assert.Contains(t, cmd, `:8443/api/v1/firewall/allow?namespace=alpha`)
 }
 
 func TestCooldApply_SendsJSONPayload(t *testing.T) {
@@ -104,7 +113,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 			{"src":"10.0.0.3","dst":"10.0.0.4"}
 		]`,
 	}}
-	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t")
+	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
 	assert.NoError(t, err)
 	assert.Len(t, rules, 2)
 	assert.Equal(t, "h1", rules[0].Host)
@@ -119,7 +128,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 
 func TestCooldList_EmptyBody(t *testing.T) {
 	fr := &fakeCooldRunner{}
-	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t")
+	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
 	assert.NoError(t, err)
 	assert.Empty(t, rules)
 }
@@ -132,7 +141,7 @@ func TestCooldListAll_SortsByHost(t *testing.T) {
 	}}
 	tokenFor := func(string) (string, error) { return "t", nil }
 	rules, results := CooldListAll(context.Background(), fr,
-		[]string{"hB", "hA"}, "root", 22, 8443, "wg0", tokenFor, 2)
+		[]string{"hB", "hA"}, "root", 22, 8443, "wg0", tokenFor, 2, "")
 	assert.Len(t, rules, 2)
 	assert.Equal(t, "hA", rules[0].Host)
 	assert.Equal(t, "hB", rules[1].Host)
@@ -166,7 +175,7 @@ func TestCooldListAll_PropagatesTokenFetchError(t *testing.T) {
 		return "t", nil
 	}
 	_, results := CooldListAll(context.Background(), fr,
-		[]string{"hOk", "hBad"}, "root", 22, 8443, "wg0", tokenFor, 2)
+		[]string{"hOk", "hBad"}, "root", 22, 8443, "wg0", tokenFor, 2, "")
 	var okCount, errCount int
 	for _, r := range results {
 		if r.Err != nil {

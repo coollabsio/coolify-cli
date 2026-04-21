@@ -10,12 +10,14 @@ import (
 	"github.com/coollabsio/coolify-cli/internal/ssh"
 )
 
-// Container is a single running podman container on one mesh host.
+// Container is a single running podman container on one mesh host and one
+// namespace (podman bridge network).
 type Container struct {
-	Host string // SSH host the container runs on
-	ID   string // short (12-char) podman ID
-	Name string // podman container name
-	IP   net.IP // IP on the coolify-mesh bridge network
+	Host      string // SSH host the container runs on
+	Namespace string // mesh namespace (podman network is coolify-<ns>-mesh)
+	ID        string // short (12-char) podman ID
+	Name      string // podman container name
+	IP        net.IP // IP on the coolify-<ns>-mesh bridge network
 }
 
 // discoverScript prints one `id|name|ip` line per running container on the
@@ -55,13 +57,13 @@ func ParseDiscoverLine(line string) (id, name string, ip net.IP, ok bool) {
 }
 
 // DiscoverContainers SSHes into host and returns every container on
-// networkName with its bridge IP.
+// networkName (the podman bridge backing namespace) with its bridge IP.
 func DiscoverContainers(
 	ctx context.Context,
 	runner ssh.Runner,
 	host, user string,
 	port int,
-	networkName string,
+	namespace, networkName string,
 ) ([]Container, error) {
 	stdout, _, err := runner.Run(ctx, host, user, port, discoverScript(networkName))
 	if err != nil {
@@ -73,11 +75,17 @@ func DiscoverContainers(
 		if !ok {
 			continue
 		}
-		out = append(out, Container{Host: host, ID: id, Name: name, IP: ip})
+		out = append(out, Container{
+			Host: host, Namespace: namespace,
+			ID: id, Name: name, IP: ip,
+		})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Host != out[j].Host {
 			return out[i].Host < out[j].Host
+		}
+		if out[i].Namespace != out[j].Namespace {
+			return out[i].Namespace < out[j].Namespace
 		}
 		return out[i].Name < out[j].Name
 	})
@@ -93,12 +101,12 @@ func DiscoverAll(
 	hosts []string,
 	user string,
 	port int,
-	networkName string,
+	namespace, networkName string,
 	concurrency int,
 ) ([]Container, []ssh.ServerResult[[]Container]) {
 	results := ssh.ForEachServer(ctx, hosts, concurrency,
 		func(ctx context.Context, host string) ([]Container, error) {
-			return DiscoverContainers(ctx, runner, host, user, port, networkName)
+			return DiscoverContainers(ctx, runner, host, user, port, namespace, networkName)
 		})
 	var all []Container
 	for _, r := range results {
@@ -108,7 +116,58 @@ func DiscoverAll(
 		if all[i].Host != all[j].Host {
 			return all[i].Host < all[j].Host
 		}
+		if all[i].Namespace != all[j].Namespace {
+			return all[i].Namespace < all[j].Namespace
+		}
 		return all[i].Name < all[j].Name
 	})
 	return all, results
+}
+
+// DiscoverAllNamespaces runs DiscoverAll for every (namespace, network) pair
+// and merges the results. Used by `containers --all-namespaces` and by the
+// allow/revoke resolver so references can be matched across every namespace
+// the user might have set up on the mesh.
+func DiscoverAllNamespaces(
+	ctx context.Context,
+	runner ssh.Runner,
+	hosts []string,
+	user string,
+	port int,
+	namespaces []string,
+	networkFor func(ns string) string,
+	concurrency int,
+) ([]Container, []ssh.ServerResult[[]Container]) {
+	var (
+		all         []Container
+		allResults  []ssh.ServerResult[[]Container]
+		seenHosts   = map[string]struct{}{}
+	)
+	for _, ns := range namespaces {
+		nsContainers, results := DiscoverAll(ctx, runner, hosts, user, port,
+			ns, networkFor(ns), concurrency)
+		all = append(all, nsContainers...)
+		for _, r := range results {
+			// Keep only the first error per host to avoid N-duplicate warnings
+			// (most errors — SSH failures — are host-level, not per-namespace).
+			if r.Err == nil {
+				continue
+			}
+			if _, ok := seenHosts[r.Host]; ok {
+				continue
+			}
+			seenHosts[r.Host] = struct{}{}
+			allResults = append(allResults, r)
+		}
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].Host != all[j].Host {
+			return all[i].Host < all[j].Host
+		}
+		if all[i].Namespace != all[j].Namespace {
+			return all[i].Namespace < all[j].Namespace
+		}
+		return all[i].Name < all[j].Name
+	})
+	return all, allResults
 }

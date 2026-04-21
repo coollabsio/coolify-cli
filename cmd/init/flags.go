@@ -13,13 +13,11 @@ import (
 // InitFlags holds all flags shared between `plan` and `apply`.
 type InitFlags struct {
 	common.SSHMeshFlags
+	common.MeshNetFlags
 
 	WGMgmtPool          string
-	ContainerPool       string
-	ContainerPrefix     int
 	WGInterface         string
 	WGListenPort        int
-	PodmanNetworkName   string
 	SkipDefaultDeny     bool
 	CooldBinaryPath     string
 	CorrosionBinaryPath string
@@ -31,21 +29,16 @@ type InitFlags struct {
 // bindInitFlags registers all shared flags as PersistentFlags on cmd.
 func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 	common.BindSSHMeshFlags(cmd, &f.SSHMeshFlags)
+	common.BindMeshNetMultiFlags(cmd, &f.MeshNetFlags)
 
 	pf := cmd.PersistentFlags()
 
 	pf.StringVar(&f.WGMgmtPool, "wg-mgmt-pool", "100.64.0.0/16",
 		"WireGuard management address pool — each host gets a /32 from here, assigned to wg0")
-	pf.StringVar(&f.ContainerPool, "container-pool", "10.210.0.0/16",
-		"Container address pool — each host gets a /<container-prefix> from here, owned by the Podman bridge")
-	pf.IntVar(&f.ContainerPrefix, "container-prefix", 24,
-		"Prefix length of the per-host container subnet (e.g. 24 → /24, 254 usable container IPs per host)")
 	pf.StringVar(&f.WGInterface, "wg-interface", "wg0",
 		"WireGuard interface name on the remote hosts")
 	pf.IntVar(&f.WGListenPort, "wg-listen-port", 51820,
 		"WireGuard UDP listen port")
-	pf.StringVar(&f.PodmanNetworkName, "podman-network", "coolify-mesh",
-		"Name of the Podman bridge network created on each host")
 	pf.BoolVar(&f.SkipDefaultDeny, "skip-default-deny", false,
 		"Skip installing the default-deny iptables scaffold (COOLIFY-INTRA / COOLIFY-ALLOW). By default, cross-host container traffic is blocked except where coold installs allow rules. Intra-host (same bridge) traffic is NOT enforced — defer to per-app podman networks")
 	pf.StringVar(&f.CooldBinaryPath, "coold-binary",

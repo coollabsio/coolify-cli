@@ -49,28 +49,33 @@ const enableIPForwardCmd = `sysctl -w net.ipv4.ip_forward=1 && ` +
 	`mkdir -p /etc/sysctl.d && ` +
 	`echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-coolify-mesh.conf`
 
-// podmanNetCreateCmd creates a Podman bridge network bound to the host's
-// container subnet. Idempotent: skips if the network already exists.
-// The bridge gateway is MachineIP(subnet) (the .1 of the /24).
+// podmanNetCreateCmd creates a per-namespace Podman bridge network. Idempotent:
+// skips if the network already exists. The bridge gateway is MachineIP(subnet)
+// (the .1 of the subnet).
 //
 // --disable-dns prevents netavark from starting aardvark-dns on the bridge
 // gateway IP:53 — coold owns that socket for cluster-wide service discovery
-// (see CONTROL_PLANE.md §5).
-func podmanNetCreateCmd(name string, subnet *net.IPNet, gateway net.IP) string {
+// (see CONTROL_PLANE.md §5). Labels mark the network as ours + carry its
+// namespace so `podman network inspect` drift checks can assert it.
+func podmanNetCreateCmd(name, namespace string, subnet *net.IPNet, gateway net.IP) string {
 	return fmt.Sprintf(
 		`podman network exists %s 2>/dev/null && echo "network exists, skipping" || `+
-			`podman network create --driver bridge --disable-dns --subnet=%s --gateway=%s %s`,
-		name, subnet, gateway, name)
+			`podman network create --driver bridge --disable-dns `+
+			`--label io.coolify.managed=true --label io.coolify.namespace=%s `+
+			`--subnet=%s --gateway=%s %s`,
+		name, namespace, subnet, gateway, name)
 }
 
-// podmanNetRecreateCmd drops and recreates the Podman bridge network to clear
-// a dns_enabled=true drift (pre-alpha deployments created the network without
-// --disable-dns). Uses `rm -f` to detach any attached containers first.
-func podmanNetRecreateCmd(name string, subnet *net.IPNet, gateway net.IP) string {
+// podmanNetRecreateCmd drops and recreates a per-namespace Podman bridge
+// network to clear drift (dns_enabled=true, subnet mismatch, missing label).
+// Uses `rm -f` to detach any attached containers first.
+func podmanNetRecreateCmd(name, namespace string, subnet *net.IPNet, gateway net.IP) string {
 	return fmt.Sprintf(
 		`podman network rm -f %s 2>&1 && `+
-			`podman network create --driver bridge --disable-dns --subnet=%s --gateway=%s %s`,
-		name, subnet, gateway, name)
+			`podman network create --driver bridge --disable-dns `+
+			`--label io.coolify.managed=true --label io.coolify.namespace=%s `+
+			`--subnet=%s --gateway=%s %s`,
+		name, namespace, subnet, gateway, name)
 }
 
 // runStep executes a single shell command on a remote host, appends an
@@ -82,8 +87,7 @@ func runStep(
 	port int,
 	out *[]ActionResult,
 	atype ActionType,
-	cmd string,
-	errFmt string,
+	namespace, cmd, errFmt string,
 ) error {
 	stdout, stderr, err := runner.Run(ctx, host, user, port, cmd)
 	detail := ""
@@ -97,7 +101,7 @@ func runStep(
 		}
 	}
 	*out = append(*out, ActionResult{
-		Action: PlannedAction{Host: host, Type: atype, Detail: detail},
+		Action: PlannedAction{Host: host, Namespace: namespace, Type: atype, Detail: detail},
 		Err:    err,
 	})
 	if err != nil {
@@ -112,7 +116,8 @@ func runStep(
 //     enable podman socket + IP forwarding.
 //   - Re-probe to collect fresh public keys.
 //   - Phase 2 (per-server, parallel): write WG config, enable/reload service,
-//     create Podman network, install firewall service.
+//     create per-namespace Podman networks, install firewall service.
+//   - Phase 3 (per-server, parallel, optional): upload + enable corrosion/coold.
 func ApplyMesh(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -143,7 +148,7 @@ func ApplyMesh(
 	}
 
 	fresh, err := Reconstruct(ctx, runner, desired.Hosts, user, port,
-		desired.Interface, desired.PodmanNetworkName, concurrency)
+		desired.Interface, desired.Namespaces, concurrency)
 	if err != nil {
 		return results, fmt.Errorf("re-probe after phase 1: %w", err)
 	}
@@ -152,8 +157,8 @@ func ApplyMesh(
 	if err != nil {
 		return results, fmt.Errorf("mgmt IP allocation: %w", err)
 	}
-	containerAssignments, _, err := Allocate(desired.ContainerPool, desired.ContainerPrefix,
-		fresh.AssignedContainerSubnets(), desired.Hosts)
+	containerAssignments, _, err := AllocateNamespaced(desired.ContainerPool, desired.ContainerPrefix,
+		fresh.AssignedContainerSubnets(), desired.Namespaces, desired.Hosts)
 	if err != nil {
 		return results, fmt.Errorf("container subnet allocation: %w", err)
 	}
@@ -217,7 +222,7 @@ func phase1Server(
 
 	if !state.Installed {
 		if err := runStep(ctx, runner, host, user, port, &out,
-			ActionInstallWG, aptInstallCmd,
+			ActionInstallWG, "", aptInstallCmd,
 			fmt.Sprintf("install WireGuard on %s", host)); err != nil {
 			return out, err
 		}
@@ -228,7 +233,7 @@ func phase1Server(
 			`wg genkey | tee /etc/wireguard/privatekey | wg pubkey | tee /etc/wireguard/publickey && ` +
 			`chmod 600 /etc/wireguard/privatekey`
 		if err := runStep(ctx, runner, host, user, port, &out,
-			ActionGenKeyPair, genCmd,
+			ActionGenKeyPair, "", genCmd,
 			fmt.Sprintf("generate keypair on %s", host)); err != nil {
 			return out, err
 		}
@@ -237,21 +242,21 @@ func phase1Server(
 	if desired.InstallPodman {
 		if !state.PodmanInstalled {
 			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionInstallPodman, podmanInstallCmd,
+				ActionInstallPodman, "", podmanInstallCmd,
 				fmt.Sprintf("install Podman on %s", host)); err != nil {
 				return out, err
 			}
 		}
 		if !state.PodmanSocketActive {
 			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionEnablePodmanSocket, enablePodmanSocketCmd,
+				ActionEnablePodmanSocket, "", enablePodmanSocketCmd,
 				fmt.Sprintf("enable podman.socket on %s", host)); err != nil {
 				return out, err
 			}
 		}
 		if !state.IPForwardEnabled {
 			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionEnableIPForward, enableIPForwardCmd,
+				ActionEnableIPForward, "", enableIPForwardCmd,
 				fmt.Sprintf("enable IP forwarding on %s", host)); err != nil {
 				return out, err
 			}
@@ -262,7 +267,7 @@ func phase1Server(
 }
 
 // phase2Server writes the WireGuard config, enables/reloads the service,
-// creates the per-host Podman bridge, and installs the firewall service.
+// creates per-namespace Podman bridges, and installs the firewall service.
 func phase2Server(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -271,14 +276,15 @@ func phase2Server(
 	desired *DesiredMesh,
 	fresh MeshState,
 	mgmtAssignments map[string]net.IP,
-	containerAssignments map[string]*net.IPNet,
+	containerAssignments map[string]map[string]*net.IPNet,
 ) ([]ActionResult, error) {
 	var out []ActionResult
 
 	mgmtIP := mgmtAssignments[host]
-	contSubnet := containerAssignments[host]
+	nsSorted := desired.SortedNamespaces()
 
 	// Build peer list (everyone except self, skip hosts with no pubkey).
+	// Each peer's AllowedIPs covers every namespace subnet that peer owns.
 	var peers []PeerConfig
 	for _, peer := range desired.Hosts {
 		if peer == host {
@@ -288,18 +294,24 @@ func phase2Server(
 		if !ok || ps.PublicKey == "" {
 			continue
 		}
+		var subnets []*net.IPNet
+		for _, ns := range nsSorted {
+			if sn := containerAssignments[ns][peer]; sn != nil {
+				subnets = append(subnets, sn)
+			}
+		}
 		peers = append(peers, PeerConfig{
-			Endpoint:        peer,
-			PublicKey:       ps.PublicKey,
-			MgmtIP:          mgmtAssignments[peer],
-			ContainerSubnet: containerAssignments[peer],
+			Endpoint:         peer,
+			PublicKey:        ps.PublicKey,
+			MgmtIP:           mgmtAssignments[peer],
+			ContainerSubnets: subnets,
 		})
 	}
 
 	// Write WG config.
 	configCmd := WriteConfigCommand(desired.Interface, mgmtIP, desired.ListenPort, peers)
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionWriteConfig, configCmd,
+		ActionWriteConfig, "", configCmd,
 		fmt.Sprintf("write config on %s", host)); err != nil {
 		return out, err
 	}
@@ -316,7 +328,7 @@ func phase2Server(
 		serviceCmd = fmt.Sprintf(`systemctl enable --now wg-quick@%s 2>&1`, desired.Interface)
 	}
 	if err := runStep(ctx, runner, host, user, port, &out,
-		actionType, serviceCmd,
+		actionType, "", serviceCmd,
 		fmt.Sprintf("enable/reload service on %s", host)); err != nil {
 		return out, err
 	}
@@ -324,31 +336,59 @@ func phase2Server(
 	if desired.InstallPodman {
 		freshState := fresh.Servers[host]
 
-		// Recreate Podman network if dns_enabled=true (pre-alpha drift).
-		// coold needs the bridge gateway :53 socket free.
-		if freshState != nil && freshState.PodmanNetExists && freshState.PodmanDNSEnabled {
-			recreateCmd := podmanNetRecreateCmd(desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet))
-			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionRecreatePodmanNet, recreateCmd,
-				fmt.Sprintf("recreate Podman network on %s (disable DNS)", host)); err != nil {
-				return out, err
+		// Per-namespace podman network reconcile.
+		for _, ns := range nsSorted {
+			contSubnet := containerAssignments[ns][host]
+			if contSubnet == nil {
+				continue
 			}
-		} else if freshState == nil || !freshState.PodmanNetExists {
-			// Create Podman bridge network if not already present.
-			netCmd := podmanNetCreateCmd(desired.PodmanNetworkName, contSubnet, MachineIP(contSubnet))
-			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionCreatePodmanNet, netCmd,
-				fmt.Sprintf("create Podman network on %s", host)); err != nil {
-				return out, err
+			netName := PodmanNetworkFor(ns)
+			gw := MachineIP(contSubnet)
+
+			var nss *NamespaceServerState
+			if freshState != nil {
+				nss = freshState.Namespaces[ns]
+			}
+
+			if nss == nil || !nss.NetworkExists {
+				netCmd := podmanNetCreateCmd(netName, ns, contSubnet, gw)
+				if err := runStep(ctx, runner, host, user, port, &out,
+					ActionCreatePodmanNet, ns, netCmd,
+					fmt.Sprintf("create Podman network %s on %s", netName, host)); err != nil {
+					return out, err
+				}
+				continue
+			}
+
+			subnetDrift := nss.ContainerSubnet != nil && nss.ContainerSubnet.String() != contSubnet.String()
+			if nss.DNSEnabled || subnetDrift || nss.Label != ns {
+				recreateCmd := podmanNetRecreateCmd(netName, ns, contSubnet, gw)
+				if err := runStep(ctx, runner, host, user, port, &out,
+					ActionRecreatePodmanNet, ns, recreateCmd,
+					fmt.Sprintf("recreate Podman network %s on %s", netName, host)); err != nil {
+					return out, err
+				}
 			}
 		}
 
-		// Install firewall service if not active or default-deny mode drifted.
+		// Firewall service: union of namespace subnets; reinstall when missing,
+		// default-deny flipped, or unit text drifted (e.g. namespace added).
+		var subnets []*net.IPNet
+		for _, ns := range nsSorted {
+			if sn := containerAssignments[ns][host]; sn != nil {
+				subnets = append(subnets, sn)
+			}
+		}
+		expectedUnit := FirewallServiceUnit(desired.Interface, subnets, desired.DefaultDenyContainers)
+		expectedUnitHash := sha256Hex([]byte(expectedUnit))
+		unitDrift := freshState != nil && freshState.FirewallUnitSha256 != expectedUnitHash
+
 		if freshState == nil || !freshState.FirewallActive ||
-			freshState.DefaultDenyActive != desired.DefaultDenyContainers {
-			fwCmd := InstallFirewallCommand(desired.Interface, contSubnet, desired.DefaultDenyContainers)
+			freshState.DefaultDenyActive != desired.DefaultDenyContainers ||
+			unitDrift {
+			fwCmd := InstallFirewallCommand(desired.Interface, subnets, desired.DefaultDenyContainers)
 			if err := runStep(ctx, runner, host, user, port, &out,
-				ActionInstallFirewall, fwCmd,
+				ActionInstallFirewall, "", fwCmd,
 				fmt.Sprintf("install firewall service on %s", host)); err != nil {
 				return out, err
 			}
@@ -497,10 +537,12 @@ func uploadStep(
 
 // heredocWrite emits a shell command that atomically writes body to remotePath
 // via a single-quoted heredoc.  Body is trusted (generated by us).
-func heredocWrite(remotePath, body, tag string) string {
+// chmod runs before mv so the final rename is atomic with the intended mode.
+func heredocWrite(remotePath, body, tag string, mode os.FileMode) string {
 	return fmt.Sprintf(`cat > %[1]s.tmp <<'%[3]s'
 %[2]s%[3]s
-mv %[1]s.tmp %[1]s`, remotePath, body, tag)
+chmod %[4]o %[1]s.tmp
+mv %[1]s.tmp %[1]s`, remotePath, body, tag, mode)
 }
 
 // phase3Server uploads corrosion + coold, writes their configs/unit files,
@@ -514,7 +556,7 @@ func phase3Server(
 	desired *DesiredMesh,
 	fresh MeshState,
 	mgmtAssignments map[string]net.IP,
-	containerAssignments map[string]*net.IPNet,
+	containerAssignments map[string]map[string]*net.IPNet,
 	corrosionSha, cooldSha string,
 ) ([]ActionResult, error) {
 	var out []ActionResult
@@ -523,11 +565,11 @@ func phase3Server(
 	if mgmtIP == nil {
 		return out, fmt.Errorf("no mgmt IP allocated for %s", host)
 	}
-	contSubnet := containerAssignments[host]
-	if contSubnet == nil {
-		return out, fmt.Errorf("no container subnet allocated for %s", host)
+	nsSorted := desired.SortedNamespaces()
+	nsConfigs := buildNamespaceConfigs(host, nsSorted, containerAssignments)
+	if len(nsConfigs) == 0 {
+		return out, fmt.Errorf("no namespace subnets allocated for %s", host)
 	}
-	bridgeGatewayIP := MachineIP(contSubnet)
 
 	// 1. Upload corrosion binary (skip if sha matches).
 	if remoteSha256(ctx, runner, host, user, port, "/usr/local/bin/corrosion") != corrosionSha {
@@ -553,7 +595,7 @@ func phase3Server(
 
 	// 3. Create dirs for corrosion state/config/admin socket.
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionWriteCorrosionConfig,
+		ActionWriteCorrosionConfig, "",
 		`mkdir -p /etc/corrosion/schemas /var/lib/corrosion /var/run/corrosion`,
 		fmt.Sprintf("mkdir corrosion dirs on %s", host)); err != nil {
 		return out, err
@@ -563,9 +605,9 @@ func phase3Server(
 	peers := peerMgmtIPs(host, desired.Hosts, mgmtAssignments)
 	configBody := string(services.CorrosionConfigBytes(mgmtIP,
 		desired.CorrosionGossipPort, desired.CorrosionAPIPort, peers))
-	configCmd := heredocWrite("/etc/corrosion/config.toml", configBody, "COOLIFY_CORROSION_EOF")
+	configCmd := heredocWrite("/etc/corrosion/config.toml", configBody, "COOLIFY_CORROSION_EOF", 0o600)
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionWriteCorrosionConfig, configCmd,
+		ActionWriteCorrosionConfig, "", configCmd,
 		fmt.Sprintf("write corrosion config on %s", host)); err != nil {
 		return out, err
 	}
@@ -579,7 +621,7 @@ func phase3Server(
 		freshState.CorrosionSchemaSha256 != "" &&
 		freshState.CorrosionSchemaSha256 != expectedSchemaSha
 	schemaCmd := heredocWrite("/etc/corrosion/schemas/coolify.sql",
-		services.CoolifySchemaSQL, "COOLIFY_SCHEMA_EOF")
+		services.CoolifySchemaSQL, "COOLIFY_SCHEMA_EOF", 0o600)
 	if schemaDrift {
 		schemaCmd = `systemctl stop corrosion 2>/dev/null || true; ` +
 			`rm -f /var/lib/corrosion/corrosion.db ` +
@@ -588,7 +630,7 @@ func phase3Server(
 			schemaCmd
 	}
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionWriteCorrosionSchema, schemaCmd,
+		ActionWriteCorrosionSchema, "", schemaCmd,
 		fmt.Sprintf("write corrosion schema on %s", host)); err != nil {
 		return out, err
 	}
@@ -601,15 +643,15 @@ func phase3Server(
 	// The command is idempotent — reruns keep the existing token so clients
 	// don't get invalidated on every `apply`.
 	corrosionUnit := services.CorrosionServiceUnit(desired.Interface)
-	cooldUnit := services.CooldServiceUnit(mgmtIP, bridgeGatewayIP)
+	cooldUnit := services.CooldServiceUnit(mgmtIP, nsConfigs)
 
 	serviceCmd := services.EnsureCooldAPITokenCommand() +
 		" && " +
 		heredocWrite("/etc/systemd/system/corrosion.service",
-			corrosionUnit, "COOLIFY_CORROSION_UNIT_EOF") +
+			corrosionUnit, "COOLIFY_CORROSION_UNIT_EOF", 0o644) +
 		" && " +
 		heredocWrite("/etc/systemd/system/coold.service",
-			cooldUnit, "COOLIFY_COOLD_UNIT_EOF") +
+			cooldUnit, "COOLIFY_COOLD_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +
 		` && systemctl enable corrosion coold` +
 		` && systemctl restart corrosion` +
@@ -617,7 +659,7 @@ func phase3Server(
 		` && systemctl restart coold`
 
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionInstallCorrosionService, serviceCmd,
+		ActionInstallCorrosionService, "", serviceCmd,
 		fmt.Sprintf("install corrosion+coold services on %s", host)); err != nil {
 		return out, err
 	}
@@ -628,7 +670,7 @@ func phase3Server(
 		Action: PlannedAction{
 			Host:   host,
 			Type:   ActionInstallCooldService,
-			Detail: fmt.Sprintf("coold.service (mgmt=%s)", mgmtIP),
+			Detail: fmt.Sprintf("coold.service (mgmt=%s, namespaces=%d)", mgmtIP, len(nsConfigs)),
 		},
 	})
 

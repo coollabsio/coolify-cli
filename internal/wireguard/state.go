@@ -2,7 +2,22 @@
 // the coolify init command (alpha, Coolify v5).
 package wireguard
 
-import "net"
+import (
+	"net"
+	"sort"
+)
+
+// DefaultNamespace is the namespace used when the user does not pass
+// --namespaces. It is also always present even in a multi-namespace setup —
+// coold's config assumes a `default` entry.
+const DefaultNamespace = "default"
+
+// PodmanNetworkFor returns the podman bridge name backing namespace ns on
+// every host. Derived as `coolify-<ns>-mesh` so the namespace is visible
+// directly in `podman network ls`.
+func PodmanNetworkFor(ns string) string {
+	return "coolify-" + ns + "-mesh"
+}
 
 // Peer represents a single WireGuard peer as seen in the config or
 // from `wg show <iface> dump`.
@@ -13,6 +28,31 @@ type Peer struct {
 	AllowedIPs          []string
 	LatestHandshake     int64 // Unix timestamp; 0 means no handshake yet
 	PersistentKeepalive int   // seconds; 0 means disabled
+}
+
+// NamespaceServerState captures per-namespace podman state on one host. A
+// ServerState carries one entry per namespace in the desired set.
+type NamespaceServerState struct {
+	// Namespace is the logical namespace name (e.g. "default", "alpha").
+	Namespace string
+
+	// NetworkExists is true when the per-namespace podman bridge
+	// (coolify-<ns>-mesh) already exists on this host.
+	NetworkExists bool
+
+	// ContainerSubnet is the /<prefix> owned by the per-namespace bridge
+	// (read from `podman network inspect`). nil when not yet created.
+	ContainerSubnet *net.IPNet
+
+	// DNSEnabled is true when the per-namespace network has `dns_enabled=true`
+	// (netavark auto-starts aardvark-dns on the bridge gateway:53). coold owns
+	// that socket, so drift triggers ActionRecreatePodmanNet.
+	DNSEnabled bool
+
+	// Label is the `io.coolify.namespace` label on the network. Used only as
+	// an assertion that the network was created by us — label mismatch is
+	// treated like "the network exists but is not ours" and triggers recreate.
+	Label string
 }
 
 // ServerState holds the reconstructed WireGuard + Podman state for one server.
@@ -38,10 +78,6 @@ type ServerState struct {
 	// nil when not yet assigned.
 	WireGuardMgmtIP net.IP
 
-	// ContainerSubnet is the per-host /24 owned by the Podman bridge
-	// (read from `podman network inspect`). nil when not yet created.
-	ContainerSubnet *net.IPNet
-
 	// ListenPort is the WireGuard listen port from the config.
 	ListenPort int
 
@@ -60,14 +96,9 @@ type ServerState struct {
 	// PodmanSocketActive is true when podman.socket systemd unit is active.
 	PodmanSocketActive bool
 
-	// PodmanNetExists is true when the configured Podman network already exists.
-	PodmanNetExists bool
-
-	// PodmanDNSEnabled is true when the configured Podman network has
-	// `dns_enabled=true` (netavark auto-starts aardvark-dns on the bridge
-	// gateway:53). coold needs that socket free for cluster-wide DNS, so
-	// this drift triggers ActionRecreatePodmanNet.
-	PodmanDNSEnabled bool
+	// Namespaces maps namespace name → per-namespace podman state on this
+	// host. Populated by Probe for every namespace in the desired set.
+	Namespaces map[string]*NamespaceServerState
 
 	// IPForwardEnabled is true when net.ipv4.ip_forward == 1.
 	IPForwardEnabled bool
@@ -78,6 +109,11 @@ type ServerState struct {
 	// DefaultDenyActive is true when the COOLIFY-INTRA chain exists and
 	// terminates in DROP (the default-deny scaffold is in place).
 	DefaultDenyActive bool
+
+	// FirewallUnitSha256 is the sha256 of /etc/systemd/system/coolify-mesh-fw.service
+	// (hex), or empty when absent. Used to detect unit drift when the desired
+	// set of namespace subnets changes.
+	FirewallUnitSha256 string
 
 	// CorrosionInstalled is true when /usr/local/bin/corrosion exists and is executable.
 	CorrosionInstalled bool
@@ -135,13 +171,41 @@ func (m *MeshState) AssignedMgmtIPs() map[string]net.IP {
 	return out
 }
 
-// AssignedContainerSubnets returns a map of host → *net.IPNet for all servers
-// that already have a container subnet assigned (via the Podman bridge).
-func (m *MeshState) AssignedContainerSubnets() map[string]*net.IPNet {
-	out := make(map[string]*net.IPNet, len(m.Servers))
+// AssignedContainerSubnets returns the per-(namespace, host) subnets that are
+// already assigned on remote podman networks. The result is nested:
+// `out[namespace][host] = subnet`.
+func (m *MeshState) AssignedContainerSubnets() map[string]map[string]*net.IPNet {
+	out := map[string]map[string]*net.IPNet{}
 	for host, s := range m.Servers {
-		if s.ContainerSubnet != nil {
-			out[host] = s.ContainerSubnet
+		if s == nil {
+			continue
+		}
+		for ns, nss := range s.Namespaces {
+			if nss == nil || nss.ContainerSubnet == nil {
+				continue
+			}
+			if out[ns] == nil {
+				out[ns] = map[string]*net.IPNet{}
+			}
+			out[ns][host] = nss.ContainerSubnet
+		}
+	}
+	return out
+}
+
+// FirewallSubnets returns the sorted-by-namespace list of this host's
+// container subnets across all namespaces (one /prefix per namespace). Used
+// by the firewall service unit generator.
+func (s *ServerState) FirewallSubnets() []*net.IPNet {
+	var out []*net.IPNet
+	names := make([]string, 0, len(s.Namespaces))
+	for n := range s.Namespaces {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		if ns := s.Namespaces[n]; ns != nil && ns.ContainerSubnet != nil {
+			out = append(out, ns.ContainerSubnet)
 		}
 	}
 	return out
@@ -159,29 +223,32 @@ type DesiredMesh struct {
 	// are carved and assigned to wg0 (default 100.64.0.0/16 — RFC 6598 CGNAT).
 	MgmtPool *net.IPNet
 
-	// ContainerPool is the address pool from which per-host container subnets
-	// are carved and owned by the Podman bridge (default 10.210.0.0/16).
+	// ContainerPool is the address pool from which per-(namespace, host)
+	// container subnets are carved (default 10.210.0.0/16). One pool is
+	// shared across all namespaces so subnets cannot overlap.
 	ContainerPool *net.IPNet
 
-	// ContainerPrefix is the prefix length of each per-host container subnet
-	// (default 24, giving each host 254 usable container IPs).
+	// ContainerPrefix is the prefix length of each per-host, per-namespace
+	// container subnet (default 24, giving each host 254 usable container IPs
+	// per namespace).
 	ContainerPrefix int
 
 	// ListenPort is the WireGuard UDP listen port (default 51820).
 	ListenPort int
 
 	// InstallPodman, when true, installs Podman, enables its socket, creates
-	// the per-host bridge network, installs firewall rules, and enables IP
-	// forwarding on each server.
+	// the per-namespace bridge networks, installs firewall rules, and enables
+	// IP forwarding on each server.
 	InstallPodman bool
 
-	// PodmanNetworkName is the name of the Podman bridge network to create
-	// on each host (default "coolify-mesh").
-	PodmanNetworkName string
+	// Namespaces lists every namespace the mesh should carry. Ordered —
+	// deterministic iteration produces stable subnet assignments. At least
+	// one entry (typically "default") is always expected.
+	Namespaces []string
 
 	// DefaultDenyContainers, when true (and InstallPodman is true), installs
 	// default-deny iptables rules for ALL container traffic on the host's
-	// container subnet (intra-host AND cross-host via wg0). The v5 control
+	// container subnets (intra-host AND cross-host via wg0). The v5 control
 	// plane manages the explicit allow-list in the COOLIFY-ALLOW chain.
 	DefaultDenyContainers bool
 
@@ -208,4 +275,11 @@ type DesiredMesh struct {
 	// plan step can detect remote/local binary drift.
 	CorrosionBinarySha256 string
 	CooldBinarySha256     string
+}
+
+// SortedNamespaces returns the desired namespaces in deterministic order.
+func (d *DesiredMesh) SortedNamespaces() []string {
+	out := append([]string(nil), d.Namespaces...)
+	sort.Strings(out)
+	return out
 }

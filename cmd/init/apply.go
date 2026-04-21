@@ -92,7 +92,7 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		ContainerPrefix:       flags.ContainerPrefix,
 		ListenPort:            flags.WGListenPort,
 		InstallPodman:         true,
-		PodmanNetworkName:     flags.PodmanNetworkName,
+		Namespaces:            flags.Namespaces,
 		DefaultDenyContainers: !flags.SkipDefaultDeny,
 		InstallCoold:          true,
 		CooldBinaryPath:       flags.CooldBinaryPath,
@@ -112,7 +112,7 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 
 	current, probeErr := wireguard.Reconstruct(ctx, sshClient, flags.Servers,
 		flags.SSHUser, flags.SSHPort, flags.WGInterface,
-		flags.PodmanNetworkName, flags.Concurrency)
+		flags.Namespaces, flags.Concurrency)
 	if probeErr != nil {
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", probeErr)
 	}

@@ -37,7 +37,7 @@ func TestNewInitCommand_PersistentFlags(t *testing.T) {
 	assert.NotNil(t, pf.Lookup("container-prefix"))
 	assert.NotNil(t, pf.Lookup("wg-interface"))
 	assert.NotNil(t, pf.Lookup("wg-listen-port"))
-	assert.NotNil(t, pf.Lookup("podman-network"))
+	assert.NotNil(t, pf.Lookup("namespaces"))
 	assert.NotNil(t, pf.Lookup("skip-default-deny"))
 	assert.NotNil(t, pf.Lookup("concurrency"))
 	assert.NotNil(t, pf.Lookup("ssh-timeout"))
@@ -49,6 +49,8 @@ func TestNewInitCommand_PersistentFlags(t *testing.T) {
 	assert.Nil(t, pf.Lookup("podman"))
 	assert.Nil(t, pf.Lookup("default-deny"))
 	assert.Nil(t, pf.Lookup("install-coold"))
+	// Replaced by --namespaces.
+	assert.Nil(t, pf.Lookup("podman-network"))
 }
 
 // TestNewInitCommand_FlagDefaults verifies default values.
@@ -84,9 +86,9 @@ func TestNewInitCommand_FlagDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 51820, listenPort)
 
-	podmanNet, err := pf.GetString("podman-network")
+	namespaces, err := pf.GetStringSlice("namespaces")
 	require.NoError(t, err)
-	assert.Equal(t, "coolify-mesh", podmanNet)
+	assert.Equal(t, []string{"default"}, namespaces)
 
 	skipDefaultDeny, err := pf.GetBool("skip-default-deny")
 	require.NoError(t, err)

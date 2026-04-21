@@ -1,14 +1,15 @@
 package wireguard
 
 import (
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFirewallServiceUnit_DefaultDenyOff(t *testing.T) {
-	subnet := mustParseCIDR("10.210.0.0/24")
-	got := FirewallServiceUnit("wg0", subnet, false)
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	got := FirewallServiceUnit("wg0", subnets, false)
 
 	assert.Contains(t, got, "[Unit]")
 	assert.Contains(t, got, "Description=Coolify mesh firewall rules")
@@ -39,8 +40,8 @@ func TestFirewallServiceUnit_DefaultDenyOff(t *testing.T) {
 }
 
 func TestFirewallServiceUnit_DefaultDenyOn(t *testing.T) {
-	subnet := mustParseCIDR("10.210.0.0/24")
-	got := FirewallServiceUnit("wg0", subnet, true)
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	got := FirewallServiceUnit("wg0", subnets, true)
 
 	// Chains created.
 	assert.Contains(t, got, "/usr/sbin/iptables -N COOLIFY-ALLOW")
@@ -66,17 +67,30 @@ func TestFirewallServiceUnit_DefaultDenyOn(t *testing.T) {
 	assert.NotContains(t, got, "/usr/sbin/iptables -I FORWARD -s 10.210.0.0/24 -j ACCEPT")
 	assert.NotContains(t, got, "/usr/sbin/iptables -I FORWARD -d 10.210.0.0/24 -j ACCEPT")
 
-	// COOLIFY-ALLOW chain is never flushed or destroyed (preserve runtime allows).
-	assert.NotContains(t, got, "-F COOLIFY-ALLOW")
+	// COOLIFY-ALLOW chain is never destroyed. It IS flushed-and-restored at
+	// boot/restart from the canonical snapshot — that's how runtime allow
+	// rules survive reboots.
 	assert.NotContains(t, got, "-X COOLIFY-ALLOW")
+	assert.Contains(t, got, "/usr/sbin/iptables -F COOLIFY-ALLOW")
+	assert.Contains(t, got, "/usr/sbin/iptables-restore --noflush < "+AllowRulesPath)
+	assert.Contains(t, got, "[ -s "+AllowRulesPath+" ]")
 
 	// POSTROUTING RETURN preserved.
 	assert.Contains(t, got, "/usr/sbin/iptables -t nat -I POSTROUTING -s 10.210.0.0/24 -o wg0 -j RETURN")
 }
 
+func TestFirewallServiceUnit_DefaultDenyOff_NoAllowRestore(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	got := FirewallServiceUnit("wg0", subnets, false)
+
+	// Blanket-allow mode bypasses COOLIFY-ALLOW entirely — no restore.
+	assert.NotContains(t, got, "iptables-restore")
+	assert.NotContains(t, got, AllowRulesPath)
+}
+
 func TestInstallFirewallCommand_AtomicWriteAndEnable(t *testing.T) {
-	subnet := mustParseCIDR("10.210.5.0/24")
-	cmd := InstallFirewallCommand("wg0", subnet, false)
+	subnets := []*net.IPNet{mustParseCIDR("10.210.5.0/24")}
+	cmd := InstallFirewallCommand("wg0", subnets, false)
 
 	// Atomic write via .tmp + mv.
 	assert.Contains(t, cmd, "/etc/systemd/system/coolify-mesh-fw.service.tmp")
@@ -92,9 +106,24 @@ func TestInstallFirewallCommand_AtomicWriteAndEnable(t *testing.T) {
 }
 
 func TestInstallFirewallCommand_DefaultDenyEmbedded(t *testing.T) {
-	subnet := mustParseCIDR("10.210.5.0/24")
-	cmd := InstallFirewallCommand("wg0", subnet, true)
+	subnets := []*net.IPNet{mustParseCIDR("10.210.5.0/24")}
+	cmd := InstallFirewallCommand("wg0", subnets, true)
 
 	// Default-deny variant of unit must be embedded in the heredoc.
 	assert.Contains(t, cmd, "-A COOLIFY-INTRA -j DROP")
+}
+
+func TestFirewallServiceUnit_MultipleNamespacesEmitPerSubnetRules(t *testing.T) {
+	subnets := []*net.IPNet{
+		mustParseCIDR("10.210.1.0/24"),
+		mustParseCIDR("10.220.1.0/24"),
+	}
+	got := FirewallServiceUnit("wg0", subnets, true)
+
+	// Each namespace subnet gets its own POSTROUTING RETURN + FORWARD jumps.
+	for _, sub := range []string{"10.210.1.0/24", "10.220.1.0/24"} {
+		assert.Contains(t, got, "/usr/sbin/iptables -t nat -I POSTROUTING -s "+sub+" -o wg0 -j RETURN")
+		assert.Contains(t, got, "/usr/sbin/iptables -A FORWARD -d "+sub+" -j COOLIFY-INTRA")
+		assert.Contains(t, got, "/usr/sbin/iptables -A FORWARD -s "+sub+" -j COOLIFY-INTRA")
+	}
 }

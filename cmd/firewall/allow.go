@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/common"
 	ifw "github.com/coollabsio/coolify-cli/internal/firewall"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
@@ -92,6 +93,9 @@ func runAllowRevoke(
 	if err := parent.SSHMeshFlags.Validate(); err != nil {
 		return err
 	}
+	if err := common.ValidateNamespace(parent.Namespace); err != nil {
+		return err
+	}
 	if err := validateAllowRevokeFlags(local); err != nil {
 		return err
 	}
@@ -150,13 +154,15 @@ func emitAllowRevoke(
 		}
 	}
 
+	ns := parent.Namespace
 	primary := ifw.AllowRule{
-		Host:    dstHost,
-		Src:     from.IP,
-		Dst:     to.IP,
-		Proto:   local.Proto,
-		Port:    local.Port,
-		Comment: "cid:" + ifw.ComputeID(from.IP, to.IP, local.Proto, local.Port),
+		Host:      dstHost,
+		Namespace: ns,
+		Src:       from.IP,
+		Dst:       to.IP,
+		Proto:     local.Proto,
+		Port:      local.Port,
+		Comment:   "cid:" + ifw.ComputeID(ns, from.IP, to.IP, local.Proto, local.Port),
 	}
 	rules := []ifw.AllowRule{primary}
 
@@ -165,12 +171,13 @@ func emitAllowRevoke(
 			return fmt.Errorf("--bidirectional requires the source endpoint to belong to a mesh host")
 		}
 		reverse := ifw.AllowRule{
-			Host:    srcHost,
-			Src:     to.IP,
-			Dst:     from.IP,
-			Proto:   local.Proto,
-			Port:    local.Port,
-			Comment: "cid:" + ifw.ComputeID(to.IP, from.IP, local.Proto, local.Port),
+			Host:      srcHost,
+			Namespace: ns,
+			Src:       to.IP,
+			Dst:       from.IP,
+			Proto:     local.Proto,
+			Port:      local.Port,
+			Comment:   "cid:" + ifw.ComputeID(ns, to.IP, from.IP, local.Proto, local.Port),
 		}
 		rules = append(rules, reverse)
 	}
@@ -208,13 +215,14 @@ func emitAllowRevoke(
 	rows := make([]models.AllowRuleRow, 0, len(rules))
 	for _, r := range rules {
 		rows = append(rows, models.AllowRuleRow{
-			Host:    r.Host,
-			ID:      r.Comment,
-			Src:     r.Src.String(),
-			Dst:     r.Dst.String(),
-			Proto:   r.Proto,
-			Port:    r.Port,
-			Comment: r.Comment,
+			Host:      r.Host,
+			Namespace: r.Namespace,
+			ID:        r.Comment,
+			Src:       r.Src.String(),
+			Dst:       r.Dst.String(),
+			Proto:     r.Proto,
+			Port:      r.Port,
+			Comment:   r.Comment,
 		})
 	}
 

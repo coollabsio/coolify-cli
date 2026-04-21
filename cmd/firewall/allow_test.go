@@ -75,10 +75,10 @@ func parentWithToken() *FirewallFlags {
 		SSHMeshFlags: common.SSHMeshFlags{
 			Servers: []string{"h1"}, SSHUser: "root", SSHPort: 22, Concurrency: 1,
 		},
-		PodmanNetworkName: "coolify-mesh",
-		CooldToken:        "test-token",
-		CooldPort:         8443,
-		WGInterface:       "wg0",
+		Namespace:   common.DefaultNamespace,
+		CooldToken:  "test-token",
+		CooldPort:   8443,
+		WGInterface: "wg0",
 	}
 }
 
@@ -105,12 +105,49 @@ func TestEmitAllowRevoke_PostsOneAllowToCoold(t *testing.T) {
 	assert.Len(t, posts, 1)
 	// Token carried in Authorization header.
 	assert.Contains(t, posts[0], "Authorization: Bearer test-token")
-	// JSON body carries src/dst/port.
+	// JSON body carries namespace + src/dst/port.
+	assert.Contains(t, posts[0], `"namespace":"default"`)
 	assert.Contains(t, posts[0], `"src":"10.210.1.5"`)
 	assert.Contains(t, posts[0], `"dst":"10.210.0.10"`)
 	assert.Contains(t, posts[0], `"port":80`)
 	// Discovers mgmt IP via wg0 before curl.
 	assert.Contains(t, posts[0], "ip -4 -o addr show wg0")
+}
+
+// TestEmitAllowRevoke_CarriesNonDefaultNamespace verifies that the user's
+// chosen namespace propagates into the JSON body (and therefore into the
+// cid hash coold will compute).
+func TestEmitAllowRevoke_CarriesNonDefaultNamespace(t *testing.T) {
+	fr := &cmdFakeRunner{responses: map[string]string{
+		"podman ps": "aaa111111111|web|10.220.0.10",
+	}}
+	parent := parentWithToken()
+	parent.Namespace = "alpha"
+	local := &allowRevokeFlags{
+		From: "10.220.1.5", To: "web", Proto: "tcp", Port: 80,
+	}
+	inner := &cobra.Command{Use: "allow"}
+	rootCmdFor(inner)
+
+	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
+	assert.NoError(t, err)
+	var post string
+	for _, c := range fr.calls {
+		if strings.Contains(c, "-X POST") {
+			post = c
+		}
+	}
+	assert.NotEmpty(t, post)
+	assert.Contains(t, post, `"namespace":"alpha"`)
+	// Discovery targets the alpha-namespace bridge, not the default one.
+	var psCalls []string
+	for _, c := range fr.calls {
+		if strings.Contains(c, "podman ps") {
+			psCalls = append(psCalls, c)
+		}
+	}
+	assert.NotEmpty(t, psCalls)
+	assert.Contains(t, psCalls[0], "coolify-alpha-mesh")
 }
 
 func TestEmitAllowRevoke_Bidirectional(t *testing.T) {

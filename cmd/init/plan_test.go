@@ -34,8 +34,25 @@ func TestValidatePlanFlags(t *testing.T) {
 				Servers: []string{"1.1.1.1"},
 				SSHKey:  "/path/to/key",
 			},
+			MeshNetFlags: common.MeshNetFlags{
+				Namespaces: []string{common.DefaultNamespace},
+			},
 		})
 		assert.NoError(t, err)
+	})
+
+	t.Run("invalid namespace", func(t *testing.T) {
+		err := validatePlanFlags(&InitFlags{
+			SSHMeshFlags: common.SSHMeshFlags{
+				Servers: []string{"1.1.1.1"},
+				SSHKey:  "/path/to/key",
+			},
+			MeshNetFlags: common.MeshNetFlags{
+				Namespaces: []string{"Not Valid"},
+			},
+		})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid namespace")
 	})
 }
 

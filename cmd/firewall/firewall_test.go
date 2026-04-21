@@ -24,9 +24,12 @@ func TestNewFirewallCommand_PersistentFlags(t *testing.T) {
 	cmd := NewFirewallCommand()
 	pf := cmd.PersistentFlags()
 	for _, name := range []string{"servers", "ssh-key", "ssh-user", "ssh-port",
-		"concurrency", "ssh-timeout", "podman-network"} {
+		"concurrency", "ssh-timeout", "namespace", "all-namespaces",
+		"coold-token", "coold-port", "wg-interface"} {
 		assert.NotNil(t, pf.Lookup(name), "missing --%s", name)
 	}
+	// Replaced by --namespace; must be gone.
+	assert.Nil(t, pf.Lookup("podman-network"))
 }
 
 func TestAllowCommand_LocalFlags(t *testing.T) {

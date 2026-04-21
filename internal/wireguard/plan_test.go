@@ -27,27 +27,63 @@ func desiredTwoHosts() *DesiredMesh {
 func desiredWithPodman() *DesiredMesh {
 	d := desiredTwoHosts()
 	d.InstallPodman = true
-	d.PodmanNetworkName = "coolify-mesh"
+	d.Namespaces = []string{DefaultNamespace}
 	return d
 }
 
+// convergedServer returns a ServerState fully reconciled for the single
+// `default` namespace with the supplied subnet.
 func convergedServer(host, pubkey, peerKey, mgmtIP, contSubnet string) *ServerState {
+	sn := mustParseCIDR(contSubnet)
+	firewallHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
 	return &ServerState{
 		Host:               host,
 		Installed:          true,
 		KeysExist:          true,
 		PublicKey:          pubkey,
 		WireGuardMgmtIP:    net.ParseIP(mgmtIP).To4(),
-		ContainerSubnet:    mustParseCIDR(contSubnet),
 		ListenPort:         51820,
 		Active:             true,
-		Peers:              []Peer{{PublicKey: peerKey}},
+		Peers: []Peer{{
+			PublicKey:  peerKey,
+			AllowedIPs: []string{peerMgmtForPub(peerKey), peerSubnetForPub(peerKey)},
+		}},
 		PodmanInstalled:    true,
 		PodmanSocketActive: true,
-		PodmanNetExists:    true,
 		IPForwardEnabled:   true,
 		FirewallActive:     true,
+		FirewallUnitSha256: firewallHash,
+		Namespaces: map[string]*NamespaceServerState{
+			DefaultNamespace: {
+				Namespace:       DefaultNamespace,
+				NetworkExists:   true,
+				ContainerSubnet: sn,
+				DNSEnabled:      false,
+				Label:           DefaultNamespace,
+			},
+		},
 	}
+}
+
+// peerMgmtForPub / peerSubnetForPub map the well-known test public keys to
+// the mgmt /32 and /24 each peer is expected to own in the two-host fixture.
+func peerMgmtForPub(pub string) string {
+	switch pub {
+	case "AAAAAAAA=":
+		return "100.64.0.1/32"
+	case "BBBBBBBB=":
+		return "100.64.0.2/32"
+	}
+	return ""
+}
+func peerSubnetForPub(pub string) string {
+	switch pub {
+	case "AAAAAAAA=":
+		return "10.210.0.0/24"
+	case "BBBBBBBB=":
+		return "10.210.1.0/24"
+	}
+	return ""
 }
 
 func TestBuildPlan_AlreadyConverged_NoPodman(t *testing.T) {
@@ -62,7 +98,7 @@ func TestBuildPlan_AlreadyConverged_NoPodman(t *testing.T) {
 				WireGuardMgmtIP: net.ParseIP("100.64.0.1").To4(),
 				ListenPort:      51820,
 				Active:          true,
-				Peers:           []Peer{{PublicKey: "BBBBBBBB="}},
+				Peers:           []Peer{{PublicKey: "BBBBBBBB=", AllowedIPs: []string{"100.64.0.2/32"}}},
 			},
 			"2.2.2.2": {
 				Host:            "2.2.2.2",
@@ -72,7 +108,7 @@ func TestBuildPlan_AlreadyConverged_NoPodman(t *testing.T) {
 				WireGuardMgmtIP: net.ParseIP("100.64.0.2").To4(),
 				ListenPort:      51820,
 				Active:          true,
-				Peers:           []Peer{{PublicKey: "AAAAAAAA="}},
+				Peers:           []Peer{{PublicKey: "AAAAAAAA=", AllowedIPs: []string{"100.64.0.1/32"}}},
 			},
 		},
 	}
@@ -231,13 +267,20 @@ func TestBuildPlan_RemovePeer(t *testing.T) {
 }
 
 func TestBuildPlan_StableMgmtAndContainerAssignments(t *testing.T) {
-	desired := desiredTwoHosts()
+	desired := desiredWithPodman()
 	current := MeshState{
 		Servers: map[string]*ServerState{
 			"1.1.1.1": {
 				Host:            "1.1.1.1",
 				WireGuardMgmtIP: net.ParseIP("100.64.0.7").To4(),
-				ContainerSubnet: mustParseCIDR("10.210.5.0/24"),
+				Namespaces: map[string]*NamespaceServerState{
+					DefaultNamespace: {
+						Namespace:       DefaultNamespace,
+						NetworkExists:   true,
+						ContainerSubnet: mustParseCIDR("10.210.5.0/24"),
+						Label:           DefaultNamespace,
+					},
+				},
 			},
 			"2.2.2.2": {
 				Host:            "2.2.2.2",
@@ -250,7 +293,7 @@ func TestBuildPlan_StableMgmtAndContainerAssignments(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "100.64.0.7", plan.MgmtAssignments["1.1.1.1"].String())
-	assert.Equal(t, "10.210.5.0/24", plan.SubnetAssignments["1.1.1.1"].String())
+	assert.Equal(t, "10.210.5.0/24", plan.SubnetAssignments[DefaultNamespace]["1.1.1.1"].String())
 }
 
 func TestBuildPlan_PodmanFullStack(t *testing.T) {
@@ -337,9 +380,8 @@ func TestBuildPlan_PodmanNotRequested(t *testing.T) {
 func TestBuildPlan_PodmanDNSEnabledTriggersRecreate(t *testing.T) {
 	desired := desiredWithPodman()
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
-	srvA.PodmanDNSEnabled = true // pre-alpha drift: aardvark-dns would squat :53
+	srvA.Namespaces[DefaultNamespace].DNSEnabled = true // drift: aardvark-dns would squat :53
 	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
-	// srvB has dns_enabled=false — should NOT trigger recreate
 	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
 
 	plan, err := BuildPlan(desired, current)
@@ -425,8 +467,12 @@ func TestBuildPlan_DefaultDenyConverged(t *testing.T) {
 
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
 	srvA.DefaultDenyActive = true
+	srvA.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
+		[]*net.IPNet{mustParseCIDR("10.210.0.0/24")}, true)))
 	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
 	srvB.DefaultDenyActive = true
+	srvB.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
+		[]*net.IPNet{mustParseCIDR("10.210.1.0/24")}, true)))
 	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
 
 	plan, err := BuildPlan(desired, current)
@@ -446,4 +492,46 @@ func TestBuildPlan_SurfacesWarnings(t *testing.T) {
 	plan, err := BuildPlan(desired, current)
 	require.NoError(t, err)
 	assert.NotEmpty(t, plan.Warnings, "expected warning for duplicate mgmt IP")
+}
+
+func TestBuildPlan_MultiNamespacePlansPerNamespace(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.Namespaces = []string{DefaultNamespace, "alpha"}
+
+	current := MeshState{Servers: map[string]*ServerState{}}
+	plan, err := BuildPlan(desired, current)
+	require.NoError(t, err)
+
+	// Two hosts × two namespaces = four create-podman-net actions.
+	var creates []PlannedAction
+	for _, a := range plan.Actions {
+		if a.Type == ActionCreatePodmanNet {
+			creates = append(creates, a)
+		}
+	}
+	assert.Len(t, creates, 4)
+
+	namespaces := map[string]bool{}
+	for _, a := range creates {
+		namespaces[a.Namespace] = true
+	}
+	assert.True(t, namespaces[DefaultNamespace])
+	assert.True(t, namespaces["alpha"])
+
+	// SubnetAssignments is namespace → host → subnet.
+	assert.NotNil(t, plan.SubnetAssignments[DefaultNamespace])
+	assert.NotNil(t, plan.SubnetAssignments["alpha"])
+	assert.NotEqual(t, plan.SubnetAssignments[DefaultNamespace]["1.1.1.1"].String(),
+		plan.SubnetAssignments["alpha"]["1.1.1.1"].String(),
+		"namespaces must carve disjoint subnets")
+}
+
+func TestBuildPlan_PodmanRequiresNamespace(t *testing.T) {
+	desired := desiredTwoHosts()
+	desired.InstallPodman = true
+	// no namespaces set
+
+	_, err := BuildPlan(desired, MeshState{Servers: map[string]*ServerState{}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "namespace")
 }
