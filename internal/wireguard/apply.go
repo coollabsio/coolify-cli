@@ -186,7 +186,57 @@ func ApplyMesh(
 		}
 	}
 
+	// Phase 4: central-only — install Redis + broker, generate JWT keypair.
+	if desired.CentralHost != "" && err == nil {
+		p4 := ssh.ForEachServer(ctx, []string{desired.CentralHost}, 1,
+			func(ctx context.Context, host string) ([]ActionResult, error) {
+				return phase4Central(ctx, runner, host, user, port, desired, mgmtAssignments)
+			})
+		for _, r := range p4 {
+			results = append(results, r.Result...)
+			if r.Err != nil {
+				err = fmt.Errorf("phase 4 (central broker setup) failed: %w", r.Err)
+			}
+		}
+	}
+
+	// Phase 5: per non-central host — mint JWT, update coold unit with broker env.
+	if desired.CentralHost != "" && err == nil {
+		privKeyPEM, _, keyErr := runner.Run(ctx, desired.CentralHost, user, port,
+			"cat "+services.BrokerJWTPrivPath)
+		if keyErr != nil {
+			err = fmt.Errorf("read jwt.priv from central %s: %w", desired.CentralHost, keyErr)
+		} else {
+			centralMgmtIP := mgmtAssignments[desired.CentralHost]
+			brokerURL := fmt.Sprintf("http://%s:%d", centralMgmtIP, services.BrokerGRPCPort)
+			nonCentral := hostsExcluding(desired.Hosts, desired.CentralHost)
+			p5 := ssh.ForEachServer(ctx, nonCentral, concurrency,
+				func(ctx context.Context, host string) ([]ActionResult, error) {
+					return phase5PerHost(ctx, runner, host, user, port,
+						desired, fresh, mgmtAssignments, containerAssignments,
+						[]byte(privKeyPEM), brokerURL)
+				})
+			for _, r := range p5 {
+				results = append(results, r.Result...)
+				if r.Err != nil {
+					err = fmt.Errorf("phase 5 failed on one or more servers")
+				}
+			}
+		}
+	}
+
 	return results, err
+}
+
+// hostsExcluding returns a copy of hosts with exclude removed.
+func hostsExcluding(hosts []string, exclude string) []string {
+	out := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if h != exclude {
+			out = append(out, h)
+		}
+	}
+	return out
 }
 
 // phase1Server installs WireGuard, generates a keypair, and (if requested)
@@ -476,6 +526,116 @@ func heredocWrite(remotePath, body, tag string, mode os.FileMode) string {
 %[2]s%[3]s
 chmod %[4]o %[1]s.tmp
 mv %[1]s.tmp %[1]s`, remotePath, body, tag, mode)
+}
+
+// phase4Central installs Redis, coolify-broker, generates the JWT keypair, and
+// enables the broker systemd service on the central host.
+func phase4Central(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	port int,
+	desired *DesiredMesh,
+	mgmtAssignments map[string]net.IP,
+) ([]ActionResult, error) {
+	var out []ActionResult
+
+	// 1. Install Redis.
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionInstallRedis, "", services.RedisInstallCommand(),
+		fmt.Sprintf("install redis on %s", host)); err != nil {
+		return out, err
+	}
+
+	// 2. Install coolify-broker binary.
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionInstallBroker, "", services.BrokerInstallCommand(desired.BrokerVersion),
+		fmt.Sprintf("install coolify-broker on %s", host)); err != nil {
+		return out, err
+	}
+
+	// 3. Generate JWT keypair (idempotent).
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionGenerateJWTKeypair, "", services.EnsureJWTKeypairCommand(),
+		fmt.Sprintf("generate JWT keypair on %s", host)); err != nil {
+		return out, err
+	}
+
+	// 4. Write broker unit + enable service.
+	mgmtIP := mgmtAssignments[host]
+	grpcBind := fmt.Sprintf("%s:%d", mgmtIP, services.BrokerGRPCPort)
+	brokerUnit := services.BrokerServiceUnit(grpcBind, "redis://127.0.0.1:6379", services.BrokerJWTPubPath)
+	serviceCmd := heredocWrite("/etc/systemd/system/coolify-broker.service",
+		brokerUnit, "COOLIFY_BROKER_UNIT_EOF", 0o644) +
+		` && systemctl daemon-reload` +
+		` && systemctl enable coolify-broker` +
+		` && systemctl restart coolify-broker`
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionInstallBrokerService, "", serviceCmd,
+		fmt.Sprintf("install coolify-broker service on %s", host)); err != nil {
+		return out, err
+	}
+
+	return out, nil
+}
+
+// phase5PerHost mints a host JWT, writes it to the host, rewrites the coold
+// unit with broker env vars, and restarts coold.
+func phase5PerHost(
+	ctx context.Context,
+	runner ssh.Runner,
+	host, user string,
+	port int,
+	desired *DesiredMesh,
+	fresh MeshState,
+	mgmtAssignments map[string]net.IP,
+	containerAssignments map[string]map[string]*net.IPNet,
+	privKeyPEM []byte,
+	brokerURL string,
+) ([]ActionResult, error) {
+	var out []ActionResult
+
+	mgmtIP := mgmtAssignments[host]
+	if mgmtIP == nil {
+		return out, fmt.Errorf("no mgmt IP for %s", host)
+	}
+
+	// Mint JWT with sub = wg0 mgmt IP (stable, broker-addressable identifier).
+	hostID := mgmtIP.String()
+	jwtToken, err := services.MintHostJWT(privKeyPEM, hostID)
+	if err != nil {
+		return out, fmt.Errorf("mint JWT for %s: %w", host, err)
+	}
+
+	// 1. Write JWT to /etc/coolify/host-jwt (mode 0600, idempotent).
+	writeJWTCmd := fmt.Sprintf(
+		`mkdir -p /etc/coolify && printf '%%s' '%s' > %s.tmp && chmod 0600 %s.tmp && mv %s.tmp %s`,
+		jwtToken, services.HostJWTPath, services.HostJWTPath, services.HostJWTPath, services.HostJWTPath)
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionWriteHostJWT, "", writeJWTCmd,
+		fmt.Sprintf("write host JWT on %s", host)); err != nil {
+		return out, err
+	}
+
+	// 2. Rewrite coold unit with broker env vars + restart.
+	nsSorted := desired.SortedNamespaces()
+	nsConfigs := buildNamespaceConfigs(host, nsSorted, containerAssignments)
+	broker := &services.BrokerConfig{
+		URL:     brokerURL,
+		JWTPath: services.HostJWTPath,
+	}
+	cooldUnit := services.CooldServiceUnitWithBroker(mgmtIP, nsConfigs, broker)
+	updateCmd := heredocWrite("/etc/systemd/system/coold.service",
+		cooldUnit, "COOLIFY_COOLD_BROKER_UNIT_EOF", 0o644) +
+		` && systemctl daemon-reload` +
+		` && systemctl restart coold`
+	if err := runStep(ctx, runner, host, user, port, &out,
+		ActionUpdateCooldBrokerEnv, "", updateCmd,
+		fmt.Sprintf("update coold broker env on %s", host)); err != nil {
+		return out, err
+	}
+
+	return out, nil
 }
 
 // phase3Server downloads corrosion + coold from GitHub releases, writes their

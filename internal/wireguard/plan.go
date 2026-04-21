@@ -36,6 +36,12 @@ const (
 	ActionWriteCorrosionSchema    ActionType = "write-corrosion-schema"
 	ActionInstallCorrosionService ActionType = "install-corrosion-service"
 	ActionInstallCooldService     ActionType = "install-coold-service"
+	ActionInstallRedis            ActionType = "install-redis"
+	ActionInstallBroker           ActionType = "install-broker"
+	ActionGenerateJWTKeypair      ActionType = "generate-jwt-keypair"
+	ActionInstallBrokerService    ActionType = "install-broker-service"
+	ActionWriteHostJWT            ActionType = "write-host-jwt"
+	ActionUpdateCooldBrokerEnv    ActionType = "update-coold-broker-env"
 )
 
 // PlannedAction is one step that apply must execute on a host.

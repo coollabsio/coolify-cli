@@ -42,6 +42,13 @@ func CooldNamespacesEnvValue(ns []CooldNamespace) string {
 	return strings.Join(parts, ",")
 }
 
+// BrokerConfig carries optional broker connectivity injected into the coold unit
+// for non-central hosts. nil means no broker env vars are emitted.
+type BrokerConfig struct {
+	URL     string // e.g. "http://100.64.0.1:6443"
+	JWTPath string // e.g. "/etc/coolify/host-jwt"
+}
+
 // CooldServiceUnit returns the systemd unit text for coold.
 //
 // mgmtIP is this host's wg0 management IP (coold writes rows scoped to it and
@@ -52,7 +59,24 @@ func CooldNamespacesEnvValue(ns []CooldNamespace) string {
 // (bridge gateway :53). Pass nil to skip namespace env injection (e.g. tests
 // that don't care about namespaces); coold's config.rs defaults to a single
 // `default` entry.
+
+// CooldServiceUnitWithBroker is like CooldServiceUnit but injects broker env
+// vars when broker is non-nil. Used for non-central hosts after phase 4.
+func CooldServiceUnitWithBroker(mgmtIP net.IP, namespaces []CooldNamespace, broker *BrokerConfig) string {
+	brokerEnv := ""
+	if broker != nil {
+		brokerEnv = fmt.Sprintf(`Environment=COOLD_BROKER_URL=%s
+Environment=COOLD_HOST_JWT_PATH=%s
+`, broker.URL, broker.JWTPath)
+	}
+	return cooldServiceUnitInner(mgmtIP, namespaces, brokerEnv)
+}
+
 func CooldServiceUnit(mgmtIP net.IP, namespaces []CooldNamespace) string {
+	return cooldServiceUnitInner(mgmtIP, namespaces, "")
+}
+
+func cooldServiceUnitInner(mgmtIP net.IP, namespaces []CooldNamespace, extraEnv string) string {
 	// Wants (not Requires) on corrosion: if corrosion crashes/restarts we want
 	// coold to stay up and retry — reconcile_once already backs off for 1s on
 	// error, so it self-heals once corrosion is back. Requires would cascade
@@ -76,14 +100,14 @@ After=corrosion.service network-online.target podman.socket coolify-mesh-fw.serv
 
 [Service]
 Environment=COOLD_HOST_MGMT_IP=%s
-%s%sExecStart=/usr/local/bin/coold
+%s%s%sExecStart=/usr/local/bin/coold
 AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_ADMIN CAP_NET_RAW
 Restart=on-failure
 RestartSec=2s
 
 [Install]
 WantedBy=multi-user.target
-`, mgmtIP, nsEnv, apiEnv)
+`, mgmtIP, nsEnv, apiEnv, extraEnv)
 }
 
 // CooldInstallCommand returns a shell snippet that downloads and installs coold

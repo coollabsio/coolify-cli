@@ -69,11 +69,13 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		InstallPodman:         true,
 		Namespaces:            flags.Namespaces,
 		DefaultDenyContainers: !flags.SkipDefaultDeny,
-		InstallCoold:        true,
-		CooldVersion:        flags.CooldVersion,
-		CorrosionVersion:    flags.CorrosionVersion,
-		CorrosionGossipPort: flags.CorrosionGossipPort,
-		CorrosionAPIPort:    flags.CorrosionAPIPort,
+		InstallCoold:          true,
+		CooldVersion:          flags.CooldVersion,
+		CorrosionVersion:      flags.CorrosionVersion,
+		CorrosionGossipPort:   flags.CorrosionGossipPort,
+		CorrosionAPIPort:      flags.CorrosionAPIPort,
+		CentralHost:           flags.CentralHost,
+		BrokerVersion:         flags.BrokerVersion,
 	}
 
 	sshClient, err := flags.BuildSSHClient()

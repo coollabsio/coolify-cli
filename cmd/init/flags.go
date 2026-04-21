@@ -22,6 +22,12 @@ type InitFlags struct {
 	CorrosionGossipPort int
 	CorrosionAPIPort    int
 	Yes                 bool
+
+	// CentralHost is the SSH address of the central VM (from --central flag).
+	// When non-empty, phases 4+5 install Redis + broker on that host and push
+	// per-host JWTs to all other hosts. Default empty = no broker setup.
+	CentralHost  string
+	BrokerVersion string
 }
 
 // bindInitFlags registers all shared flags as PersistentFlags on cmd.
@@ -49,4 +55,10 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 		"Corrosion HTTP API port (bound to 127.0.0.1)")
 	pf.BoolVarP(&f.Yes, "yes", "y", false,
 		"Skip the interactive alpha confirmation prompt")
+	pf.StringVar(&f.CentralHost, "central", "",
+		`SSH address of the central VM that will run coolify-broker + Redis (and later Laravel).
+Must be one of the --servers entries. When set, phases 4+5 install Redis + broker on that host
+and push a per-host JWT to every other server. Leave empty to skip broker setup.`)
+	pf.StringVar(&f.BrokerVersion, "broker-version", "nightly",
+		`Release tag to download for coolify-broker (e.g. "nightly", "v1.2.3").`)
 }
