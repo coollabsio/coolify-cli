@@ -209,8 +209,10 @@ func ApplyMesh(
 		} else {
 			centralMgmtIP := mgmtAssignments[desired.CentralHost]
 			brokerURL := fmt.Sprintf("http://%s:%d", centralMgmtIP, services.BrokerGRPCPort)
-			nonCentral := hostsExcluding(desired.Hosts, desired.CentralHost)
-			p5 := ssh.ForEachServer(ctx, nonCentral, concurrency,
+			// Include central itself: in single-server topology central *is* the coold
+			// target, and in fleet mode central's own coold still benefits from broker
+			// wiring (uniform dispatch path, no standalone-API exception).
+			p5 := ssh.ForEachServer(ctx, desired.Hosts, concurrency,
 				func(ctx context.Context, host string) ([]ActionResult, error) {
 					return phase5PerHost(ctx, runner, host, user, port,
 						desired, fresh, mgmtAssignments, containerAssignments,
@@ -226,17 +228,6 @@ func ApplyMesh(
 	}
 
 	return results, err
-}
-
-// hostsExcluding returns a copy of hosts with exclude removed.
-func hostsExcluding(hosts []string, exclude string) []string {
-	out := make([]string, 0, len(hosts))
-	for _, h := range hosts {
-		if h != exclude {
-			out = append(out, h)
-		}
-	}
-	return out
 }
 
 // phase1Server installs WireGuard, generates a keypair, and (if requested)
