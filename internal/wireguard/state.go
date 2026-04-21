@@ -115,6 +115,13 @@ type ServerState struct {
 	// set of namespace subnets changes.
 	FirewallUnitSha256 string
 
+	// BridgeTableExists is true when `nft list table bridge coolify_bridge`
+	// succeeds on this host (nft bridge-family deny scaffold is in place).
+	BridgeTableExists bool
+
+	// NftAvailable is true when `nft --version` exits 0 on this host.
+	NftAvailable bool
+
 	// CorrosionInstalled is true when /usr/local/bin/corrosion exists and is executable.
 	CorrosionInstalled bool
 

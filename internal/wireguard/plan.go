@@ -284,7 +284,7 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 			for _, ns := range nsSorted {
 				subnets = append(subnets, containerAssignments[ns][host])
 			}
-			expectedUnit := FirewallServiceUnit(desired.Interface, subnets, desired.DefaultDenyContainers)
+			expectedUnit := FirewallServiceUnit(desired.Interface, desired.SortedNamespaces(), subnets, desired.DefaultDenyContainers)
 			expectedUnitHash := sha256Hex([]byte(expectedUnit))
 			unitDrift := state.FirewallUnitSha256 != expectedUnitHash
 

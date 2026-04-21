@@ -3,6 +3,7 @@ package wireguard
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 )
 
@@ -14,6 +15,17 @@ const firewallServiceName = "coolify-mesh-fw.service"
 // The firewall unit reads this file at boot/restart to repopulate the chain
 // after the kernel tables are cleared.
 const AllowRulesPath = "/etc/coolify/allow.rules"
+
+// BridgeTableName is the nftables table name owned by the CLI scaffold.
+const BridgeTableName = "coolify_bridge"
+
+// BridgeAllowRulesPath is where coold writes the nft bridge-family allow
+// fragment. The firewall unit replays it at start/restart.
+const BridgeAllowRulesPath = "/etc/coolify/allow.nft"
+
+// BridgeScaffoldPath is where the CLI writes the static bridge chain
+// scaffold (forward + coolify_intra chains). Applied at unit start/restart.
+const BridgeScaffoldPath = "/etc/coolify/bridge-fw.nft"
 
 // FirewallServiceUnit returns the systemd unit text that installs the
 // idempotent iptables rules required for cross-host container traffic over WG.
@@ -42,7 +54,7 @@ const AllowRulesPath = "/etc/coolify/allow.rules"
 //
 // Both modes preserve the POSTROUTING RETURN rule that prevents podman's
 // MASQUERADE from rewriting container egress to wg0's IP.
-func FirewallServiceUnit(iface string, containerSubnets []*net.IPNet, defaultDeny bool) string {
+func FirewallServiceUnit(iface string, namespaces []string, containerSubnets []*net.IPNet, defaultDeny bool) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, `[Unit]
@@ -84,6 +96,9 @@ ExecStart=/bin/sh -c "/usr/sbin/iptables -X COOLIFY-INTRA 2>/dev/null || true"
 ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -d %[1]s -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I FORWARD -d %[1]s -j ACCEPT"
 `, sn.String())
 		}
+		fmt.Fprint(&b, `# Remove bridge-family scaffold (permissive mode).
+ExecStart=/bin/sh -c "nft delete table bridge coolify_bridge 2>/dev/null || true"
+`)
 	} else {
 		fmt.Fprint(&b, `# Remove blanket ACCEPT from prior mode-A run.
 `)
@@ -121,6 +136,12 @@ ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -m conntrack --ctstate ESTAB
 ExecStart=/bin/sh -c "/usr/sbin/iptables -C FORWARD -s %[1]s -j COOLIFY-INTRA 2>/dev/null || /usr/sbin/iptables -A FORWARD -s %[1]s -j COOLIFY-INTRA"
 `, sn.String())
 		}
+		fmt.Fprint(&b, `# Bridge-family nft scaffold — intra-namespace default-deny.
+ExecStart=/bin/sh -c "nft list table bridge coolify_bridge >/dev/null 2>&1 || nft add table bridge coolify_bridge"
+ExecStart=/bin/sh -c "nft add chain bridge coolify_bridge coolify_allow '{ }' 2>/dev/null || true"
+ExecStart=/bin/sh -c "nft -f /etc/coolify/bridge-fw.nft"
+ExecStart=/bin/sh -c "[ -s /etc/coolify/allow.nft ] && nft -f /etc/coolify/allow.nft || true"
+`)
 	}
 
 	b.WriteString(`
@@ -133,16 +154,57 @@ WantedBy=multi-user.target
 
 // InstallFirewallCommand returns a shell command that atomically writes the
 // service unit, reloads systemd, and enables/starts (or restarts) it.
-func InstallFirewallCommand(iface string, containerSubnets []*net.IPNet, defaultDeny bool) string {
-	unit := FirewallServiceUnit(iface, containerSubnets, defaultDeny)
+func InstallFirewallCommand(iface string, namespaces []string, containerSubnets []*net.IPNet, defaultDeny bool) string {
+	unit := FirewallServiceUnit(iface, namespaces, containerSubnets, defaultDeny)
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf(`cat > %s.tmp <<'COOLIFY_FW_EOF'
 %sCOOLIFY_FW_EOF
 mv %s.tmp %s && `, firewallUnitPath, unit, firewallUnitPath, firewallUnitPath))
+	if defaultDeny {
+		scaffold := renderBridgeScaffold(namespaces)
+		b.WriteString(fmt.Sprintf(`cat > %s.tmp <<'COOLIFY_BR_EOF'
+%sCOOLIFY_BR_EOF
+mv %s.tmp %s && `, BridgeScaffoldPath, scaffold, BridgeScaffoldPath, BridgeScaffoldPath))
+	} else {
+		b.WriteString(fmt.Sprintf("rm -f %s && ", BridgeScaffoldPath))
+	}
 	b.WriteString(`systemctl daemon-reload && `)
 	// Use restart so a flag flip re-runs ExecStart= even if the unit is
 	// already active (Type=oneshot with RemainAfterExit=yes blocks plain
 	// "start" from running again).
 	b.WriteString(fmt.Sprintf(`systemctl enable %s && systemctl restart %s`, firewallServiceName, firewallServiceName))
+	return b.String()
+}
+
+// renderBridgeScaffold builds the nft file-format content for the bridge
+// scaffold. Uses `add table` + `add chain` (idempotent) then `flush chain` +
+// `add rule` so forward and coolify_intra are atomically replaced on every
+// apply without touching coolify_allow (owned by coold).
+func renderBridgeScaffold(namespaces []string) string {
+	sorted := make([]string, len(namespaces))
+	copy(sorted, namespaces)
+	sort.Strings(sorted)
+
+	// Build quoted iifname/oifname set: { "coolify-ns1-mesh", "coolify-ns2-mesh" }
+	var ifNames []string
+	for _, ns := range sorted {
+		ifNames = append(ifNames, fmt.Sprintf(`"coolify-%s-mesh"`, ns))
+	}
+	ifaceSet := "{ " + strings.Join(ifNames, ", ") + " }"
+
+	var b strings.Builder
+	b.WriteString("# Managed by coolify init — do not edit manually.\n")
+	b.WriteString("# Replaces forward + coolify_intra chains on restart; never touches coolify_allow.\n")
+	fmt.Fprintf(&b, "add table bridge %s\n", BridgeTableName)
+	fmt.Fprintf(&b, "add chain bridge %s forward { type filter hook forward priority -200; policy accept; }\n", BridgeTableName)
+	fmt.Fprintf(&b, "flush chain bridge %s forward\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward meta protocol != ip accept\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward ct state established,related accept\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward iifname %s jump coolify_intra\n", BridgeTableName, ifaceSet)
+	fmt.Fprintf(&b, "add rule bridge %s forward oifname %s jump coolify_intra\n", BridgeTableName, ifaceSet)
+	fmt.Fprintf(&b, "add chain bridge %s coolify_intra\n", BridgeTableName)
+	fmt.Fprintf(&b, "flush chain bridge %s coolify_intra\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s coolify_intra jump coolify_allow\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s coolify_intra drop\n", BridgeTableName)
 	return b.String()
 }

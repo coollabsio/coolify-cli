@@ -72,7 +72,7 @@ Environment=COOLD_API_TOKEN_FILE=%s
 	return fmt.Sprintf(`[Unit]
 Description=Coolify host agent
 Wants=corrosion.service
-After=corrosion.service network-online.target podman.socket
+After=corrosion.service network-online.target podman.socket coolify-mesh-fw.service
 
 [Service]
 Environment=COOLD_HOST_MGMT_IP=%s

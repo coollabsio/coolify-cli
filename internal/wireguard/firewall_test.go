@@ -9,7 +9,7 @@ import (
 
 func TestFirewallServiceUnit_DefaultDenyOff(t *testing.T) {
 	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
-	got := FirewallServiceUnit("wg0", subnets, false)
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, false)
 
 	assert.Contains(t, got, "[Unit]")
 	assert.Contains(t, got, "Description=Coolify mesh firewall rules")
@@ -41,7 +41,7 @@ func TestFirewallServiceUnit_DefaultDenyOff(t *testing.T) {
 
 func TestFirewallServiceUnit_DefaultDenyOn(t *testing.T) {
 	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
-	got := FirewallServiceUnit("wg0", subnets, true)
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, true)
 
 	// Chains created.
 	assert.Contains(t, got, "/usr/sbin/iptables -N COOLIFY-ALLOW")
@@ -81,7 +81,7 @@ func TestFirewallServiceUnit_DefaultDenyOn(t *testing.T) {
 
 func TestFirewallServiceUnit_DefaultDenyOff_NoAllowRestore(t *testing.T) {
 	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
-	got := FirewallServiceUnit("wg0", subnets, false)
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, false)
 
 	// Blanket-allow mode bypasses COOLIFY-ALLOW entirely — no restore.
 	assert.NotContains(t, got, "iptables-restore")
@@ -90,7 +90,7 @@ func TestFirewallServiceUnit_DefaultDenyOff_NoAllowRestore(t *testing.T) {
 
 func TestInstallFirewallCommand_AtomicWriteAndEnable(t *testing.T) {
 	subnets := []*net.IPNet{mustParseCIDR("10.210.5.0/24")}
-	cmd := InstallFirewallCommand("wg0", subnets, false)
+	cmd := InstallFirewallCommand("wg0", []string{"default"}, subnets, false)
 
 	// Atomic write via .tmp + mv.
 	assert.Contains(t, cmd, "/etc/systemd/system/coolify-mesh-fw.service.tmp")
@@ -107,7 +107,7 @@ func TestInstallFirewallCommand_AtomicWriteAndEnable(t *testing.T) {
 
 func TestInstallFirewallCommand_DefaultDenyEmbedded(t *testing.T) {
 	subnets := []*net.IPNet{mustParseCIDR("10.210.5.0/24")}
-	cmd := InstallFirewallCommand("wg0", subnets, true)
+	cmd := InstallFirewallCommand("wg0", []string{"default"}, subnets, true)
 
 	// Default-deny variant of unit must be embedded in the heredoc.
 	assert.Contains(t, cmd, "-A COOLIFY-INTRA -j DROP")
@@ -118,7 +118,7 @@ func TestFirewallServiceUnit_MultipleNamespacesEmitPerSubnetRules(t *testing.T) 
 		mustParseCIDR("10.210.1.0/24"),
 		mustParseCIDR("10.220.1.0/24"),
 	}
-	got := FirewallServiceUnit("wg0", subnets, true)
+	got := FirewallServiceUnit("wg0", []string{"default"}, subnets, true)
 
 	// Each namespace subnet gets its own POSTROUTING RETURN + FORWARD jumps.
 	for _, sub := range []string{"10.210.1.0/24", "10.220.1.0/24"} {

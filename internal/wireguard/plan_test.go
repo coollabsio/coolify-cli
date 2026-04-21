@@ -35,7 +35,7 @@ func desiredWithPodman() *DesiredMesh {
 // `default` namespace with the supplied subnet.
 func convergedServer(host, pubkey, peerKey, mgmtIP, contSubnet string) *ServerState {
 	sn := mustParseCIDR(contSubnet)
-	firewallHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
+	firewallHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []string{"default"}, []*net.IPNet{sn}, false)))
 	return &ServerState{
 		Host:               host,
 		Installed:          true,
@@ -468,11 +468,11 @@ func TestBuildPlan_DefaultDenyConverged(t *testing.T) {
 	srvA := convergedServer("1.1.1.1", "AAAAAAAA=", "BBBBBBBB=", "100.64.0.1", "10.210.0.0/24")
 	srvA.DefaultDenyActive = true
 	srvA.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
-		[]*net.IPNet{mustParseCIDR("10.210.0.0/24")}, true)))
+		[]string{"default"}, []*net.IPNet{mustParseCIDR("10.210.0.0/24")}, true)))
 	srvB := convergedServer("2.2.2.2", "BBBBBBBB=", "AAAAAAAA=", "100.64.0.2", "10.210.1.0/24")
 	srvB.DefaultDenyActive = true
 	srvB.FirewallUnitSha256 = sha256Hex([]byte(FirewallServiceUnit("wg0",
-		[]*net.IPNet{mustParseCIDR("10.210.1.0/24")}, true)))
+		[]string{"default"}, []*net.IPNet{mustParseCIDR("10.210.1.0/24")}, true)))
 	current := MeshState{Servers: map[string]*ServerState{"1.1.1.1": srvA, "2.2.2.2": srvB}}
 
 	plan, err := BuildPlan(desired, current)
@@ -569,7 +569,7 @@ func TestBuildPlan_CooldVersionDrift(t *testing.T) {
 
 	host := "1.1.1.1"
 	sn := mustParseCIDR("10.210.0.0/24")
-	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
+	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []string{"default"}, []*net.IPNet{sn}, false)))
 	state := &ServerState{
 		Host: host, Installed: true, KeysExist: true, Active: true,
 		PodmanInstalled: true, PodmanSocketActive: true, IPForwardEnabled: true,
@@ -605,7 +605,7 @@ func TestBuildPlan_CooldNightlyAlwaysDrifts(t *testing.T) {
 
 	host := "1.1.1.1"
 	sn := mustParseCIDR("10.210.0.0/24")
-	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
+	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []string{"default"}, []*net.IPNet{sn}, false)))
 	state := &ServerState{
 		Host: host, Installed: true, KeysExist: true, Active: true,
 		PodmanInstalled: true, PodmanSocketActive: true, IPForwardEnabled: true,

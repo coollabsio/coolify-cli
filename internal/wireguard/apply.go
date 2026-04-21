@@ -365,14 +365,14 @@ func phase2Server(
 				subnets = append(subnets, sn)
 			}
 		}
-		expectedUnit := FirewallServiceUnit(desired.Interface, subnets, desired.DefaultDenyContainers)
+		expectedUnit := FirewallServiceUnit(desired.Interface, desired.SortedNamespaces(), subnets, desired.DefaultDenyContainers)
 		expectedUnitHash := sha256Hex([]byte(expectedUnit))
 		unitDrift := freshState != nil && freshState.FirewallUnitSha256 != expectedUnitHash
 
 		if freshState == nil || !freshState.FirewallActive ||
 			freshState.DefaultDenyActive != desired.DefaultDenyContainers ||
 			unitDrift {
-			fwCmd := InstallFirewallCommand(desired.Interface, subnets, desired.DefaultDenyContainers)
+			fwCmd := InstallFirewallCommand(desired.Interface, desired.SortedNamespaces(), subnets, desired.DefaultDenyContainers)
 			if err := runStep(ctx, runner, host, user, port, &out,
 				ActionInstallFirewall, "", fwCmd,
 				fmt.Sprintf("install firewall service on %s", host)); err != nil {
