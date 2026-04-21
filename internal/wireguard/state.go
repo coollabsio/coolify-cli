@@ -139,13 +139,14 @@ type ServerState struct {
 	// CooldActive is true when the coold systemd service is active.
 	CooldActive bool
 
-	// CorrosionBinarySha256 is the sha256 of /usr/local/bin/corrosion (hex), or
-	// empty when absent. Used by BuildPlan to detect out-of-date binaries.
-	CorrosionBinarySha256 string
+	// CorrosionVersion is the content of /usr/local/bin/corrosion.version
+	// (trimmed), or empty when absent. Matches the version tag passed to
+	// CorrosionInstallCommand (e.g. "nightly", "v1.2.3").
+	CorrosionVersion string
 
-	// CooldBinarySha256 is the sha256 of /usr/local/bin/coold (hex), or empty
-	// when absent.
-	CooldBinarySha256 string
+	// CooldVersion is the content of /usr/local/bin/coold.version (trimmed),
+	// or empty when absent.
+	CooldVersion string
 
 	// CooldUnitSha256 is the sha256 of /etc/systemd/system/coold.service (hex),
 	// or empty when absent. Used by BuildPlan to detect generator changes
@@ -252,29 +253,22 @@ type DesiredMesh struct {
 	// plane manages the explicit allow-list in the COOLIFY-ALLOW chain.
 	DefaultDenyContainers bool
 
-	// InstallCoold, when true, uploads corrosion + coold binaries to each host,
-	// writes their configs/unit files, and enables both services.  Requires
-	// InstallPodman (coold depends on podman.socket).
+	// InstallCoold, when true, downloads corrosion + coold from GitHub releases
+	// to each host, writes their configs/unit files, and enables both services.
+	// Requires InstallPodman (coold depends on podman.socket).
 	InstallCoold bool
 
-	// CooldBinaryPath is the local filesystem path of the coold binary to upload.
-	// Never written to remote state.
-	CooldBinaryPath string
+	// CooldVersion is the release tag to download (e.g. "nightly", "v1.2.3").
+	CooldVersion string
 
-	// CorrosionBinaryPath is the local filesystem path of the corrosion binary to upload.
-	CorrosionBinaryPath string
+	// CorrosionVersion is the release tag to download for corrosion.
+	CorrosionVersion string
 
 	// CorrosionGossipPort is the SWIM gossip UDP port (default 8787).
 	CorrosionGossipPort int
 
 	// CorrosionAPIPort is the corrosion HTTP API port bound to 127.0.0.1 (default 8080).
 	CorrosionAPIPort int
-
-	// CorrosionBinarySha256 and CooldBinarySha256 are hex sha256 of the local
-	// binary files. Populated by the apply/plan command before BuildPlan so the
-	// plan step can detect remote/local binary drift.
-	CorrosionBinarySha256 string
-	CooldBinarySha256     string
 }
 
 // SortedNamespaces returns the desired namespaces in deterministic order.

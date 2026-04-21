@@ -164,19 +164,15 @@ func Probe(ctx context.Context, runner ssh.Runner, host, user string, port int, 
 		state.CooldInstalled = true
 	}
 
-	// 15a. sha256 of remote corrosion binary (empty when absent).
+	// 15a. version marker for corrosion (empty when absent / pre-migration).
 	stdout, _, _ = runner.Run(ctx, host, user, port,
-		`sha256sum /usr/local/bin/corrosion 2>/dev/null | awk '{print $1}' || true`)
-	if h := strings.TrimSpace(stdout); h != "" {
-		state.CorrosionBinarySha256 = h
-	}
+		`cat /usr/local/bin/corrosion.version 2>/dev/null || true`)
+	state.CorrosionVersion = strings.TrimSpace(stdout)
 
-	// 15b. sha256 of remote coold binary (empty when absent).
+	// 15b. version marker for coold (empty when absent / pre-migration).
 	stdout, _, _ = runner.Run(ctx, host, user, port,
-		`sha256sum /usr/local/bin/coold 2>/dev/null | awk '{print $1}' || true`)
-	if h := strings.TrimSpace(stdout); h != "" {
-		state.CooldBinarySha256 = h
-	}
+		`cat /usr/local/bin/coold.version 2>/dev/null || true`)
+	state.CooldVersion = strings.TrimSpace(stdout)
 
 	// 15c. sha256 of remote coold.service unit (empty when absent).
 	stdout, _, _ = runner.Run(ctx, host, user, port,

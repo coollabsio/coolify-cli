@@ -535,3 +535,98 @@ func TestBuildPlan_PodmanRequiresNamespace(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "namespace")
 }
+
+func TestBinaryVersionDrift(t *testing.T) {
+	tests := []struct {
+		name            string
+		desiredVersion  string
+		installed       bool
+		haveVersion     string
+		wantDrift       bool
+	}{
+		{"not installed", "nightly", false, "", true},
+		{"installed no marker", "nightly", true, "", true},
+		{"nightly always drifts", "nightly", true, "nightly", true},
+		{"pinned matches", "v1.2.3", true, "v1.2.3", false},
+		{"pinned mismatch", "v1.2.4", true, "v1.2.3", true},
+		{"pinned no marker", "v1.2.3", true, "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := binaryVersionDrift(tt.desiredVersion, tt.installed, tt.haveVersion)
+			assert.Equal(t, tt.wantDrift, got)
+		})
+	}
+}
+
+func TestBuildPlan_CooldVersionDrift(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.InstallCoold = true
+	desired.CooldVersion = "v1.2.3"
+	desired.CorrosionVersion = "v1.2.3"
+	desired.CorrosionGossipPort = 8787
+	desired.CorrosionAPIPort = 8080
+
+	host := "1.1.1.1"
+	sn := mustParseCIDR("10.210.0.0/24")
+	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
+	state := &ServerState{
+		Host: host, Installed: true, KeysExist: true, Active: true,
+		PodmanInstalled: true, PodmanSocketActive: true, IPForwardEnabled: true,
+		FirewallActive: true, DefaultDenyActive: false, FirewallUnitSha256: fwHash,
+		CorrosionInstalled: true, CooldInstalled: true,
+		CorrosionVersion: "v1.2.3", CooldVersion: "v1.2.2", // coold is stale
+		CorrosionActive: true, CooldActive: true,
+		Namespaces: map[string]*NamespaceServerState{
+			DefaultNamespace: {Namespace: DefaultNamespace, NetworkExists: true, ContainerSubnet: sn, Label: DefaultNamespace},
+		},
+	}
+
+	plan, err := BuildPlan(desired, MeshState{Servers: map[string]*ServerState{host: state}})
+	require.NoError(t, err)
+
+	types := make(map[ActionType]bool)
+	for _, a := range plan.Actions {
+		if a.Host == host {
+			types[a.Type] = true
+		}
+	}
+	assert.True(t, types[ActionInstallCoold], "stale coold version should trigger install-coold")
+	assert.False(t, types[ActionInstallCorrosion], "matching corrosion version should not trigger install")
+}
+
+func TestBuildPlan_CooldNightlyAlwaysDrifts(t *testing.T) {
+	desired := desiredWithPodman()
+	desired.InstallCoold = true
+	desired.CooldVersion = "nightly"
+	desired.CorrosionVersion = "nightly"
+	desired.CorrosionGossipPort = 8787
+	desired.CorrosionAPIPort = 8080
+
+	host := "1.1.1.1"
+	sn := mustParseCIDR("10.210.0.0/24")
+	fwHash := sha256Hex([]byte(FirewallServiceUnit("wg0", []*net.IPNet{sn}, false)))
+	state := &ServerState{
+		Host: host, Installed: true, KeysExist: true, Active: true,
+		PodmanInstalled: true, PodmanSocketActive: true, IPForwardEnabled: true,
+		FirewallActive: true, DefaultDenyActive: false, FirewallUnitSha256: fwHash,
+		CorrosionInstalled: true, CooldInstalled: true,
+		CorrosionVersion: "nightly", CooldVersion: "nightly",
+		CorrosionActive: true, CooldActive: true,
+		Namespaces: map[string]*NamespaceServerState{
+			DefaultNamespace: {Namespace: DefaultNamespace, NetworkExists: true, ContainerSubnet: sn, Label: DefaultNamespace},
+		},
+	}
+
+	plan, err := BuildPlan(desired, MeshState{Servers: map[string]*ServerState{host: state}})
+	require.NoError(t, err)
+
+	types := make(map[ActionType]bool)
+	for _, a := range plan.Actions {
+		if a.Host == host {
+			types[a.Type] = true
+		}
+	}
+	assert.True(t, types[ActionInstallCoold], "nightly tag always triggers install-coold")
+	assert.True(t, types[ActionInstallCorrosion], "nightly tag always triggers install-corrosion")
+}

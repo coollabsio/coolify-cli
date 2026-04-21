@@ -3,8 +3,6 @@
 package initcmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/coollabsio/coolify-cli/cmd/common"
@@ -19,8 +17,8 @@ type InitFlags struct {
 	WGInterface         string
 	WGListenPort        int
 	SkipDefaultDeny     bool
-	CooldBinaryPath     string
-	CorrosionBinaryPath string
+	CooldVersion        string
+	CorrosionVersion    string
 	CorrosionGossipPort int
 	CorrosionAPIPort    int
 	Yes                 bool
@@ -41,12 +39,10 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 		"WireGuard UDP listen port")
 	pf.BoolVar(&f.SkipDefaultDeny, "skip-default-deny", false,
 		"Skip installing the default-deny iptables scaffold (COOLIFY-INTRA / COOLIFY-ALLOW). By default, cross-host container traffic is blocked except where coold installs allow rules. Intra-host (same bridge) traffic is NOT enforced — defer to per-app podman networks")
-	pf.StringVar(&f.CooldBinaryPath, "coold-binary",
-		os.ExpandEnv("$HOME/devel/coold/target/release/coold"),
-		"Local path to the coold Linux/arm64 binary")
-	pf.StringVar(&f.CorrosionBinaryPath, "corrosion-binary",
-		os.ExpandEnv("$HOME/devel/corrosion/target/release/corrosion"),
-		"Local path to the corrosion Linux/arm64 binary")
+	pf.StringVar(&f.CooldVersion, "coold-version", "nightly",
+		`Release tag to download for coold (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.`)
+	pf.StringVar(&f.CorrosionVersion, "corrosion-version", "nightly",
+		`Release tag to download for corrosion (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.`)
 	pf.IntVar(&f.CorrosionGossipPort, "corrosion-gossip-port", 8787,
 		"Corrosion SWIM gossip port (bound to the wg0 mgmt IP)")
 	pf.IntVar(&f.CorrosionAPIPort, "corrosion-api-port", 8080,

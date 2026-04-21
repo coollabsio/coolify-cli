@@ -42,22 +42,6 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return fmt.Errorf("invalid --container-pool %q: %w", flags.ContainerPool, err)
 	}
 
-	var corrosionSha, cooldSha string
-	if flags.CorrosionBinaryPath != "" {
-		if _, err := os.Stat(flags.CorrosionBinaryPath); err == nil {
-			if s, herr := wireguard.FileSha256(flags.CorrosionBinaryPath); herr == nil {
-				corrosionSha = s
-			}
-		}
-	}
-	if flags.CooldBinaryPath != "" {
-		if _, err := os.Stat(flags.CooldBinaryPath); err == nil {
-			if s, herr := wireguard.FileSha256(flags.CooldBinaryPath); herr == nil {
-				cooldSha = s
-			}
-		}
-	}
-
 	desired := &wireguard.DesiredMesh{
 		Hosts:                 flags.Servers,
 		Interface:             flags.WGInterface,
@@ -68,13 +52,11 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		InstallPodman:         true,
 		Namespaces:            flags.Namespaces,
 		DefaultDenyContainers: !flags.SkipDefaultDeny,
-		InstallCoold:          true,
-		CooldBinaryPath:       flags.CooldBinaryPath,
-		CorrosionBinaryPath:   flags.CorrosionBinaryPath,
-		CorrosionGossipPort:   flags.CorrosionGossipPort,
-		CorrosionAPIPort:      flags.CorrosionAPIPort,
-		CorrosionBinarySha256: corrosionSha,
-		CooldBinarySha256:     cooldSha,
+		InstallCoold:        true,
+		CooldVersion:        flags.CooldVersion,
+		CorrosionVersion:    flags.CorrosionVersion,
+		CorrosionGossipPort: flags.CorrosionGossipPort,
+		CorrosionAPIPort:    flags.CorrosionAPIPort,
 	}
 
 	// Build SSH runner (handles passphrase resolution).

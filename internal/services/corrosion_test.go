@@ -8,6 +8,35 @@ import (
 	"testing"
 )
 
+func TestCorrosionInstallCommand_SubstitutesVersion(t *testing.T) {
+	for _, version := range []string{"nightly", "v1.2.3"} {
+		cmd := CorrosionInstallCommand(version)
+		if !strings.Contains(cmd, version) {
+			t.Errorf("version %q not found in install command", version)
+		}
+		if !strings.Contains(cmd, "coollabsio/corrosion/releases/download/"+version) {
+			t.Errorf("release URL missing version %q in:\n%s", version, cmd)
+		}
+		if !strings.Contains(cmd, "/usr/local/bin/corrosion.version") {
+			t.Errorf("version marker write missing from install command")
+		}
+	}
+}
+
+func TestCorrosionInstallCommand_ArchDetection(t *testing.T) {
+	cmd := CorrosionInstallCommand("nightly")
+	for _, want := range []string{
+		"x86_64)  ARCH=x86_64-unknown-linux-gnu",
+		"aarch64) ARCH=aarch64-unknown-linux-gnu",
+		"corrosion-${ARCH}.tar.gz",
+		"install -m 0755",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("expected %q in install command:\n%s", want, cmd)
+		}
+	}
+}
+
 func TestCorrosionConfigBytes_GoldenThreeHost(t *testing.T) {
 	self := net.ParseIP("100.64.0.1")
 	peers := []net.IP{

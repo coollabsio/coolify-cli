@@ -80,6 +80,29 @@ func CorrosionConfigBytes(bindAddr net.IP, gossipPort, apiPort int, peers []net.
 	return []byte(b.String())
 }
 
+// CorrosionInstallCommand returns a shell snippet that downloads and installs
+// corrosion from the GitHub release for the given version tag.
+// Architecture is auto-detected on the remote host via uname -m.
+// The version tag is written to /usr/local/bin/corrosion.version after install.
+func CorrosionInstallCommand(version string) string {
+	return fmt.Sprintf(`set -e
+ARCH_RAW=$(uname -m)
+case "$ARCH_RAW" in
+  x86_64)  ARCH=x86_64-unknown-linux-gnu ;;
+  aarch64) ARCH=aarch64-unknown-linux-gnu ;;
+  *) echo "unsupported arch: $ARCH_RAW" >&2; exit 1 ;;
+esac
+URL="https://github.com/coollabsio/corrosion/releases/download/%s/corrosion-${ARCH}.tar.gz"
+DLDIR=$(mktemp -d)
+trap 'rm -rf "$DLDIR"' EXIT
+curl -fsSL --retry 3 --max-time 120 -o "$DLDIR/corrosion.tar.gz" "$URL"
+tar -xzf "$DLDIR/corrosion.tar.gz" -C "$DLDIR"
+test -f "$DLDIR/corrosion" || { echo "corrosion binary not found in tarball" >&2; exit 1; }
+install -m 0755 "$DLDIR/corrosion" /usr/local/bin/corrosion.tmp
+mv /usr/local/bin/corrosion.tmp /usr/local/bin/corrosion
+echo '%s' > /usr/local/bin/corrosion.version`, version, version)
+}
+
 // CorrosionServiceUnit returns the systemd unit text for corrosion.
 // Plain .service (not a template unit); iface is baked into the dependency.
 func CorrosionServiceUnit(iface string) string {

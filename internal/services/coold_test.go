@@ -6,6 +6,35 @@ import (
 	"testing"
 )
 
+func TestCooldInstallCommand_SubstitutesVersion(t *testing.T) {
+	for _, version := range []string{"nightly", "v1.2.3"} {
+		cmd := CooldInstallCommand(version)
+		if !strings.Contains(cmd, version) {
+			t.Errorf("version %q not found in install command", version)
+		}
+		if !strings.Contains(cmd, "coollabsio/coold/releases/download/"+version) {
+			t.Errorf("release URL missing version %q in:\n%s", version, cmd)
+		}
+		if !strings.Contains(cmd, "/usr/local/bin/coold.version") {
+			t.Errorf("version marker write missing from install command")
+		}
+	}
+}
+
+func TestCooldInstallCommand_ArchDetection(t *testing.T) {
+	cmd := CooldInstallCommand("nightly")
+	for _, want := range []string{
+		"x86_64)  ARCH=amd64",
+		"aarch64) ARCH=arm64",
+		"coold-linux-${ARCH}.tar.gz",
+		"install -m 0755",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("expected %q in install command:\n%s", want, cmd)
+		}
+	}
+}
+
 func TestCooldServiceUnit_EmbedsMgmtIPAndNamespaces(t *testing.T) {
 	namespaces := []CooldNamespace{
 		{Name: "default", Network: "coolify-default-mesh", BridgeGateway: net.ParseIP("10.210.7.1")},

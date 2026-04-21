@@ -30,8 +30,8 @@ const (
 	ActionCreatePodmanNet         ActionType = "create-podman-network"
 	ActionRecreatePodmanNet       ActionType = "recreate-podman-network"
 	ActionInstallFirewall         ActionType = "install-firewall"
-	ActionUploadCorrosion         ActionType = "upload-corrosion"
-	ActionUploadCoold             ActionType = "upload-coold"
+	ActionInstallCorrosion        ActionType = "install-corrosion"
+	ActionInstallCoold            ActionType = "install-coold"
 	ActionWriteCorrosionConfig    ActionType = "write-corrosion-config"
 	ActionWriteCorrosionSchema    ActionType = "write-corrosion-schema"
 	ActionInstallCorrosionService ActionType = "install-corrosion-service"
@@ -306,23 +306,21 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 
 		// --- Corrosion + coold stack (v5 control plane) ---
 		if desired.InstallCoold {
-			corrosionDrift := !state.CorrosionInstalled ||
-				(desired.CorrosionBinarySha256 != "" && state.CorrosionBinarySha256 != desired.CorrosionBinarySha256)
-			cooldDrift := !state.CooldInstalled ||
-				(desired.CooldBinarySha256 != "" && state.CooldBinarySha256 != desired.CooldBinarySha256)
+			corrosionDrift := binaryVersionDrift(desired.CorrosionVersion, state.CorrosionInstalled, state.CorrosionVersion)
+			cooldDrift := binaryVersionDrift(desired.CooldVersion, state.CooldInstalled, state.CooldVersion)
 
 			if corrosionDrift {
 				plan.Actions = append(plan.Actions, PlannedAction{
 					Host:   host,
-					Type:   ActionUploadCorrosion,
-					Detail: "/usr/local/bin/corrosion",
+					Type:   ActionInstallCorrosion,
+					Detail: fmt.Sprintf("corrosion %s → /usr/local/bin/corrosion", desired.CorrosionVersion),
 				})
 			}
 			if cooldDrift {
 				plan.Actions = append(plan.Actions, PlannedAction{
 					Host:   host,
-					Type:   ActionUploadCoold,
-					Detail: "/usr/local/bin/coold",
+					Type:   ActionInstallCoold,
+					Detail: fmt.Sprintf("coold %s → /usr/local/bin/coold", desired.CooldVersion),
 				})
 			}
 
@@ -398,6 +396,22 @@ func buildNamespaceConfigs(host string, nsSorted []string, assignments map[strin
 		})
 	}
 	return out
+}
+
+// binaryVersionDrift returns true when a binary needs (re-)installation.
+// Rules:
+//   - not installed → always drift
+//   - marker absent (empty haveVersion) → treat as drift (first-migration case)
+//   - "nightly" tag → always re-install (moving target)
+//   - pinned tag → drift only when marker differs from desired
+func binaryVersionDrift(desiredVersion string, installed bool, haveVersion string) bool {
+	if !installed || haveVersion == "" {
+		return true
+	}
+	if desiredVersion == "nightly" {
+		return true
+	}
+	return haveVersion != desiredVersion
 }
 
 // allowedIPsNeedsRewrite returns true when any [Peer] block on host does not

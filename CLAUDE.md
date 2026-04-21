@@ -184,7 +184,7 @@ type Resource struct {
 - Each host gets a mgmt IP `/32` from `--wg-mgmt-pool` (default `100.64.0.0/16`, RFC 6598 CGNAT) on `wg0`.
 - For every namespace (see **Namespaces** below; default: just `default`), each host gets a container subnet `/<container-prefix>` carved from the shared `--container-pool` (default `10.210.0.0/16`, default prefix `/24`). Each namespace is owned by its own Podman bridge named `coolify-<namespace>-mesh` (default → `coolify-default-mesh`).
 - Installs Podman + enables `podman.socket` + creates every namespace bridge + installs `coolify-mesh-fw.service` (always; required for v5 runtime).
-- Installs coold + corrosion (v5 control-plane agents; always) from `--coold-binary` / `--corrosion-binary`. coold receives the full namespace list via `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,...` so it can bind DNS and track rules per namespace.
+- Downloads and installs coold + corrosion (v5 control-plane agents; always) from GitHub releases on each remote host. Release tag controlled by `--coold-version` / `--corrosion-version` (default `nightly`). coold receives the full namespace list via `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,...` so it can bind DNS and track rules per namespace.
 - Installs default-deny firewall scaffold by default — host-global `COOLIFY-INTRA` + empty `COOLIFY-ALLOW` chains, with FORWARD jumps for every namespace subnet. Use `--skip-default-deny` to fall back to blanket-allow (mode A) for testing.
 
 ### Architecture (why this layout)
@@ -244,8 +244,8 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-defaul
 | `--wg-listen-port` | `51820` | WG UDP port |
 | `--namespaces` | `default` | comma-separated list of namespaces. Each creates its own `coolify-<ns>-mesh` bridge with its own per-host `/24` carved from `--container-pool` |
 | `--skip-default-deny` | false | skip the default-deny firewall scaffold. Default installs COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
-| `--coold-binary` | `$HOME/devel/coold/target/release/coold` | local path to the coold Linux/arm64 binary (required — uploaded to every host) |
-| `--corrosion-binary` | `$HOME/devel/corrosion/target/release/corrosion` | local path to the corrosion Linux/arm64 binary (required — uploaded to every host) |
+| `--coold-version` | `nightly` | release tag to download for coold (e.g. `nightly`, `v1.2.3`). `nightly` always re-downloads on every apply; pinned tags skip if already installed. Fetched from `coollabsio/coold` GitHub releases on the remote host. |
+| `--corrosion-version` | `nightly` | release tag to download for corrosion. Same drift semantics as `--coold-version`. Fetched from `coollabsio/corrosion` GitHub releases. |
 | `--corrosion-gossip-port` | `8787` | corrosion SWIM gossip port (bound to wg0 mgmt IP) |
 | `--corrosion-api-port` | `8080` | corrosion HTTP API port (bound to 127.0.0.1) |
 | `--concurrency` | `10` | parallel SSH connections |

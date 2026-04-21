@@ -86,6 +86,29 @@ WantedBy=multi-user.target
 `, mgmtIP, nsEnv, apiEnv)
 }
 
+// CooldInstallCommand returns a shell snippet that downloads and installs coold
+// from the GitHub release for the given version tag (e.g. "nightly", "v1.2.3").
+// Architecture is auto-detected on the remote host via uname -m.
+// The version tag is written to /usr/local/bin/coold.version after install.
+func CooldInstallCommand(version string) string {
+	return fmt.Sprintf(`set -e
+ARCH_RAW=$(uname -m)
+case "$ARCH_RAW" in
+  x86_64)  ARCH=amd64 ;;
+  aarch64) ARCH=arm64 ;;
+  *) echo "unsupported arch: $ARCH_RAW" >&2; exit 1 ;;
+esac
+URL="https://github.com/coollabsio/coold/releases/download/%s/coold-linux-${ARCH}.tar.gz"
+DLDIR=$(mktemp -d)
+trap 'rm -rf "$DLDIR"' EXIT
+curl -fsSL --retry 3 --max-time 120 -o "$DLDIR/coold.tar.gz" "$URL"
+tar -xzf "$DLDIR/coold.tar.gz" -C "$DLDIR"
+test -f "$DLDIR/coold" || { echo "coold binary not found in tarball" >&2; exit 1; }
+install -m 0755 "$DLDIR/coold" /usr/local/bin/coold.tmp
+mv /usr/local/bin/coold.tmp /usr/local/bin/coold
+echo '%s' > /usr/local/bin/coold.version`, version, version)
+}
+
 // EnsureCooldAPITokenCommand returns a shell snippet that creates the
 // CooldAPITokenPath file with a random 32-byte hex token if it does not
 // already exist. Idempotent: repeated runs preserve the existing token so
