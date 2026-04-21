@@ -140,20 +140,32 @@ func TestFirewallServiceUnit_BridgeScaffold_DefaultDenyOff(t *testing.T) {
 	assert.NotContains(t, got, "nft -f /etc/coolify/bridge-fw.nft")
 }
 
-func TestFirewallServiceUnit_BridgeSetStableSortedNamespaces(t *testing.T) {
+func TestFirewallServiceUnit_BridgeSetStableSortedSubnets(t *testing.T) {
+	// Pass subnets in reverse-sorted order — scaffold must sort them.
 	subnets := []*net.IPNet{
-		mustParseCIDR("10.210.1.0/24"),
 		mustParseCIDR("10.220.1.0/24"),
+		mustParseCIDR("10.210.1.0/24"),
 	}
 	// renderBridgeScaffold is embedded in InstallFirewallCommand, so check that.
 	cmd := InstallFirewallCommand("wg0", []string{"alpha", "default"}, subnets, true)
 
-	assert.Contains(t, cmd, `"coolify-alpha-mesh"`)
-	assert.Contains(t, cmd, `"coolify-default-mesh"`)
+	// Assert the nft scaffold set contains both, sorted:
+	//   `ip saddr { 10.210.1.0/24, 10.220.1.0/24 } jump coolify_intra`
+	assert.Contains(t, cmd, "ip saddr { 10.210.1.0/24, 10.220.1.0/24 } jump coolify_intra")
+	assert.Contains(t, cmd, "ip daddr { 10.210.1.0/24, 10.220.1.0/24 } jump coolify_intra")
+}
 
-	alphaIdx := strings.Index(cmd, `"coolify-alpha-mesh"`)
-	defaultIdx := strings.Index(cmd, `"coolify-default-mesh"`)
-	assert.True(t, alphaIdx < defaultIdx, "alpha must appear before default (sorted)")
+func TestFirewallServiceUnit_BridgeScaffold_UsesIPSaddrNotIifname(t *testing.T) {
+	subnets := []*net.IPNet{mustParseCIDR("10.210.0.0/24")}
+	cmd := InstallFirewallCommand("wg0", []string{"default"}, subnets, true)
+
+	// Podman bridge names exceed IFNAMSIZ=16 (e.g. "coolify-default-mesh" = 20
+	// chars). Scaffold MUST key dispatch on ip saddr/daddr, never iifname.
+	assert.Contains(t, cmd, "ip saddr")
+	assert.Contains(t, cmd, "ip daddr")
+	assert.NotContains(t, cmd, "iifname")
+	assert.NotContains(t, cmd, "oifname")
+	assert.NotContains(t, cmd, "coolify-default-mesh\"")
 }
 
 func TestInstallFirewallCommand_WritesBridgeScaffoldFile(t *testing.T) {
@@ -163,6 +175,13 @@ func TestInstallFirewallCommand_WritesBridgeScaffoldFile(t *testing.T) {
 	assert.Contains(t, cmd, "/etc/coolify/bridge-fw.nft")
 	assert.Contains(t, cmd, "COOLIFY_BR_EOF")
 	assert.Contains(t, cmd, "bridge-fw.nft.tmp")
+
+	// /etc/coolify must be created before bridge-fw.nft.tmp is written —
+	// without it, `cat > .tmp` fails on fresh hosts.
+	mkdirIdx := strings.Index(cmd, "mkdir -p /etc/coolify")
+	tmpIdx := strings.Index(cmd, "bridge-fw.nft.tmp")
+	assert.True(t, mkdirIdx >= 0, "mkdir -p /etc/coolify must be present")
+	assert.True(t, mkdirIdx < tmpIdx, "mkdir must run before bridge-fw.nft.tmp write")
 }
 
 func TestInstallFirewallCommand_DefaultDenyOff_RemovesBridgeScaffold(t *testing.T) {

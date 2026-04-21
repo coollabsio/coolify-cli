@@ -144,6 +144,7 @@ ExecStart=/bin/sh -c "nft -f %[2]s"
 ExecStart=/bin/sh -c "[ -s %[3]s ] && nft -f %[3]s || true"
 `, BridgeTableName, BridgeScaffoldPath, BridgeAllowRulesPath)
 	}
+	_ = namespaces // kept on signature for future per-namespace dispatch; scaffold now keys off subnets (bridge ifnames exceed IFNAMSIZ=16).
 
 	b.WriteString(`
 [Install]
@@ -161,8 +162,12 @@ func InstallFirewallCommand(iface string, namespaces []string, containerSubnets 
 	b.WriteString(fmt.Sprintf(`cat > %s.tmp <<'COOLIFY_FW_EOF'
 %sCOOLIFY_FW_EOF
 mv %s.tmp %s && `, firewallUnitPath, unit, firewallUnitPath, firewallUnitPath))
+	// /etc/coolify may not exist yet on a fresh host (coold's token-gen is the
+	// only other writer and runs later in phase 2). Create it before the
+	// bridge scaffold write so `cat > .tmp` doesn't ENOENT.
+	b.WriteString("mkdir -p /etc/coolify && ")
 	if defaultDeny {
-		scaffold := renderBridgeScaffold(namespaces)
+		scaffold := renderBridgeScaffold(containerSubnets)
 		b.WriteString(fmt.Sprintf(`cat > %s.tmp <<'COOLIFY_BR_EOF'
 %sCOOLIFY_BR_EOF
 mv %s.tmp %s && `, BridgeScaffoldPath, scaffold, BridgeScaffoldPath, BridgeScaffoldPath))
@@ -181,31 +186,39 @@ mv %s.tmp %s && `, BridgeScaffoldPath, scaffold, BridgeScaffoldPath, BridgeScaff
 // scaffold. Uses `add table` + `add chain` (idempotent) then `flush chain` +
 // `add rule` so forward and coolify_intra are atomically replaced on every
 // apply without touching coolify_allow (owned by coold).
-func renderBridgeScaffold(namespaces []string) string {
-	sorted := make([]string, len(namespaces))
-	copy(sorted, namespaces)
-	sort.Strings(sorted)
-
-	// Build quoted iifname/oifname set: { "coolify-ns1-mesh", "coolify-ns2-mesh" }
-	ifNames := make([]string, 0, len(sorted))
-	for _, ns := range sorted {
-		ifNames = append(ifNames, fmt.Sprintf(`"coolify-%s-mesh"`, ns))
+//
+// Dispatch to coolify_intra is keyed on container subnet (ip saddr / ip daddr)
+// rather than bridge interface name — podman auto-names bridges (e.g. podman2)
+// and the CLI-level "coolify-<ns>-mesh" network name exceeds Linux IFNAMSIZ=16
+// when the kernel sees it anyway. Subnets are disjoint per namespace so this
+// still confines deny to coolify-managed traffic and leaves foreign bridges
+// untouched.
+func renderBridgeScaffold(subnets []*net.IPNet) string {
+	sortedSubnets := make([]string, 0, len(subnets))
+	for _, sn := range subnets {
+		sortedSubnets = append(sortedSubnets, sn.String())
 	}
-	ifaceSet := "{ " + strings.Join(ifNames, ", ") + " }"
+	sort.Strings(sortedSubnets)
+
+	subnetSet := "{ " + strings.Join(sortedSubnets, ", ") + " }"
 
 	var b strings.Builder
 	b.WriteString("# Managed by coolify init — do not edit manually.\n")
 	b.WriteString("# Replaces forward + coolify_intra chains on restart; never touches coolify_allow.\n")
+	// Order matters: chains referenced by `jump` must exist before the rule
+	// is added (nft validates the target at add-rule time). coolify_allow is
+	// created by the preceding ExecStart line; declare coolify_intra here
+	// before the forward-chain rules jump to it.
 	fmt.Fprintf(&b, "add table bridge %s\n", BridgeTableName)
-	fmt.Fprintf(&b, "add chain bridge %s forward { type filter hook forward priority -200; policy accept; }\n", BridgeTableName)
-	fmt.Fprintf(&b, "flush chain bridge %s forward\n", BridgeTableName)
-	fmt.Fprintf(&b, "add rule bridge %s forward meta protocol != ip accept\n", BridgeTableName)
-	fmt.Fprintf(&b, "add rule bridge %s forward ct state established,related accept\n", BridgeTableName)
-	fmt.Fprintf(&b, "add rule bridge %s forward iifname %s jump coolify_intra\n", BridgeTableName, ifaceSet)
-	fmt.Fprintf(&b, "add rule bridge %s forward oifname %s jump coolify_intra\n", BridgeTableName, ifaceSet)
 	fmt.Fprintf(&b, "add chain bridge %s coolify_intra\n", BridgeTableName)
 	fmt.Fprintf(&b, "flush chain bridge %s coolify_intra\n", BridgeTableName)
 	fmt.Fprintf(&b, "add rule bridge %s coolify_intra jump coolify_allow\n", BridgeTableName)
 	fmt.Fprintf(&b, "add rule bridge %s coolify_intra drop\n", BridgeTableName)
+	fmt.Fprintf(&b, "add chain bridge %s forward { type filter hook forward priority -200; policy accept; }\n", BridgeTableName)
+	fmt.Fprintf(&b, "flush chain bridge %s forward\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward meta protocol != ip accept\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward ct state established,related accept\n", BridgeTableName)
+	fmt.Fprintf(&b, "add rule bridge %s forward ip saddr %s jump coolify_intra\n", BridgeTableName, subnetSet)
+	fmt.Fprintf(&b, "add rule bridge %s forward ip daddr %s jump coolify_intra\n", BridgeTableName, subnetSet)
 	return b.String()
 }
