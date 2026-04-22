@@ -200,7 +200,8 @@ func ApplyMesh(
 		}
 	}
 
-	// Phase 5: per non-central host — mint JWT, update coold unit with broker env.
+	// Phase 5: per non-central host — mint JWT (with caps), update coold unit
+	// with broker env (and builder env when EnableBuilder).
 	if desired.CentralHost != "" && err == nil {
 		privKeyPEM, _, keyErr := runner.Run(ctx, desired.CentralHost, user, port,
 			"cat "+services.BrokerJWTPrivPath)
@@ -592,8 +593,16 @@ func phase5PerHost(
 	}
 
 	// Mint JWT with sub = wg0 mgmt IP (stable, broker-addressable identifier).
+	// The caps claim is a superset of what the Hello frame may advertise;
+	// coold's own --builder-enabled flag controls whether "builder" ends up
+	// in Hello. Granting the capability in the JWT is harmless when the flag
+	// is off — the broker just never routes builds there.
 	hostID := mgmtIP.String()
-	jwtToken, err := services.MintHostJWT(privKeyPEM, hostID)
+	caps := []string{"coold"}
+	if desired.EnableBuilder {
+		caps = append(caps, "builder")
+	}
+	jwtToken, err := services.MintHostJWT(privKeyPEM, hostID, caps)
 	if err != nil {
 		return out, fmt.Errorf("mint JWT for %s: %w", host, err)
 	}
@@ -608,14 +617,29 @@ func phase5PerHost(
 		return out, err
 	}
 
-	// 2. Rewrite coold unit with broker env vars + restart.
+	// 2. Install builder binary + buildah/git (if enabled on this host).
+	if desired.EnableBuilder {
+		if err := runStep(ctx, runner, host, user, port, &out,
+			ActionInstallBuilder, "",
+			services.BuilderInstallCommand(desired.CooldVersion),
+			fmt.Sprintf("install builder on %s", host)); err != nil {
+			return out, err
+		}
+	}
+
+	// 3. Rewrite coold unit with broker env vars (and builder env when
+	// enabled) + restart.
 	nsSorted := desired.SortedNamespaces()
 	nsConfigs := buildNamespaceConfigs(host, nsSorted, containerAssignments)
 	broker := &services.BrokerConfig{
 		URL:     brokerURL,
 		JWTPath: services.HostJWTPath,
 	}
-	cooldUnit := services.CooldServiceUnitWithBroker(mgmtIP, nsConfigs, broker)
+	var builderCfg *services.BuilderConfig
+	if desired.EnableBuilder {
+		builderCfg = &services.BuilderConfig{Capacity: desired.BuilderCapacity}
+	}
+	cooldUnit := services.CooldServiceUnitWithBroker(mgmtIP, nsConfigs, broker, builderCfg)
 	updateCmd := heredocWrite("/etc/systemd/system/coold.service",
 		cooldUnit, "COOLIFY_COOLD_BROKER_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +

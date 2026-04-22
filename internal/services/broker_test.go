@@ -38,6 +38,9 @@ func TestBrokerServiceUnit_ExecStartPath(t *testing.T) {
 	if strings.Contains(unit, "coolify-broker") {
 		t.Error("BrokerServiceUnit still contains old name 'coolify-broker'")
 	}
+	if strings.Contains(unit, "BUILDER_GRPC_BIND") {
+		t.Error("BrokerServiceUnit still emits BROKER_BUILDER_GRPC_BIND; builder port was removed")
+	}
 	for _, want := range []string{
 		"BROKER_GRPC_BIND=100.64.0.1:6443",
 		"BROKER_REDIS_URL=redis://127.0.0.1:6379",

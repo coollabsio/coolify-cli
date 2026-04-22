@@ -2,7 +2,9 @@ package services
 
 import "fmt"
 
-// BrokerGRPCPort is the TCP port broker listens on for coold gRPC streams.
+// BrokerGRPCPort is the TCP port broker listens on. coold dials this stream
+// and carries both coold and builder traffic on the same connection — there
+// is no longer a separate listener for builds.
 const BrokerGRPCPort = 6443
 
 // BrokerJWTPubPath is the on-host path where the broker reads the ES256 public key.
@@ -16,9 +18,9 @@ const HostJWTPath = "/etc/coolify/host-jwt"
 
 // BrokerServiceUnit returns the systemd unit text for broker.
 //
-// grpcBind is "ip:port" for the gRPC listener (e.g. "100.64.0.1:6443").
-// redisURL is the Redis connection URL (e.g. "redis://127.0.0.1:6379").
-// jwtPubPath is the path to the ES256 public key PEM.
+// grpcBind is "ip:port" for the single gRPC listener (e.g. "100.64.0.1:6443").
+// It binds on the central host's wg0 mgmt IP so the listener is unreachable
+// outside the mesh.
 func BrokerServiceUnit(grpcBind, redisURL, jwtPubPath string) string {
 	return fmt.Sprintf(`[Unit]
 Description=Coolify broker

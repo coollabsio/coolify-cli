@@ -41,6 +41,7 @@ const (
 	ActionInstallBrokerService    ActionType = "install-broker-service"
 	ActionWriteHostJWT            ActionType = "write-host-jwt"
 	ActionUpdateCooldBrokerEnv    ActionType = "update-coold-broker-env"
+	ActionInstallBuilder          ActionType = "install-builder"
 )
 
 // PlannedAction is one step that apply must execute on a host.
@@ -393,7 +394,75 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 		}
 	}
 
+	// --- Broker + JWT stack (central-only) ---
+	if desired.CentralHost != "" {
+		plan.Actions = append(plan.Actions,
+			PlannedAction{
+				Host:   desired.CentralHost,
+				Type:   ActionInstallRedis,
+				Detail: "redis-server via apt (loopback only)",
+			},
+			PlannedAction{
+				Host:   desired.CentralHost,
+				Type:   ActionInstallBroker,
+				Detail: fmt.Sprintf("broker %s → /usr/local/bin/broker", desired.BrokerVersion),
+			},
+			PlannedAction{
+				Host:   desired.CentralHost,
+				Type:   ActionGenerateJWTKeypair,
+				Detail: "ES256 EC P-256 keypair at /etc/coolify/jwt.{priv,pub}",
+			},
+			PlannedAction{
+				Host: desired.CentralHost,
+				Type: ActionInstallBrokerService,
+				Detail: fmt.Sprintf("broker.service (:%d)",
+					services.BrokerGRPCPort),
+			},
+		)
+
+		// Per-host: JWT + coold unit rewrite (inject broker env).
+		for _, host := range desired.Hosts {
+			plan.Actions = append(plan.Actions,
+				PlannedAction{
+					Host:   host,
+					Type:   ActionWriteHostJWT,
+					Detail: services.HostJWTPath,
+				},
+				PlannedAction{
+					Host:   host,
+					Type:   ActionUpdateCooldBrokerEnv,
+					Detail: "coold.service += BROKER_URL + HOST_JWT_PATH",
+				},
+			)
+		}
+	}
+
+	// --- Builder capability (per-host, requires broker) ---
+	//
+	// No separate systemd unit and no second JWT — the builder binary is a
+	// short-lived subprocess coold spawns under a `systemd-run --scope`
+	// transient unit. All we install at provisioning time is the binary plus
+	// its tool deps (buildah, git); coold advertises the capability via its
+	// Hello frame, and the JWT `caps` claim (handled by the host-JWT action
+	// above) authorizes it.
+	if desired.EnableBuilder && desired.CentralHost != "" {
+		for _, host := range desired.Hosts {
+			plan.Actions = append(plan.Actions, PlannedAction{
+				Host:   host,
+				Type:   ActionInstallBuilder,
+				Detail: fmt.Sprintf("builder %s → %s (+ buildah, git; capacity=%d)", desired.CooldVersion, services.BuilderBinaryPath, maxCapacity(desired.BuilderCapacity)),
+			})
+		}
+	}
+
 	return plan, nil
+}
+
+func maxCapacity(c int) int {
+	if c <= 0 {
+		return 2
+	}
+	return c
 }
 
 // buildNamespaceConfigs builds the per-namespace CooldNamespace slice for this

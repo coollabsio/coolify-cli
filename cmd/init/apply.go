@@ -76,6 +76,8 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		CorrosionAPIPort:      flags.CorrosionAPIPort,
 		CentralHost:           flags.CentralHost,
 		BrokerVersion:         flags.BrokerVersion,
+		EnableBuilder:         flags.EnableBuilder,
+		BuilderCapacity:       flags.BuilderCapacity,
 	}
 
 	sshClient, err := flags.BuildSSHClient()

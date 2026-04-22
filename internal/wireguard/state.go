@@ -284,6 +284,19 @@ type DesiredMesh struct {
 
 	// BrokerVersion is the release tag for broker (e.g. "nightly").
 	BrokerVersion string
+
+	// EnableBuilder, when true, installs buildah/git and the builder binary
+	// on every host, advertises the "builder" capability in the host JWT,
+	// and wires coold to accept `BuildRequest` frames from the broker on its
+	// existing gRPC stream. Requires a non-empty CentralHost (broker issues
+	// the JWT) and InstallPodman (coold's build subprocess shells out to
+	// buildah which shares podman's containers-storage). Safe to leave false
+	// until build-side rollout.
+	EnableBuilder bool
+
+	// BuilderCapacity caps concurrent builds per host. 0 falls back to 2 (the
+	// coold builder adapter's own default).
+	BuilderCapacity int
 }
 
 // SortedNamespaces returns the desired namespaces in deterministic order.

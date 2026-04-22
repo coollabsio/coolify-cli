@@ -2000,6 +2000,11 @@ Parameters:
     description: Release tag to download for broker (e.g. "nightly", "v1.2.3").
     required: false
     default: nightly
+  - name: --builder-capacity
+    type: integer
+    description: Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).
+    required: false
+    default: 2
   - name: --central
     type: string
     description: SSH address of the central VM that will run broker + Redis (and later Laravel).
@@ -2041,6 +2046,13 @@ and push a per-host JWT to every other server. Leave empty to skip broker setup.
     description: Release tag to download for corrosion (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.
     required: false
     default: nightly
+  - name: --enable-builder
+    type: boolean
+    description: Enable the builder capability on every host (requires --central). Installs buildah/git
+and the builder binary, advertises "builder" in the host JWT caps claim, and wires coold to
+accept BuildRequest frames on its existing gRPC stream. Set to false to skip build rollout.
+    required: false
+    default: true
   - name: --namespaces
     type: stringSlice
     description: Comma-separated list of namespaces to create on each host. Each namespace is a separate Podman bridge network (coolify-<ns>-mesh) with its own /<container-prefix> per host

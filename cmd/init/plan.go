@@ -57,6 +57,10 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		CorrosionVersion:      flags.CorrosionVersion,
 		CorrosionGossipPort:   flags.CorrosionGossipPort,
 		CorrosionAPIPort:      flags.CorrosionAPIPort,
+		CentralHost:           flags.CentralHost,
+		BrokerVersion:         flags.BrokerVersion,
+		EnableBuilder:         flags.EnableBuilder,
+		BuilderCapacity:       flags.BuilderCapacity,
 	}
 
 	// Build SSH runner (handles passphrase resolution).

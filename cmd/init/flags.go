@@ -28,6 +28,12 @@ type InitFlags struct {
 	// per-host JWTs to all other hosts. Default empty = no broker setup.
 	CentralHost   string
 	BrokerVersion string
+
+	// EnableBuilder advertises the builder capability on every host, installs
+	// the builder binary + buildah/git, and configures coold to accept
+	// BuildRequest frames on its existing gRPC stream. Requires CentralHost.
+	EnableBuilder   bool
+	BuilderCapacity int
 }
 
 // bindInitFlags registers all shared flags as PersistentFlags on cmd.
@@ -61,4 +67,10 @@ Must be one of the --servers entries. When set, phases 4+5 install Redis + broke
 and push a per-host JWT to every other server. Leave empty to skip broker setup.`)
 	pf.StringVar(&f.BrokerVersion, "broker-version", "nightly",
 		`Release tag to download for broker (e.g. "nightly", "v1.2.3").`)
+	pf.BoolVar(&f.EnableBuilder, "enable-builder", true,
+		`Enable the builder capability on every host (requires --central). Installs buildah/git
+and the builder binary, advertises "builder" in the host JWT caps claim, and wires coold to
+accept BuildRequest frames on its existing gRPC stream. Set to false to skip build rollout.`)
+	pf.IntVar(&f.BuilderCapacity, "builder-capacity", 2,
+		"Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).")
 }

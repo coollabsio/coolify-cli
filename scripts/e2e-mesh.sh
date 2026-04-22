@@ -192,10 +192,82 @@ assert_flows "$SERVER_B" client-alpha   web-alpha.alpha.coolify.internal
 assert_flows "$SERVER_A" client2-default "$IP_WEB_DEFAULT"
 
 # ─── 8. re-apply idempotency ──────────────────────────────────────────────────
-say "8/8 re-running init apply — verifies nft scaffold idempotency (chain already exists regression)"
+say "8/10 re-running init apply — verifies nft scaffold idempotency (chain already exists regression)"
 cli init apply \
   --servers "$SERVERS" \
   --namespaces default,alpha \
   --yes
+
+# ─── 9. builder smoke test (static build) ─────────────────────────────────────
+# Requires --central to have been passed to init apply. The script above does
+# not pass --central, so builder capability may be disabled — gate on a marker
+# file or just skip when /etc/coolify/jwt.priv is absent.
+if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
+  say "9/10 builder smoke test — push build:cmd, expect localhost image on central"
+
+  REQ_ID="e2e-$(date +%s)"
+  BUILD_PAYLOAD="{\"request_id\":\"$REQ_ID\",\"command\":{\"type\":\"static_build\",\"repo_url\":\"https://github.com/coollabsio/static-test-site\",\"git_ref\":\"main\",\"target_image\":\"localhost/e2e-$REQ_ID\"}}"
+
+  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$BUILD_PAYLOAD'" >/dev/null
+
+  DEADLINE=$(($(date +%s)+180))
+  RESP=""
+  while :; do
+    RESP=$(ssh_exec "$SERVER_A" "redis-cli LPOP build:resp:$REQ_ID" 2>/dev/null || true)
+    [[ -n "$RESP" && "$RESP" != "(nil)" ]] && break
+    [[ $(date +%s) -ge $DEADLINE ]] && fail "builder smoke timed out after 180s"
+    sleep 3
+  done
+  echo "$RESP" | grep -q '"status":"ok"' || fail "builder smoke returned error: $RESP"
+
+  IMG_HOST=""
+  for host in "$SERVER_A" "$SERVER_B"; do
+    if ssh_exec "$host" "buildah images 2>/dev/null | grep -q localhost/e2e-$REQ_ID"; then
+      IMG_HOST="$host"; break
+    fi
+  done
+  [[ -n "$IMG_HOST" ]] || fail "image localhost/e2e-$REQ_ID not found on any host"
+  printf '  OK: build succeeded; image on %s ✓\n' "$IMG_HOST"
+
+  # ─── 10. cancel test ────────────────────────────────────────────────────────
+  say "10/10 cancel test — dispatch then cancel; expect scope killed and cancel response"
+
+  CAN_ID="e2e-cancel-$(date +%s)"
+  CAN_BUILD="{\"request_id\":\"$CAN_ID\",\"command\":{\"type\":\"static_build\",\"repo_url\":\"https://github.com/torvalds/linux\",\"git_ref\":\"master\",\"target_image\":\"localhost/$CAN_ID\"}}"
+  CAN_MSG="{\"request_id\":\"$CAN_ID\",\"command\":{\"type\":\"cancel\"}}"
+
+  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$CAN_BUILD'" >/dev/null
+
+  SCOPE_HOST=""
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 2
+    for host in "$SERVER_A" "$SERVER_B"; do
+      if ssh_exec "$host" "systemctl list-units --no-legend --plain 'coolify-build-*.scope' 2>/dev/null | grep -q $CAN_ID"; then
+        SCOPE_HOST="$host"; break 2
+      fi
+    done
+  done
+  [[ -n "$SCOPE_HOST" ]] || fail "scope coolify-build-$CAN_ID.scope never appeared"
+  printf '  scope running on %s ✓\n' "$SCOPE_HOST"
+
+  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$CAN_MSG'" >/dev/null
+
+  DEADLINE=$(($(date +%s)+30))
+  RESP=""
+  while :; do
+    RESP=$(ssh_exec "$SERVER_A" "redis-cli LPOP build:resp:$CAN_ID" 2>/dev/null || true)
+    [[ -n "$RESP" && "$RESP" != "(nil)" ]] && break
+    [[ $(date +%s) -ge $DEADLINE ]] && fail "cancel response timed out"
+    sleep 2
+  done
+  echo "$RESP" | grep -q '"stage":"cancel"' || fail "expected stage=cancel in response, got: $RESP"
+
+  if ssh_exec "$SCOPE_HOST" "systemctl is-active coolify-build-$CAN_ID.scope >/dev/null 2>&1"; then
+    fail "scope still active after cancel: coolify-build-$CAN_ID.scope"
+  fi
+  printf '  OK: cancel SIGTERM killed cgroup; stage=cancel ✓\n'
+else
+  warn "skipping steps 9/10 (builder smoke + cancel): --central was not passed to init apply, so builder capability is not enabled"
+fi
 
 say "all checks passed"
