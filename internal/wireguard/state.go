@@ -277,8 +277,8 @@ type DesiredMesh struct {
 	// CorrosionAPIPort is the corrosion HTTP API port bound to 127.0.0.1 (default 8080).
 	CorrosionAPIPort int
 
-	// CentralHost is the SSH address of the central VM that runs broker
-	// and Redis. Empty string disables phases 4+5 (broker setup).
+	// CentralHost is the SSH address of the central VM that runs broker.
+	// Empty string disables phases 4+5 (broker setup).
 	// Must be an element of Hosts.
 	CentralHost string
 

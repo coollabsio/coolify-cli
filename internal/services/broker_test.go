@@ -30,7 +30,7 @@ func TestBrokerInstallCommand_VersionTagEmbedded(t *testing.T) {
 }
 
 func TestBrokerServiceUnit_ExecStartPath(t *testing.T) {
-	unit := BrokerServiceUnit("100.64.0.1:6443", "redis://127.0.0.1:6379", BrokerJWTPubPath)
+	unit := BrokerServiceUnit("100.64.0.1:6443", BrokerJWTPubPath)
 
 	if !strings.Contains(unit, "ExecStart=/usr/local/bin/broker") {
 		t.Error("BrokerServiceUnit ExecStart does not point to /usr/local/bin/broker")
@@ -41,9 +41,13 @@ func TestBrokerServiceUnit_ExecStartPath(t *testing.T) {
 	if strings.Contains(unit, "BUILDER_GRPC_BIND") {
 		t.Error("BrokerServiceUnit still emits BROKER_BUILDER_GRPC_BIND; builder port was removed")
 	}
+	if strings.Contains(unit, "BROKER_REDIS_URL") || strings.Contains(unit, "redis") {
+		t.Error("BrokerServiceUnit still references Redis; UDS migration should have dropped it")
+	}
 	for _, want := range []string{
 		"BROKER_GRPC_BIND=100.64.0.1:6443",
-		"BROKER_REDIS_URL=redis://127.0.0.1:6379",
+		"BROKER_UNIX_SOCKET_PATH=" + BrokerUnixSocketPath,
+		"RuntimeDirectory=coolify",
 		BrokerJWTPubPath,
 	} {
 		if !strings.Contains(unit, want) {

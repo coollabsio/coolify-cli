@@ -203,20 +203,28 @@ cli init apply \
 # not pass --central, so builder capability may be disabled — gate on a marker
 # file or just skip when /etc/coolify/jwt.priv is absent.
 if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
-  say "9/10 builder smoke test — push build:cmd, expect localhost image on central"
+  say "9/10 builder smoke test — POST /v1/build/dispatch, expect localhost image on central"
+
+  # Broker UDS; central runs broker as root so the default 0600 socket is
+  # reachable for ssh-exec'd curl without group setup.
+  BROKER_SOCK="/run/coolify/broker.sock"
+  UDS_CURL="curl -sS --unix-socket $BROKER_SOCK"
 
   REQ_ID="e2e-$(date +%s)"
   BUILD_PAYLOAD="{\"request_id\":\"$REQ_ID\",\"command\":{\"type\":\"static_build\",\"repo_url\":\"https://github.com/coollabsio/static-test-site\",\"git_ref\":\"main\",\"target_image\":\"localhost/e2e-$REQ_ID\"}}"
 
-  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$BUILD_PAYLOAD'" >/dev/null
+  ACK=$(ssh_exec "$SERVER_A" "$UDS_CURL -w '\\n%{http_code}' -X POST -H 'Content-Type: application/json' --data '$BUILD_PAYLOAD' http://localhost/v1/build/dispatch")
+  echo "$ACK" | tail -n1 | grep -q '^202$' || fail "dispatch did not return 202: $ACK"
 
   DEADLINE=$(($(date +%s)+180))
   RESP=""
   while :; do
-    RESP=$(ssh_exec "$SERVER_A" "redis-cli LPOP build:resp:$REQ_ID" 2>/dev/null || true)
-    [[ -n "$RESP" && "$RESP" != "(nil)" ]] && break
+    OUT=$(ssh_exec "$SERVER_A" "$UDS_CURL -w '\\n%{http_code}' 'http://localhost/v1/build/result/$REQ_ID?timeout_ms=25000'")
+    CODE=$(echo "$OUT" | tail -n1)
+    RESP=$(echo "$OUT" | sed '$d')
+    [[ "$CODE" == "200" ]] && break
+    [[ "$CODE" != "408" && "$CODE" != "404" ]] && fail "build result unexpected $CODE: $RESP"
     [[ $(date +%s) -ge $DEADLINE ]] && fail "builder smoke timed out after 180s"
-    sleep 3
   done
   echo "$RESP" | grep -q '"status":"ok"' || fail "builder smoke returned error: $RESP"
 
@@ -230,13 +238,13 @@ if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
   printf '  OK: build succeeded; image on %s ✓\n' "$IMG_HOST"
 
   # ─── 10. cancel test ────────────────────────────────────────────────────────
-  say "10/10 cancel test — dispatch then cancel; expect scope killed and cancel response"
+  say "10/10 cancel test — dispatch then POST /v1/build/:id/cancel; expect scope killed and cancel response"
 
   CAN_ID="e2e-cancel-$(date +%s)"
   CAN_BUILD="{\"request_id\":\"$CAN_ID\",\"command\":{\"type\":\"static_build\",\"repo_url\":\"https://github.com/torvalds/linux\",\"git_ref\":\"master\",\"target_image\":\"localhost/$CAN_ID\"}}"
-  CAN_MSG="{\"request_id\":\"$CAN_ID\",\"command\":{\"type\":\"cancel\"}}"
 
-  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$CAN_BUILD'" >/dev/null
+  ACK=$(ssh_exec "$SERVER_A" "$UDS_CURL -w '\\n%{http_code}' -X POST -H 'Content-Type: application/json' --data '$CAN_BUILD' http://localhost/v1/build/dispatch")
+  echo "$ACK" | tail -n1 | grep -q '^202$' || fail "cancel-test dispatch did not return 202: $ACK"
 
   SCOPE_HOST=""
   for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -250,15 +258,17 @@ if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
   [[ -n "$SCOPE_HOST" ]] || fail "scope coolify-build-$CAN_ID.service never appeared"
   printf '  scope running on %s ✓\n' "$SCOPE_HOST"
 
-  ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$CAN_MSG'" >/dev/null
+  ssh_exec "$SERVER_A" "$UDS_CURL -X POST http://localhost/v1/build/$CAN_ID/cancel" >/dev/null
 
   DEADLINE=$(($(date +%s)+30))
   RESP=""
   while :; do
-    RESP=$(ssh_exec "$SERVER_A" "redis-cli LPOP build:resp:$CAN_ID" 2>/dev/null || true)
-    [[ -n "$RESP" && "$RESP" != "(nil)" ]] && break
+    OUT=$(ssh_exec "$SERVER_A" "$UDS_CURL -w '\\n%{http_code}' 'http://localhost/v1/build/result/$CAN_ID?timeout_ms=10000'")
+    CODE=$(echo "$OUT" | tail -n1)
+    RESP=$(echo "$OUT" | sed '$d')
+    [[ "$CODE" == "200" ]] && break
+    [[ "$CODE" != "408" && "$CODE" != "404" ]] && fail "cancel result unexpected $CODE: $RESP"
     [[ $(date +%s) -ge $DEADLINE ]] && fail "cancel response timed out"
-    sleep 2
   done
   echo "$RESP" | grep -q '"stage":"cancel"' || fail "expected stage=cancel in response, got: $RESP"
 

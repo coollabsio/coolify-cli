@@ -186,7 +186,7 @@ func ApplyMesh(
 		}
 	}
 
-	// Phase 4: central-only — install Redis + broker, generate JWT keypair.
+	// Phase 4: central-only — install broker, generate JWT keypair.
 	if desired.CentralHost != "" && err == nil {
 		p4 := ssh.ForEachServer(ctx, []string{desired.CentralHost}, 1,
 			func(ctx context.Context, host string) ([]ActionResult, error) {
@@ -520,8 +520,8 @@ chmod %[4]o %[1]s.tmp
 mv %[1]s.tmp %[1]s`, remotePath, body, tag, mode)
 }
 
-// phase4Central installs Redis, broker, generates the JWT keypair, and
-// enables the broker systemd service on the central host.
+// phase4Central installs broker, generates the JWT keypair, and enables
+// the broker systemd service on the central host.
 func phase4Central(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -532,31 +532,24 @@ func phase4Central(
 ) ([]ActionResult, error) {
 	var out []ActionResult
 
-	// 1. Install Redis.
-	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionInstallRedis, "", services.RedisInstallCommand(),
-		fmt.Sprintf("install redis on %s", host)); err != nil {
-		return out, err
-	}
-
-	// 2. Install broker binary.
+	// 1. Install broker binary.
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionInstallBroker, "", services.BrokerInstallCommand(desired.BrokerVersion),
 		fmt.Sprintf("install broker on %s", host)); err != nil {
 		return out, err
 	}
 
-	// 3. Generate JWT keypair (idempotent).
+	// 2. Generate JWT keypair (idempotent).
 	if err := runStep(ctx, runner, host, user, port, &out,
 		ActionGenerateJWTKeypair, "", services.EnsureJWTKeypairCommand(),
 		fmt.Sprintf("generate JWT keypair on %s", host)); err != nil {
 		return out, err
 	}
 
-	// 4. Write broker unit + enable service.
+	// 3. Write broker unit + enable service.
 	mgmtIP := mgmtAssignments[host]
 	grpcBind := fmt.Sprintf("%s:%d", mgmtIP, services.BrokerGRPCPort)
-	brokerUnit := services.BrokerServiceUnit(grpcBind, "redis://127.0.0.1:6379", services.BrokerJWTPubPath)
+	brokerUnit := services.BrokerServiceUnit(grpcBind, services.BrokerJWTPubPath)
 	serviceCmd := heredocWrite("/etc/systemd/system/broker.service",
 		brokerUnit, "COOLIFY_BROKER_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +

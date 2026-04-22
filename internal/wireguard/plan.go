@@ -35,7 +35,6 @@ const (
 	ActionWriteCorrosionSchema    ActionType = "write-corrosion-schema"
 	ActionInstallCorrosionService ActionType = "install-corrosion-service"
 	ActionInstallCooldService     ActionType = "install-coold-service"
-	ActionInstallRedis            ActionType = "install-redis"
 	ActionInstallBroker           ActionType = "install-broker"
 	ActionGenerateJWTKeypair      ActionType = "generate-jwt-keypair"
 	ActionInstallBrokerService    ActionType = "install-broker-service"
@@ -397,11 +396,6 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	// --- Broker + JWT stack (central-only) ---
 	if desired.CentralHost != "" {
 		plan.Actions = append(plan.Actions,
-			PlannedAction{
-				Host:   desired.CentralHost,
-				Type:   ActionInstallRedis,
-				Detail: "redis-server via apt (loopback only)",
-			},
 			PlannedAction{
 				Host:   desired.CentralHost,
 				Type:   ActionInstallBroker,
