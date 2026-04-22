@@ -285,18 +285,53 @@ type DesiredMesh struct {
 	// BrokerVersion is the release tag for broker (e.g. "nightly").
 	BrokerVersion string
 
-	// EnableBuilder, when true, installs buildah/git and the builder binary
-	// on every host, advertises the "builder" capability in the host JWT,
-	// and wires coold to accept `BuildRequest` frames from the broker on its
-	// existing gRPC stream. Requires a non-empty CentralHost (broker issues
-	// the JWT) and InstallPodman (coold's build subprocess shells out to
-	// buildah which shares podman's containers-storage). Safe to leave false
-	// until build-side rollout.
+	// EnableBuilder, when true and BuilderHosts is empty, installs buildah/
+	// git and the builder binary on every host in Hosts and advertises
+	// "builder" in each host's JWT caps claim. When BuilderHosts is non-
+	// empty it wins and EnableBuilder is ignored. Requires a non-empty
+	// CentralHost (broker issues the JWT) and InstallPodman (buildah needs
+	// podman's containers-storage).
 	EnableBuilder bool
+
+	// BuilderHosts is the explicit list of hosts that should carry the
+	// builder capability. Empty slice means "fall back to EnableBuilder".
+	// Hosts not present in this set get `caps:["coold"]` only and the
+	// builder binary is not installed on them.
+	BuilderHosts []string
 
 	// BuilderCapacity caps concurrent builds per host. 0 falls back to 2 (the
 	// coold builder adapter's own default).
 	BuilderCapacity int
+}
+
+// BuilderHostSet returns the set of hosts that should carry the builder
+// capability given EnableBuilder + BuilderHosts. Hosts in the result are a
+// subset of Hosts.
+func (d *DesiredMesh) BuilderHostSet() map[string]bool {
+	set := make(map[string]bool, len(d.Hosts))
+	if len(d.BuilderHosts) > 0 {
+		allow := make(map[string]struct{}, len(d.BuilderHosts))
+		for _, h := range d.BuilderHosts {
+			allow[h] = struct{}{}
+		}
+		for _, h := range d.Hosts {
+			if _, ok := allow[h]; ok {
+				set[h] = true
+			}
+		}
+		return set
+	}
+	if d.EnableBuilder {
+		for _, h := range d.Hosts {
+			set[h] = true
+		}
+	}
+	return set
+}
+
+// HasBuilderCap reports whether host should advertise the builder capability.
+func (d *DesiredMesh) HasBuilderCap(host string) bool {
+	return d.BuilderHostSet()[host]
 }
 
 // SortedNamespaces returns the desired namespaces in deterministic order.

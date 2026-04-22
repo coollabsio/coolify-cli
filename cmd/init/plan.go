@@ -60,6 +60,7 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		CentralHost:           flags.CentralHost,
 		BrokerVersion:         flags.BrokerVersion,
 		EnableBuilder:         flags.EnableBuilder,
+		BuilderHosts:          flags.BuilderHosts,
 		BuilderCapacity:       flags.BuilderCapacity,
 	}
 

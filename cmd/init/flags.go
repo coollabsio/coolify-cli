@@ -29,10 +29,17 @@ type InitFlags struct {
 	CentralHost   string
 	BrokerVersion string
 
-	// EnableBuilder advertises the builder capability on every host, installs
-	// the builder binary + buildah/git, and configures coold to accept
-	// BuildRequest frames on its existing gRPC stream. Requires CentralHost.
-	EnableBuilder   bool
+	// EnableBuilder is a cluster-wide shorthand: when true (and BuilderHosts
+	// is empty), every host in Servers is enrolled as builder-capable. When
+	// BuilderHosts is non-empty, EnableBuilder is ignored and only the
+	// listed subset gets the capability.
+	EnableBuilder bool
+
+	// BuilderHosts is an explicit list of SSH addresses (subset of Servers)
+	// to enroll with the builder capability. Empty = fall back to
+	// EnableBuilder semantics. Mutually exclusive in practice with
+	// EnableBuilder=false (leaves builder fully disabled).
+	BuilderHosts    []string
 	BuilderCapacity int
 }
 
@@ -68,9 +75,12 @@ and push a per-host JWT to every other server. Leave empty to skip broker setup.
 	pf.StringVar(&f.BrokerVersion, "broker-version", "nightly",
 		`Release tag to download for broker (e.g. "nightly", "v1.2.3").`)
 	pf.BoolVar(&f.EnableBuilder, "enable-builder", true,
-		`Enable the builder capability on every host (requires --central). Installs buildah/git
-and the builder binary, advertises "builder" in the host JWT caps claim, and wires coold to
-accept BuildRequest frames on its existing gRPC stream. Set to false to skip build rollout.`)
+		`Cluster-wide shorthand: enable the builder capability on every host
+(requires --central). Ignored when --builder-hosts is set.`)
+	pf.StringSliceVar(&f.BuilderHosts, "builder-hosts", nil,
+		`Explicit subset of --servers to enroll with the builder capability.
+Takes precedence over --enable-builder. Empty (default) means fall back to
+--enable-builder for the whole cluster.`)
 	pf.IntVar(&f.BuilderCapacity, "builder-capacity", 2,
 		"Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).")
 }

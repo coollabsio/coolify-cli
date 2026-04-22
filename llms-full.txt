@@ -2005,6 +2005,12 @@ Parameters:
     description: Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).
     required: false
     default: 2
+  - name: --builder-hosts
+    type: stringSlice
+    description: Explicit subset of --servers to enroll with the builder capability.
+Takes precedence over --enable-builder. Empty (default) means fall back to
+--enable-builder for the whole cluster.
+    required: false
   - name: --central
     type: string
     description: SSH address of the central VM that will run broker + Redis (and later Laravel).
@@ -2048,9 +2054,8 @@ and push a per-host JWT to every other server. Leave empty to skip broker setup.
     default: nightly
   - name: --enable-builder
     type: boolean
-    description: Enable the builder capability on every host (requires --central). Installs buildah/git
-and the builder binary, advertises "builder" in the host JWT caps claim, and wires coold to
-accept BuildRequest frames on its existing gRPC stream. Set to false to skip build rollout.
+    description: Cluster-wide shorthand: enable the builder capability on every host
+(requires --central). Ignored when --builder-hosts is set.
     required: false
     default: true
   - name: --namespaces

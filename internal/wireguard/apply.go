@@ -593,13 +593,13 @@ func phase5PerHost(
 	}
 
 	// Mint JWT with sub = wg0 mgmt IP (stable, broker-addressable identifier).
-	// The caps claim is a superset of what the Hello frame may advertise;
-	// coold's own --builder-enabled flag controls whether "builder" ends up
-	// in Hello. Granting the capability in the JWT is harmless when the flag
-	// is off — the broker just never routes builds there.
+	// caps claim must match what coold will advertise in its Hello frame —
+	// the broker cross-checks and rejects a stream whose Hello elevates over
+	// its JWT. Per-host toggle via desired.HasBuilderCap(host).
 	hostID := mgmtIP.String()
+	hasBuilder := desired.HasBuilderCap(host)
 	caps := []string{"coold"}
-	if desired.EnableBuilder {
+	if hasBuilder {
 		caps = append(caps, "builder")
 	}
 	jwtToken, err := services.MintHostJWT(privKeyPEM, hostID, caps)
@@ -617,8 +617,8 @@ func phase5PerHost(
 		return out, err
 	}
 
-	// 2. Install builder binary + buildah/git (if enabled on this host).
-	if desired.EnableBuilder {
+	// 2. Install builder binary + buildah/git (only on builder-capable hosts).
+	if hasBuilder {
 		if err := runStep(ctx, runner, host, user, port, &out,
 			ActionInstallBuilder, "",
 			services.BuilderInstallCommand(desired.CooldVersion),
@@ -636,7 +636,7 @@ func phase5PerHost(
 		JWTPath: services.HostJWTPath,
 	}
 	var builderCfg *services.BuilderConfig
-	if desired.EnableBuilder {
+	if hasBuilder {
 		denyNets := []string{}
 		if desired.MgmtPool != nil {
 			denyNets = append(denyNets, desired.MgmtPool.String())

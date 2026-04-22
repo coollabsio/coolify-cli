@@ -440,13 +440,17 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	// --- Builder capability (per-host, requires broker) ---
 	//
 	// No separate systemd unit and no second JWT — the builder binary is a
-	// short-lived subprocess coold spawns under a `systemd-run --scope`
+	// short-lived subprocess coold spawns under a `systemd-run --pipe`
 	// transient unit. All we install at provisioning time is the binary plus
 	// its tool deps (buildah, git); coold advertises the capability via its
 	// Hello frame, and the JWT `caps` claim (handled by the host-JWT action
-	// above) authorizes it.
-	if desired.EnableBuilder && desired.CentralHost != "" {
+	// above) authorizes it. Only hosts in the desired builder set get the
+	// binary install; others stay coold-only.
+	if desired.CentralHost != "" {
 		for _, host := range desired.Hosts {
+			if !desired.HasBuilderCap(host) {
+				continue
+			}
 			plan.Actions = append(plan.Actions, PlannedAction{
 				Host:   host,
 				Type:   ActionInstallBuilder,
