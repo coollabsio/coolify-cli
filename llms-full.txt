@@ -1724,6 +1724,129 @@ Parameters:
     required: false
     default: 0
 
+Command: coolify firewall
+Description: [ALPHA] Manage cross-host container allow rules (Coolify v5)
+Parameters:
+  - name: --all-namespaces
+    type: boolean
+    description: Operate across every mesh namespace on each host (list/containers fan out; allow/revoke still require a specific --namespace)
+    required: false
+    default: false
+  - name: --concurrency
+    type: integer
+    description: Maximum number of parallel SSH connections
+    required: false
+    default: 10
+  - name: --coold-port
+    type: integer
+    description: TCP port coold's REST API listens on (bound to the WG mgmt IP)
+    required: false
+    default: 8443
+  - name: --coold-token
+    type: string
+    description: Bearer token override for coold REST API (also reads COOLIFY_COOLD_TOKEN env). When unset, CLI reads /etc/coolify/api-token over SSH per host.
+    required: false
+  - name: --namespace
+    type: string
+    description: Namespace the command operates against (must match a namespace created by `coolify init`)
+    required: false
+    default: default
+  - name: --servers
+    type: stringSlice
+    description: Comma-separated server IPs (required)
+    required: true
+  - name: --ssh-key
+    type: string
+    description: Path to SSH private key used to connect to servers (required)
+    required: true
+  - name: --ssh-passphrase-prompt
+    type: boolean
+    description: Prompt for SSH key passphrase (also reads COOLIFY_SSH_PASSPHRASE env var)
+    required: false
+    default: false
+  - name: --ssh-port
+    type: integer
+    description: SSH port
+    required: false
+    default: 22
+  - name: --ssh-timeout
+    type: string
+    description: SSH connection timeout (e.g. 30s, 1m)
+    required: false
+    default: 30s
+  - name: --ssh-user
+    type: string
+    description: SSH username
+    required: false
+    default: root
+  - name: --wg-interface
+    type: string
+    description: WireGuard interface name on remote hosts (must match --wg-interface at init)
+    required: false
+    default: wg0
+
+Command: coolify firewall allow
+Description: Add an allow rule (from container → to container:port)
+Parameters:
+  - name: --bidirectional
+    type: boolean
+    description: Also install the reverse rule on the source host (default: one-way; conntrack handles replies)
+    required: false
+    default: false
+  - name: --from
+    type: string
+    description: Source container (name, short-id, raw IP, or host:name) — required
+    required: false
+  - name: --port
+    type: integer
+    description: Destination port (required unless --proto is empty)
+    required: false
+    default: 0
+  - name: --proto
+    type: string
+    description: Protocol (tcp, udp, or empty for any)
+    required: false
+    default: tcp
+  - name: --to
+    type: string
+    description: Destination container (name, short-id, raw IP, or host:name) — required
+    required: false
+
+Command: coolify firewall containers
+Description: List containers on the Coolify mesh bridge across all servers
+Parameters: (None)
+
+Command: coolify firewall list
+Description: List installed allow rules across all servers
+Parameters: (None)
+
+Command: coolify firewall revoke
+Description: Remove an allow rule
+Parameters:
+  - name: --bidirectional
+    type: boolean
+    description: Also install the reverse rule on the source host (default: one-way; conntrack handles replies)
+    required: false
+    default: false
+  - name: --from
+    type: string
+    description: Source container (name, short-id, raw IP, or host:name) — required
+    required: false
+  - name: --port
+    type: integer
+    description: Destination port (required unless --proto is empty)
+    required: false
+    default: 0
+  - name: --proto
+    type: string
+    description: Protocol (tcp, udp, or empty for any)
+    required: false
+    default: tcp
+  - name: --to
+    type: string
+    description: Destination container (name, short-id, raw IP, or host:name) — required
+    required: false
+
 Command: coolify github branches <app_uuid> <owner/repo>
 Description: List branches for a repository
 Parameters: (None)
@@ -1868,6 +1991,139 @@ Parameters:
     type: string
     description: GitHub Webhook Secret
     required: false
+
+Command: coolify init
+Description: [ALPHA] Initialize WireGuard mesh for Coolify v5
+Parameters:
+  - name: --broker-version
+    type: string
+    description: Release tag to download for broker (e.g. "nightly", "v1.2.3").
+    required: false
+    default: nightly
+  - name: --builder-capacity
+    type: integer
+    description: Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).
+    required: false
+    default: 2
+  - name: --builder-hosts
+    type: stringSlice
+    description: Explicit subset of --servers to enroll with the builder capability.
+Takes precedence over --enable-builder. Empty (default) means fall back to
+--enable-builder for the whole cluster.
+    required: false
+  - name: --central
+    type: string
+    description: SSH address of the central VM that will run broker + Redis (and later Laravel).
+Must be one of the --servers entries. When set, phases 4+5 install Redis + broker on that host
+and push a per-host JWT to every other server. Leave empty to skip broker setup.
+    required: false
+  - name: --concurrency
+    type: integer
+    description: Maximum number of parallel SSH connections
+    required: false
+    default: 10
+  - name: --container-pool
+    type: string
+    description: Shared container address pool — each (namespace, host) pair gets a /<container-prefix> from here, owned by that namespace's Podman bridge
+    required: false
+    default: 10.210.0.0/16
+  - name: --container-prefix
+    type: integer
+    description: Prefix length of each per-host, per-namespace container subnet
+    required: false
+    default: 24
+  - name: --coold-version
+    type: string
+    description: Release tag to download for coold (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.
+    required: false
+    default: nightly
+  - name: --corrosion-api-port
+    type: integer
+    description: Corrosion HTTP API port (bound to 127.0.0.1)
+    required: false
+    default: 8080
+  - name: --corrosion-gossip-port
+    type: integer
+    description: Corrosion SWIM gossip port (bound to the wg0 mgmt IP)
+    required: false
+    default: 8787
+  - name: --corrosion-version
+    type: string
+    description: Release tag to download for corrosion (e.g. "nightly", "v1.2.3"). nightly always re-installs on every apply.
+    required: false
+    default: nightly
+  - name: --enable-builder
+    type: boolean
+    description: Cluster-wide shorthand: enable the builder capability on every host
+(requires --central). Ignored when --builder-hosts is set.
+    required: false
+    default: true
+  - name: --namespaces
+    type: stringSlice
+    description: Comma-separated list of namespaces to create on each host. Each namespace is a separate Podman bridge network (coolify-<ns>-mesh) with its own /<container-prefix> per host
+    required: false
+    default: [default]
+  - name: --servers
+    type: stringSlice
+    description: Comma-separated server IPs (required)
+    required: true
+  - name: --skip-default-deny
+    type: boolean
+    description: Skip installing the default-deny firewall scaffold. By default, both cross-host and intra-host (same bridge) container traffic is blocked; coold manages the allow list at runtime
+    required: false
+    default: false
+  - name: --ssh-key
+    type: string
+    description: Path to SSH private key used to connect to servers (required)
+    required: true
+  - name: --ssh-passphrase-prompt
+    type: boolean
+    description: Prompt for SSH key passphrase (also reads COOLIFY_SSH_PASSPHRASE env var)
+    required: false
+    default: false
+  - name: --ssh-port
+    type: integer
+    description: SSH port
+    required: false
+    default: 22
+  - name: --ssh-timeout
+    type: string
+    description: SSH connection timeout (e.g. 30s, 1m)
+    required: false
+    default: 30s
+  - name: --ssh-user
+    type: string
+    description: SSH username
+    required: false
+    default: root
+  - name: --wg-interface
+    type: string
+    description: WireGuard interface name on the remote hosts
+    required: false
+    default: wg0
+  - name: --wg-listen-port
+    type: integer
+    description: WireGuard UDP listen port
+    required: false
+    default: 51820
+  - name: --wg-mgmt-pool
+    type: string
+    description: WireGuard management address pool — each host gets a /32 from here, assigned to wg0
+    required: false
+    default: 100.64.0.0/16
+  - name: --yes (-y)
+    type: boolean
+    description: Skip the interactive alpha confirmation prompt
+    required: false
+    default: false
+
+Command: coolify init apply
+Description: Bootstrap the WireGuard mesh (executes the plan)
+Parameters: (None)
+
+Command: coolify init plan
+Description: Show WireGuard mesh changes without applying them
+Parameters: (None)
 
 Command: coolify private-key add <key_name> <private_key_or_file>
 Description: Add a private key
