@@ -637,7 +637,17 @@ func phase5PerHost(
 	}
 	var builderCfg *services.BuilderConfig
 	if desired.EnableBuilder {
-		builderCfg = &services.BuilderConfig{Capacity: desired.BuilderCapacity}
+		denyNets := []string{}
+		if desired.MgmtPool != nil {
+			denyNets = append(denyNets, desired.MgmtPool.String())
+		}
+		if desired.ContainerPool != nil {
+			denyNets = append(denyNets, desired.ContainerPool.String())
+		}
+		builderCfg = &services.BuilderConfig{
+			Capacity: desired.BuilderCapacity,
+			DenyNets: denyNets,
+		}
 	}
 	cooldUnit := services.CooldServiceUnitWithBroker(mgmtIP, nsConfigs, broker, builderCfg)
 	updateCmd := heredocWrite("/etc/systemd/system/coold.service",

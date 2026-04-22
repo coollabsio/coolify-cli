@@ -53,7 +53,8 @@ type BrokerConfig struct {
 // spawns build subprocesses. nil means the capability is disabled and no
 // COOLD_BUILDER_* env vars are emitted.
 type BuilderConfig struct {
-	Capacity int // concurrent builds the host accepts; 0 falls back to 2
+	Capacity int      // concurrent builds the host accepts; 0 falls back to 2
+	DenyNets []string // extra CIDRs to deny at systemd-run IPAddressDeny level
 }
 
 // CooldServiceUnitWithBroker is like CooldServiceUnit but injects broker env
@@ -102,11 +103,13 @@ Environment=COOLD_HOST_JWT_PATH=%s
 		if capacity <= 0 {
 			capacity = 2
 		}
+		denyNets := strings.Join(builder.DenyNets, ",")
 		builderEnv = fmt.Sprintf(`Environment=COOLD_BUILDER_ENABLED=true
 Environment=COOLD_BUILDER_WORK_DIR=%s
 Environment=COOLD_BUILDER_CAPACITY=%d
 Environment=COOLD_BUILDER_BIN=%s
-`, BuilderWorkDir, capacity, BuilderBinaryPath)
+Environment=COOLD_BUILDER_DENY_NETS=%s
+`, BuilderWorkDir, capacity, BuilderBinaryPath, denyNets)
 		builderPre = fmt.Sprintf("ExecStartPre=/bin/mkdir -p %s\n", BuilderWorkDir)
 	}
 

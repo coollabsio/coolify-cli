@@ -242,12 +242,12 @@ if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
   for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 2
     for host in "$SERVER_A" "$SERVER_B"; do
-      if ssh_exec "$host" "systemctl list-units --no-legend --plain 'coolify-build-*.scope' 2>/dev/null | grep -q $CAN_ID"; then
+      if ssh_exec "$host" "systemctl list-units --no-legend --plain 'coolify-build-*.service' 2>/dev/null | grep -q $CAN_ID"; then
         SCOPE_HOST="$host"; break 2
       fi
     done
   done
-  [[ -n "$SCOPE_HOST" ]] || fail "scope coolify-build-$CAN_ID.scope never appeared"
+  [[ -n "$SCOPE_HOST" ]] || fail "scope coolify-build-$CAN_ID.service never appeared"
   printf '  scope running on %s ✓\n' "$SCOPE_HOST"
 
   ssh_exec "$SERVER_A" "redis-cli XADD build:cmd '*' payload '$CAN_MSG'" >/dev/null
@@ -262,8 +262,8 @@ if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
   done
   echo "$RESP" | grep -q '"stage":"cancel"' || fail "expected stage=cancel in response, got: $RESP"
 
-  if ssh_exec "$SCOPE_HOST" "systemctl is-active coolify-build-$CAN_ID.scope >/dev/null 2>&1"; then
-    fail "scope still active after cancel: coolify-build-$CAN_ID.scope"
+  if ssh_exec "$SCOPE_HOST" "systemctl is-active coolify-build-$CAN_ID.service >/dev/null 2>&1"; then
+    fail "scope still active after cancel: coolify-build-$CAN_ID.service"
   fi
   printf '  OK: cancel SIGTERM killed cgroup; stage=cancel ✓\n'
 else
