@@ -42,9 +42,9 @@ func CooldNamespacesEnvValue(ns []CooldNamespace) string {
 	return strings.Join(parts, ",")
 }
 
-// BrokerConfig carries optional broker connectivity injected into the coold unit
-// for non-central hosts. nil means no broker env vars are emitted.
-type BrokerConfig struct {
+// SchedulerConfig carries optional scheduler connectivity injected into the coold unit
+// for non-central hosts. nil means no scheduler env vars are emitted.
+type SchedulerConfig struct {
 	URL     string // e.g. "http://100.64.0.1:6443"
 	JWTPath string // e.g. "/etc/coolify/host-jwt"
 }
@@ -53,25 +53,28 @@ type BrokerConfig struct {
 // spawns build subprocesses. nil means the capability is disabled and no
 // COOLD_BUILDER_* env vars are emitted.
 type BuilderConfig struct {
-	Capacity int      // concurrent builds the host accepts; 0 falls back to 2
-	DenyNets []string // extra CIDRs to deny at systemd-run IPAddressDeny level
+	Capacity    int      // concurrent builds the host accepts; 0 falls back to 2
+	CPUQuota    string   // systemd CPUQuota per build scope; "" falls back to "200%"
+	MemoryMax   string   // systemd MemoryMax per build scope; "" falls back to "2G"
+	TimeoutSecs int      // hard per-build timeout in seconds; 0 falls back to 1800
+	DenyNets    []string // extra CIDRs to deny at systemd-run IPAddressDeny level
 }
 
-// CooldServiceUnitWithBroker is like CooldServiceUnit but injects broker env
-// vars when broker is non-nil and builder env vars when builder is non-nil.
+// CooldServiceUnitWithScheduler is like CooldServiceUnit but injects scheduler env
+// vars when scheduler is non-nil and builder env vars when builder is non-nil.
 // Used for non-central hosts after phase 4.
-func CooldServiceUnitWithBroker(mgmtIP net.IP, namespaces []CooldNamespace, broker *BrokerConfig, builder *BuilderConfig) string {
-	return cooldServiceUnitInner(mgmtIP, namespaces, broker, builder)
+func CooldServiceUnitWithScheduler(mgmtIP net.IP, namespaces []CooldNamespace, scheduler *SchedulerConfig, builder *BuilderConfig) string {
+	return cooldServiceUnitInner(mgmtIP, namespaces, scheduler, builder)
 }
 
-// CooldServiceUnit renders the coold systemd unit without broker or builder
+// CooldServiceUnit renders the coold systemd unit without scheduler or builder
 // env (phase-3 first install, before phase 5 rewrites the unit to inject
-// broker settings).
+// scheduler settings).
 func CooldServiceUnit(mgmtIP net.IP, namespaces []CooldNamespace) string {
 	return cooldServiceUnitInner(mgmtIP, namespaces, nil, nil)
 }
 
-func cooldServiceUnitInner(mgmtIP net.IP, namespaces []CooldNamespace, broker *BrokerConfig, builder *BuilderConfig) string {
+func cooldServiceUnitInner(mgmtIP net.IP, namespaces []CooldNamespace, scheduler *SchedulerConfig, builder *BuilderConfig) string {
 	// Wants (not Requires) on corrosion: if corrosion crashes/restarts we want
 	// coold to stay up and retry — reconcile_once already backs off for 1s on
 	// error, so it self-heals once corrosion is back. Requires would cascade
@@ -89,11 +92,11 @@ Environment=COOLD_DNS_ZONE=%s
 Environment=COOLD_API_TOKEN_FILE=%s
 `, mgmtIP, CooldAPIPort, CooldAPITokenPath)
 
-	brokerEnv := ""
-	if broker != nil {
-		brokerEnv = fmt.Sprintf(`Environment=COOLD_BROKER_URL=%s
+	schedulerEnv := ""
+	if scheduler != nil {
+		schedulerEnv = fmt.Sprintf(`Environment=COOLD_SCHEDULER_URL=%s
 Environment=COOLD_HOST_JWT_PATH=%s
-`, broker.URL, broker.JWTPath)
+`, scheduler.URL, scheduler.JWTPath)
 	}
 
 	builderEnv := ""
@@ -103,13 +106,28 @@ Environment=COOLD_HOST_JWT_PATH=%s
 		if capacity <= 0 {
 			capacity = 2
 		}
+		cpuQuota := builder.CPUQuota
+		if cpuQuota == "" {
+			cpuQuota = "200%"
+		}
+		memoryMax := builder.MemoryMax
+		if memoryMax == "" {
+			memoryMax = "2G"
+		}
+		timeoutSecs := builder.TimeoutSecs
+		if timeoutSecs <= 0 {
+			timeoutSecs = 1800
+		}
 		denyNets := strings.Join(builder.DenyNets, ",")
 		builderEnv = fmt.Sprintf(`Environment=COOLD_BUILDER_ENABLED=true
 Environment=COOLD_BUILDER_WORK_DIR=%s
 Environment=COOLD_BUILDER_CAPACITY=%d
+Environment=COOLD_BUILDER_CPU_QUOTA=%s
+Environment=COOLD_BUILDER_MEMORY_MAX=%s
+Environment=COOLD_BUILDER_TIMEOUT_SECS=%d
 Environment=COOLD_BUILDER_BIN=%s
 Environment=COOLD_BUILDER_DENY_NETS=%s
-`, BuilderWorkDir, capacity, BuilderBinaryPath, denyNets)
+`, BuilderWorkDir, capacity, cpuQuota, memoryMax, timeoutSecs, BuilderBinaryPath, denyNets)
 		builderPre = fmt.Sprintf("ExecStartPre=/bin/mkdir -p %s\n", BuilderWorkDir)
 	}
 
@@ -127,7 +145,7 @@ RestartSec=2s
 
 [Install]
 WantedBy=multi-user.target
-`, mgmtIP, nsEnv, apiEnv, brokerEnv, builderEnv, builderPre)
+`, mgmtIP, nsEnv, apiEnv, schedulerEnv, builderEnv, builderPre)
 }
 
 // CooldInstallCommand returns a shell snippet that downloads and installs coold

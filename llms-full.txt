@@ -1995,9 +1995,9 @@ Parameters:
 Command: coolify init
 Description: [ALPHA] Initialize WireGuard mesh for Coolify v5
 Parameters:
-  - name: --broker-version
+  - name: --scheduler-version
     type: string
-    description: Release tag to download for broker (e.g. "nightly", "v1.2.3").
+    description: Release tag to download for scheduler (e.g. "nightly", "v1.2.3").
     required: false
     default: nightly
   - name: --builder-capacity
@@ -2005,17 +2005,34 @@ Parameters:
     description: Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).
     required: false
     default: 2
+  - name: --builder-cpu-quota
+    type: string
+    description: cgroup CPU quota for each build subprocess (COOLD_BUILDER_CPU_QUOTA).
+systemd CPUQuota format; "200%" = two full cores.
+    required: false
+    default: 200%
   - name: --builder-hosts
     type: stringSlice
     description: Explicit subset of --servers to enroll with the builder capability.
 Takes precedence over --enable-builder. Empty (default) means fall back to
 --enable-builder for the whole cluster.
     required: false
+  - name: --builder-memory-max
+    type: string
+    description: cgroup memory cap for each build subprocess (COOLD_BUILDER_MEMORY_MAX).
+systemd MemoryMax format; e.g. "2G", "512M".
+    required: false
+    default: 2G
+  - name: --builder-timeout-secs
+    type: integer
+    description: Hard wall-clock timeout per build in seconds (COOLD_BUILDER_TIMEOUT_SECS).
+    required: false
+    default: 1800
   - name: --central
     type: string
-    description: SSH address of the central VM that will run broker + Redis (and later Laravel).
-Must be one of the --servers entries. When set, phases 4+5 install Redis + broker on that host
-and push a per-host JWT to every other server. Leave empty to skip broker setup.
+    description: SSH address of the central VM that will run the scheduler (and later Laravel).
+Must be one of the --servers entries. When set, phases 4+5 install the scheduler on that host
+and push a per-host JWT to every other server. Leave empty to skip scheduler setup.
     required: false
   - name: --concurrency
     type: integer

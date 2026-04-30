@@ -26,12 +26,14 @@ provision each host with the Coolify v5 runtime stack: Podman + bridge
 network, default-deny iptables scaffold, and the coold/corrosion
 control-plane agents.
 
-All of the above install by default. Use --skip-default-deny to leave
-the firewall in blanket-allow mode for testing.
-
 Subcommands:
-  plan   Show what would change without touching anything.
-  apply  Execute the plan and converge the mesh.`,
+  plan       Show what would change without touching anything (--intent
+             selects the filter: bootstrap / extend / upgrade).
+  bootstrap  First-time install (all actions allowed).
+  extend     Add new hosts to an existing mesh; existing hosts get only
+             peer-refresh actions.
+  upgrade    Bump agent versions (coold / corrosion / scheduler / builder);
+             WG / podman / firewall untouched.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			fmt.Fprint(os.Stderr, alphaBanner)
 			return cmd.Help()
@@ -41,7 +43,9 @@ Subcommands:
 	bindInitFlags(cmd, flags)
 
 	cmd.AddCommand(NewPlanCommand(flags))
-	cmd.AddCommand(NewApplyCommand(flags))
+	cmd.AddCommand(NewBootstrapCommand(flags))
+	cmd.AddCommand(NewExtendCommand(flags))
+	cmd.AddCommand(NewUpgradeCommand(flags))
 
 	return cmd
 }

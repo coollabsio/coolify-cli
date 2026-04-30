@@ -3,7 +3,6 @@ package initcmd
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -15,17 +14,24 @@ import (
 
 // NewPlanCommand creates the `coolify init plan` subcommand.
 func NewPlanCommand(flags *InitFlags) *cobra.Command {
-	return &cobra.Command{
+	var intentFlag string
+	cmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Show WireGuard mesh changes without applying them",
 		Long: `Reconstruct the current WireGuard state from each server via SSH and
-show the actions that apply would execute.  Nothing is changed.`,
+show the actions that apply would execute.  Nothing is changed.
+
+Pass --intent to preview a specific subcommand's behavior (bootstrap, extend,
+upgrade). bootstrap is the default and matches the pre-split behavior.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			// Print alpha banner to stderr (non-blocking).
 			fmt.Fprint(os.Stderr, alphaBanner)
+			flags.Intent = intentFlag
 			return runPlan(cmd.Context(), cmd, flags)
 		},
 	}
+	cmd.Flags().StringVar(&intentFlag, "intent", "bootstrap",
+		`Preview filter: "bootstrap" (all actions), "extend" (treat --new-hosts as fresh, existing hosts peer-refresh only), "upgrade" (version bumps only).`)
+	return cmd
 }
 
 func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
@@ -33,38 +39,14 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return err
 	}
 
-	_, mgmtPool, err := net.ParseCIDR(flags.WGMgmtPool)
+	desired, err := buildDesired(flags)
 	if err != nil {
-		return fmt.Errorf("invalid --wg-mgmt-pool %q: %w", flags.WGMgmtPool, err)
+		return err
 	}
-	_, contPool, err := net.ParseCIDR(flags.ContainerPool)
-	if err != nil {
-		return fmt.Errorf("invalid --container-pool %q: %w", flags.ContainerPool, err)
+	if err := wireguard.ValidateIntent(desired); err != nil {
+		return err
 	}
 
-	desired := &wireguard.DesiredMesh{
-		Hosts:                 flags.Servers,
-		Interface:             flags.WGInterface,
-		MgmtPool:              mgmtPool,
-		ContainerPool:         contPool,
-		ContainerPrefix:       flags.ContainerPrefix,
-		ListenPort:            flags.WGListenPort,
-		InstallPodman:         true,
-		Namespaces:            flags.Namespaces,
-		DefaultDenyContainers: !flags.SkipDefaultDeny,
-		InstallCoold:          true,
-		CooldVersion:          flags.CooldVersion,
-		CorrosionVersion:      flags.CorrosionVersion,
-		CorrosionGossipPort:   flags.CorrosionGossipPort,
-		CorrosionAPIPort:      flags.CorrosionAPIPort,
-		CentralHost:           flags.CentralHost,
-		BrokerVersion:         flags.BrokerVersion,
-		EnableBuilder:         flags.EnableBuilder,
-		BuilderHosts:          flags.BuilderHosts,
-		BuilderCapacity:       flags.BuilderCapacity,
-	}
-
-	// Build SSH runner (handles passphrase resolution).
 	sshClient, err := flags.BuildSSHClient()
 	if err != nil {
 		return fmt.Errorf("SSH client: %w", err)
@@ -76,7 +58,6 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		flags.SSHUser, flags.SSHPort, flags.WGInterface,
 		flags.Namespaces, flags.Concurrency)
 	if err != nil {
-		// Non-fatal: partial state is still usable for plan display.
 		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 	}
 
@@ -85,18 +66,19 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return fmt.Errorf("build plan: %w", err)
 	}
 
-	// Surface allocator warnings.
 	for _, w := range plan.Warnings {
 		fmt.Fprintf(os.Stderr, "Warning [%s]: %s\n", w.Host, w.Reason)
 	}
 
 	format, _ := cmd.Root().PersistentFlags().GetString("format")
+	intent := intentLabel(flags.Intent)
 
-	if plan.IsEmpty() {
+	if plan.IsEmpty() && len(plan.Skipped) == 0 {
 		msg := "No changes needed. Mesh is already converged."
 		if format == output.FormatJSON {
 			out := models.PlanOutput{
 				Servers:  flags.Servers,
+				Intent:   intent,
 				Actions:  []models.PlanActionRow{},
 				Warnings: warningsToStrings(plan.Warnings),
 			}
@@ -107,7 +89,6 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return nil
 	}
 
-	// Render.
 	rows := make([]models.PlanActionRow, len(plan.Actions))
 	for i, a := range plan.Actions {
 		rows[i] = models.PlanActionRow{
@@ -116,6 +97,7 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 			Detail: a.Detail,
 		}
 	}
+	skipped := skippedRows(plan.Skipped)
 
 	formatter, err := output.NewFormatter(format, output.Options{Writer: os.Stdout})
 	if err != nil {
@@ -125,12 +107,28 @@ func runPlan(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 	if format == output.FormatJSON || format == output.FormatPretty {
 		return formatter.Format(models.PlanOutput{
 			Servers:  flags.Servers,
+			Intent:   intent,
 			Actions:  rows,
+			Skipped:  skipped,
 			Warnings: warningsToStrings(plan.Warnings),
 		})
 	}
 
-	return formatter.Format(rows)
+	if len(rows) > 0 {
+		if err := formatter.Format(rows); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("No actions scheduled.")
+	}
+	if len(skipped) > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Skipped by intent filter:")
+		for _, s := range skipped {
+			fmt.Fprintf(os.Stderr, "  [%s] %s — %s\n", s.Server, s.Action, s.Reason)
+		}
+	}
+	return nil
 }
 
 func validatePlanFlags(f *InitFlags) error {
@@ -150,4 +148,28 @@ func warningsToStrings(ws []wireguard.Warning) []string {
 		out[i] = fmt.Sprintf("[%s] %s", w.Host, w.Reason)
 	}
 	return out
+}
+
+// skippedRows converts the plan's intent-filtered actions into render rows.
+func skippedRows(ss []wireguard.SkippedAction) []models.PlanSkippedRow {
+	if len(ss) == 0 {
+		return nil
+	}
+	out := make([]models.PlanSkippedRow, len(ss))
+	for i, s := range ss {
+		out[i] = models.PlanSkippedRow{
+			Server: s.Action.Host,
+			Action: string(s.Action.Type),
+			Reason: s.Reason,
+		}
+	}
+	return out
+}
+
+// intentLabel normalizes an empty or zero intent to "bootstrap" for display.
+func intentLabel(raw string) string {
+	if raw == "" {
+		return "bootstrap"
+	}
+	return raw
 }

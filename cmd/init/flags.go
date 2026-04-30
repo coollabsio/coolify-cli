@@ -24,10 +24,10 @@ type InitFlags struct {
 	Yes                 bool
 
 	// CentralHost is the SSH address of the central VM (from --central flag).
-	// When non-empty, phases 4+5 install Redis + broker on that host and push
-	// per-host JWTs to all other hosts. Default empty = no broker setup.
-	CentralHost   string
-	BrokerVersion string
+	// When non-empty, phases 4+5 install the scheduler on that host and push
+	// per-host JWTs to all other hosts. Default empty = no scheduler setup.
+	CentralHost      string
+	SchedulerVersion string
 
 	// EnableBuilder is a cluster-wide shorthand: when true (and BuilderHosts
 	// is empty), every host in Servers is enrolled as builder-capable. When
@@ -39,8 +39,30 @@ type InitFlags struct {
 	// to enroll with the builder capability. Empty = fall back to
 	// EnableBuilder semantics. Mutually exclusive in practice with
 	// EnableBuilder=false (leaves builder fully disabled).
-	BuilderHosts    []string
-	BuilderCapacity int
+	BuilderHosts       []string
+	BuilderCapacity    int
+	BuilderCPUQuota    string
+	BuilderMemoryMax   string
+	BuilderTimeoutSecs int
+
+	// NewHosts is the extend-subcommand-only list of brand-new hosts. Must
+	// be a subset of Servers. Existing hosts in Servers get only peer-refresh
+	// actions; new hosts get the full first-time install.
+	NewHosts []string
+
+	// AllowReplace unlocks destructive-replace actions on existing hosts in
+	// extend mode (e.g. recreating a podman bridge whose dns_enabled=true
+	// pre-alpha drift would otherwise be blocked).
+	AllowReplace bool
+
+	// AllowNightly permits the upgrade subcommand to accept "nightly" as a
+	// version tag. Rejected by default because nightly forces a re-install on
+	// every run instead of only when the pinned version changes.
+	AllowNightly bool
+
+	// Intent selects the plan filter (bootstrap/extend/upgrade). Set by each
+	// subcommand before calling runPlan/runApply; not bound to a flag.
+	Intent string
 }
 
 // bindInitFlags registers all shared flags as PersistentFlags on cmd.
@@ -69,11 +91,11 @@ func bindInitFlags(cmd *cobra.Command, f *InitFlags) {
 	pf.BoolVarP(&f.Yes, "yes", "y", false,
 		"Skip the interactive alpha confirmation prompt")
 	pf.StringVar(&f.CentralHost, "central", "",
-		`SSH address of the central VM that will run broker + Redis (and later Laravel).
-Must be one of the --servers entries. When set, phases 4+5 install Redis + broker on that host
-and push a per-host JWT to every other server. Leave empty to skip broker setup.`)
-	pf.StringVar(&f.BrokerVersion, "broker-version", "nightly",
-		`Release tag to download for broker (e.g. "nightly", "v1.2.3").`)
+		`SSH address of the central VM that will run the scheduler (and later Laravel).
+Must be one of the --servers entries. When set, phases 4+5 install the scheduler on that host
+and push a per-host JWT to every other server. Leave empty to skip scheduler setup.`)
+	pf.StringVar(&f.SchedulerVersion, "scheduler-version", "nightly",
+		`Release tag to download for scheduler (e.g. "nightly", "v1.2.3").`)
 	pf.BoolVar(&f.EnableBuilder, "enable-builder", true,
 		`Cluster-wide shorthand: enable the builder capability on every host
 (requires --central). Ignored when --builder-hosts is set.`)
@@ -83,4 +105,12 @@ Takes precedence over --enable-builder. Empty (default) means fall back to
 --enable-builder for the whole cluster.`)
 	pf.IntVar(&f.BuilderCapacity, "builder-capacity", 2,
 		"Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).")
+	pf.StringVar(&f.BuilderCPUQuota, "builder-cpu-quota", "200%",
+		`cgroup CPU quota for each build subprocess (COOLD_BUILDER_CPU_QUOTA).
+systemd CPUQuota format; "200%" = two full cores.`)
+	pf.StringVar(&f.BuilderMemoryMax, "builder-memory-max", "2G",
+		`cgroup memory cap for each build subprocess (COOLD_BUILDER_MEMORY_MAX).
+systemd MemoryMax format; e.g. "2G", "512M".`)
+	pf.IntVar(&f.BuilderTimeoutSecs, "builder-timeout-secs", 1800,
+		"Hard wall-clock timeout per build in seconds (COOLD_BUILDER_TIMEOUT_SECS).")
 }

@@ -176,7 +176,7 @@ type Resource struct {
 
 ## `coolify init` — WireGuard mesh + Podman bootstrap (alpha, v5)
 
-**This subcommand is an outlier**: it does NOT talk to the Coolify API. It SSHes into remote hosts and installs/configures WireGuard, Podman, the bridge network, and a firewall scaffold. It's a one-shot infrastructure bootstrap consumed by the future v5 control plane (coold).
+**This subcommand is an outlier**: it does NOT talk to the Coolify API. It SSHes into remote hosts and installs/configures WireGuard, Podman, the bridge network, and a firewall scaffold. It's the fleet-provisioning command tree consumed by the v5 control plane (coold), split into three intent-scoped subcommands — `bootstrap`, `extend`, `upgrade` — plus a read-only `plan`. Coolify's backend calls `extend` when the operator adds a server and `upgrade` when agent versions move; direct-CLI operators run `bootstrap` for the initial install.
 
 ### What it does
 
@@ -220,19 +220,29 @@ Firewall service (`coolify-mesh-fw.service`) installed unconditionally and stays
 
 ### Subcommands
 
+Three intent-scoped subcommands. Each runs the same probe → plan → filter → apply → verify pipeline; what differs is the filter applied to the action list. The filter lives in `internal/wireguard/intent.go` (`ValidateIntent` + `filterByIntent`). Suppressed actions surface on `plan.Skipped` so the preview shows operators what would have fired and why.
+
 ```bash
-coolify init plan   --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-default-deny]
-coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-default-deny] [--yes]
+coolify init plan       --servers IP1,IP2,IP3 --ssh-key KEY [--intent bootstrap|extend|upgrade]
+coolify init bootstrap  --servers IP1,IP2,IP3 --ssh-key KEY [--yes]
+coolify init extend     --servers IP1,IP2,IP3,IP4 --new-hosts IP4 --ssh-key KEY [--allow-replace]
+coolify init upgrade    --servers IP1,IP2,IP3 --ssh-key KEY --coold-version v1.7.0 [--allow-nightly]
 ```
 
-- `plan` is read-only: SSH-probes each host, reconstructs current state, shows what `apply` would do. Idempotent.
-- `apply` is the same plus execution. 2-phase parallel: phase 1 = install + keygen + podman + socket + IP forward. Re-probe to collect fresh public keys. Phase 2 = write WG config + enable/reload service + create podman network + install firewall.
+- `plan` is read-only: probes, reconstructs, shows what the selected intent would execute. Default intent is `bootstrap` (broadest preview).
+- `bootstrap` is the first-time install — every applicable action on every host. Keeps the interactive alpha gate (unless `--yes`, `COOLIFY_NON_INTERACTIVE=1`, or non-TTY). 2-phase parallel: phase 1 = install + keygen + podman + socket + IP forward. Re-probe. Phase 2 = write WG config + enable/reload service + create podman networks + install firewall + install coold/corrosion (+ scheduler on `--central` + builder on `--builder-hosts`).
+- `extend` adds the hosts listed in `--new-hosts` (required subset of `--servers`) to an existing mesh. Brand-new hosts get the full first-time install. Existing hosts get **only peer-refresh** actions (WG config rewrite picks up the new peer's mgmt `/32` + namespace `/24`s in `AllowedIPs`, corrosion peer list refreshed, firewall unit reinstalled only when the namespace list changed). Agent binaries are not re-downloaded on existing hosts. Destructive-replace actions (podman network recreate because of `dns_enabled=true` drift or a subnet/label mismatch) are **blocked on existing hosts** unless `--allow-replace` is passed. The corrosion-schema wipe-DB branch is never unlocked — resolve schema drift with `upgrade` on a fresh schema.
+- `upgrade` bumps agent binaries across every host. Only binary-fetch actions (`install-coold`, `install-corrosion`, `install-scheduler`, `install-builder`) and their follow-up service restarts (`install-coold-service`, `install-corrosion-service`, `install-scheduler-service`) run. WG config, podman networks, firewall rules, and the corrosion schema stay untouched. `nightly` tags are rejected by default (they force a re-install every run); pin a version with `--coold-version=v1.7.0` etc. or pass `--allow-nightly`.
+
+`extend` and `upgrade` skip the interactive alpha gate because they are the paths the Coolify backend calls in production. `bootstrap` keeps the gate for direct-CLI runs.
 
 ### Flags (defined in `cmd/init/flags.go`)
 
+Persistent (inherited by `plan`, `bootstrap`, `extend`, `upgrade`):
+
 | Flag | Default | Purpose |
 |---|---|---|
-| `--servers` | required | comma-separated SSH IPs |
+| `--servers` | required | comma-separated SSH IPs (full list of every host in the mesh, including already-converged ones on extend/upgrade) |
 | `--ssh-key` | required | path to SSH private key |
 | `--ssh-passphrase-prompt` | false | prompt for key passphrase (also reads `COOLIFY_SSH_PASSPHRASE` env) |
 | `--ssh-user` | `root` | SSH user |
@@ -244,13 +254,30 @@ coolify init apply  --servers IP1,IP2 --ssh-key ~/.ssh/id_ed25519 [--skip-defaul
 | `--wg-listen-port` | `51820` | WG UDP port |
 | `--namespaces` | `default` | comma-separated list of namespaces. Each creates its own `coolify-<ns>-mesh` bridge with its own per-host `/24` carved from `--container-pool` |
 | `--skip-default-deny` | false | skip the default-deny firewall scaffold. Default installs COOLIFY-INTRA + empty COOLIFY-ALLOW chains for cross-host deny |
-| `--coold-version` | `nightly` | release tag to download for coold (e.g. `nightly`, `v1.2.3`). `nightly` always re-downloads on every apply; pinned tags skip if already installed. Fetched from `coollabsio/coold` GitHub releases on the remote host. |
+| `--coold-version` | `nightly` | release tag to download for coold (e.g. `nightly`, `v1.2.3`). `nightly` always re-downloads on every run; pinned tags skip when the on-host version marker matches. Fetched from `coollabsio/coold` GitHub releases on the remote host. |
 | `--corrosion-version` | `nightly` | release tag to download for corrosion. Same drift semantics as `--coold-version`. Fetched from `coollabsio/corrosion` GitHub releases. |
+| `--scheduler-version` | `nightly` | release tag for scheduler (only fetched when `--central` is set). |
 | `--corrosion-gossip-port` | `8787` | corrosion SWIM gossip port (bound to wg0 mgmt IP) |
 | `--corrosion-api-port` | `8080` | corrosion HTTP API port (bound to 127.0.0.1) |
+| `--central` | `""` | SSH address of the central VM (must be in `--servers`). When set, scheduler installs there and per-host JWTs are pushed to every peer. Empty = skip scheduler setup. |
+| `--enable-builder` | true | cluster-wide shorthand: enable the builder capability on every host (requires `--central`). Ignored when `--builder-hosts` is set. |
+| `--builder-hosts` | `[]` | explicit subset of `--servers` to enroll with the builder capability. Takes precedence over `--enable-builder`. |
+| `--builder-capacity` | `2` | concurrent builds per host (`COOLD_BUILDER_CAPACITY`) |
+| `--builder-cpu-quota` | `200%` | systemd CPUQuota per build subprocess |
+| `--builder-memory-max` | `2G` | systemd MemoryMax per build subprocess |
+| `--builder-timeout-secs` | `1800` | wall-clock cap per build |
 | `--concurrency` | `10` | parallel SSH connections |
 | `--ssh-timeout` | `30s` | SSH connect timeout |
-| `--yes`, `-y` | false | skip alpha confirmation prompt |
+| `--yes`, `-y` | false | skip alpha confirmation prompt (honored by `bootstrap`; `extend` and `upgrade` always skip it) |
+
+Subcommand-local:
+
+| Flag | Subcommand | Default | Purpose |
+|---|---|---|---|
+| `--intent` | `plan` | `bootstrap` | preview filter: `bootstrap` (all actions), `extend` (treat `--new-hosts` as fresh, existing hosts peer-refresh only), `upgrade` (version bumps only) |
+| `--new-hosts` | `extend` | required | comma-separated subset of `--servers` that is brand-new this run. Only these hosts receive the full install; all other hosts get peer-refresh only. |
+| `--allow-replace` | `extend` | false | unlock destructive-replace actions on existing hosts (e.g. recreating a drifted podman bridge). Off by default — drifted existing hosts surface as skipped actions. |
+| `--allow-nightly` | `upgrade` | false | permit `nightly` as a version tag. Off by default because `nightly` re-installs every run instead of only when the pinned version changes. |
 
 ### Namespaces
 
@@ -263,7 +290,7 @@ Namespaces are the tenancy unit the mesh carries. A namespace is:
 
 Config knobs:
 
-- `coolify init --namespaces default,alpha,beta` provisions every namespace on every host in one pass. Re-running with an added namespace installs only the new per-namespace assets (bridge + FORWARD jumps + WG `AllowedIPs` refresh). Removing a namespace is **not** idempotent today — destroy/rebuild is the documented path for alpha.
+- `coolify init bootstrap --namespaces default,alpha,beta` provisions every namespace on every host in one pass. Re-running `bootstrap` (or running `extend` with the new namespace in `--namespaces`) installs only the new per-namespace assets (bridge + FORWARD jumps + WG `AllowedIPs` refresh + firewall unit reinstall because of unit-hash drift). Removing a namespace is **not** idempotent today — destroy/rebuild is the documented path for alpha.
 - `coolify firewall --namespace <ns>` (default `default`) scopes allow/revoke/list/containers to one namespace. `list` and `containers` also accept `--all-namespaces` for cross-namespace observability.
 - coold receives the full namespace list via `COOLD_NAMESPACES=<ns>:<network>:<gateway-ip>,…` (see `internal/services/coold.go`). DNS binds and rule storage derive from that.
 
@@ -278,17 +305,22 @@ Deliberately deferred (tracked in the active plan):
 - `cmd/common/` — flag structs shared between `init` and `firewall`.
   - `sshmesh.go` — `SSHMeshFlags` + `BindSSHMeshFlags`, `BuildSSHClient`, `ParseSSHTimeout`, `ResolvePassphrase`, `Validate`.
   - `meshnet.go` — `MeshNetFlags` (namespaces + container pool/prefix) + `BindMeshNetMultiFlags` (init-style: many namespaces) + `BindMeshNetSingleFlags` (firewall-style: one namespace) + `PodmanNetworkFor(ns)` + `ValidateNamespaces` / `ValidateNamespace` (DNS-label check).
-- `cmd/init/` — Cobra subcommands (`init`, `init plan`, `init apply`).
-  - `flags.go` — `InitFlags` struct (embeds `common.SSHMeshFlags` + `common.MeshNetFlags`) + bindings + SSH client builder.
-  - `plan.go` — `runPlan`: parse pools, build SSH client, probe (per namespace), plan, render.
-  - `apply.go` — `runApply`: alpha gate, probe, plan, execute, verify.
-  - `init.go` — registers subcommands; package is `initcmd` (not `init` — Go reserved keyword).
+- `cmd/init/` — Cobra subcommands (`init`, `init plan`, `init bootstrap`, `init extend`, `init upgrade`).
+  - `flags.go` — `InitFlags` struct (embeds `common.SSHMeshFlags` + `common.MeshNetFlags`) + bindings + SSH client builder. Carries subcommand-scoped knobs: `NewHosts`, `AllowReplace`, `AllowNightly`, `Intent`.
+  - `desired.go` — `buildDesired(flags)`: flag → `wireguard.DesiredMesh`. One source of truth so every subcommand produces the same struct modulo `Intent`.
+  - `plan.go` — `runPlan`: validate, `buildDesired`, `ValidateIntent`, build SSH client, probe, `BuildPlan`, render actions + skipped rows. `--intent` flag selects the filter for preview.
+  - `apply.go` — `runApply(ctx, cmd, flags, applyOptions)`: shared pipeline for all three executing subcommands. `applyOptions{SkipAlphaGate, Header}` differentiates them.
+  - `bootstrap.go` — `NewBootstrapCommand`: sets `flags.Intent = "bootstrap"`, keeps alpha gate.
+  - `extend.go` — `NewExtendCommand`: binds `--new-hosts` + `--allow-replace`, validates subset, sets `flags.Intent = "extend"`, skips alpha gate.
+  - `upgrade.go` — `NewUpgradeCommand`: binds `--allow-nightly`, sets `flags.Intent = "upgrade"`, skips alpha gate.
+  - `init.go` — registers the four subcommands; package is `initcmd` (not `init` — Go reserved keyword).
 - `internal/wireguard/` — pure Go logic (no SSH, no I/O — `apply.go` is the SSH boundary).
-  - `state.go` — `ServerState` (with `Namespaces map[string]*NamespaceServerState`), `MeshState`, `DesiredMesh`.
-  - `subnet.go` — `Allocate` (per `(namespace, host)` pair: `map[ns]map[host]*net.IPNet`) + `AllocateMgmtIPs` (per-host /32) + conflict detection.
+  - `state.go` — `ServerState` (with `Namespaces map[string]*NamespaceServerState`), `MeshState`, `DesiredMesh` (with `Intent`, `NewHosts`, `AllowReplace`, `AllowNightly`). `Intent` enum: `IntentBootstrap` (zero value), `IntentExtend`, `IntentUpgrade`.
+  - `intent.go` — `ValidateIntent` (pre-plan invariants: extend needs `NewHosts ⊆ Hosts`; upgrade rejects nightly unless opted-in), `filterByIntent` (mutates `plan.Actions` + `plan.Skipped`), `categorize` (action → `catSafeAlways` / `catPeerRefresh` / `catDestructiveReplace` / `catVersionBump` / `catWipeDB` / `catCorrosionSchemaFirstWrite`).
+  - `subnet.go` — `Allocate` (per `(namespace, host)` pair: `map[ns]map[host]*net.IPNet`) + `AllocateMgmtIPs` (per-host /32) + conflict detection. Provably stable: adding host D never shifts A/B/C.
   - `config.go` — `RenderConfig` + `WriteConfigCommand` for `wg0.conf` (Address /32, AllowedIPs = mgmt /32 + every peer namespace subnet, deterministic order).
   - `reconstruct.go` — `Probe` (per-namespace podman network inspect + label read) + `Reconstruct` (parallel) + `parseConfigFile`.
-  - `plan.go` — `BuildPlan` (pure: desired - actual = actions). Podman actions carry a `Namespace` field; one create/recreate action per namespace per host.
+  - `plan.go` — `BuildPlan` (pure: desired - actual = actions, then `ValidateIntent` + `filterByIntent`). `Plan.Skipped []SkippedAction` carries intent-filtered entries with reasons. Podman actions carry a `Namespace` field; one create/recreate action per namespace per host.
   - `apply.go` — `ApplyMesh` (2-phase fanout via `internal/ssh/fanout.go`). Phase 2 loops over namespaces per host; firewall unit takes the union of every namespace subnet.
   - `firewall.go` — `coolify-mesh-fw.service` unit generator (two-mode: blanket allow vs default-deny, one FORWARD/POSTROUTING pair per namespace subnet).
 - `internal/ssh/` — generic SSH runner + parallel `ForEachServer[T]`.
@@ -296,22 +328,25 @@ Deliberately deferred (tracked in the active plan):
 
 ### Key invariants
 
-- **Reconstructed-only state**: no local state file. Every `plan`/`apply` re-probes via SSH. State lives on the hosts.
-- **Idempotent**: re-running with no changes produces empty plan. State drift triggers re-converge (e.g. flipping `--skip-default-deny` reinstalls the firewall service).
+- **Reconstructed-only state**: no local state file. Every run re-probes via SSH. State lives on the hosts.
+- **Idempotent**: re-running with no changes produces an empty plan. State drift triggers re-converge (e.g. flipping `--skip-default-deny` reinstalls the firewall service; bumping `--coold-version` re-fetches the binary).
+- **Intent gates destruction**: `extend` on an existing host never re-downloads agents, never wipes the corrosion DB, and never recreates a drifted podman bridge without `--allow-replace`. Suppressed actions surface on `plan.Skipped` with a reason. `upgrade` never touches WG / podman / firewall / schema.
 - **Private key never leaves host**: WG private key generated on remote via `wg genkey`; config written using `$PRIVKEY=$(cat /etc/wireguard/privatekey)` shell expansion.
 - **Atomic config writes**: write to `.conf.tmp`, `mv` to `.conf`.
-- **Stable subnet assignment**: existing valid assignments are preserved across re-runs; only invalid (out-of-pool, wrong prefix, duplicate, network/broadcast IP) trigger reassignment with warning.
+- **Non-disruptive WG reload**: service-restart uses `systemctl restart wg-quick@wg0 || wg syncconf wg0 <(wg-quick strip wg0)` — the fallback updates peers in kernel without tearing the tunnel.
+- **Stable subnet assignment**: existing valid assignments are preserved across re-runs; adding a host never shifts existing `(namespace, host)` `/24`s. Only invalid (out-of-pool, wrong prefix, duplicate, network/broadcast IP) trigger reassignment with a warning.
+- **Firewall reinstall is content-hashed**: `coolify-mesh-fw.service` is only rewritten when its expected unit text differs from the on-host sha256, so noisy restarts don't happen on converged re-runs.
 
 ### Future control plane (v5 / coold)
 
-`coolify init` only does the **one-shot host bootstrap**. Day-to-day container/firewall ops are the v5 control plane's job. See `CONTROL_PLANE.md` for the full spec, including:
+`coolify init` owns **fleet provisioning**: first-time bootstrap, adding hosts, and bumping agent versions — each via its own intent-scoped subcommand. Day-to-day container/firewall ops are the v5 control plane's job. See `CONTROL_PLANE.md` for the full spec, including:
 
 - coold per-host agent (REST API on wg0, bind-mounts `/run/podman/podman.sock`, NEVER exposes socket on TCP).
 - Service discovery via embedded DNS in coold + Corrosion-replicated sqlite (no env injection, no container restart on backend movement).
 - Allow-rule persistence via coold's own DB + `iptables-restore --noflush` or `nft -f` batch (NOT systemd dropins per rule — doesn't scale).
 - Cross-host allow rules go on the **destination host** (where DROP would otherwise fire).
 
-When extending `coolify init`, defer dynamic responsibilities to coold. Bootstrap should stay narrow: scaffold the mesh, install runtime, prep firewall chains. coold owns everything that changes at runtime.
+When extending `coolify init`, defer dynamic responsibilities to coold. Bootstrap stays narrow: scaffold the mesh, install runtime, prep firewall chains. `extend` and `upgrade` stay narrower still: add peers and bump binaries, nothing else. coold owns everything that changes at runtime.
 
 ### Testing init
 
@@ -453,7 +488,7 @@ Uses `fakeCooldRunner` / `cmdFakeRunner` pattern (substring → canned stdout ma
 
 ### End-to-end flow (verified on real hosts)
 
-After `coolify init apply --servers A,B --namespaces default,alpha ...` ran (coold must be up):
+After `coolify init bootstrap --servers A,B --namespaces default,alpha ...` ran (coold must be up):
 
 1. Baseline cross-host traffic DROPped by `COOLIFY-INTRA` in every namespace.
 2. `coolify firewall containers --servers A,B --ssh-key KEY --all-namespaces` → discovery table columned by namespace.

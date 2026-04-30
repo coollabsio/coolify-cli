@@ -186,7 +186,7 @@ func ApplyMesh(
 		}
 	}
 
-	// Phase 4: central-only — install broker, generate JWT keypair.
+	// Phase 4: central-only — install scheduler, generate JWT keypair.
 	if desired.CentralHost != "" && err == nil {
 		p4 := ssh.ForEachServer(ctx, []string{desired.CentralHost}, 1,
 			func(ctx context.Context, host string) ([]ActionResult, error) {
@@ -195,29 +195,29 @@ func ApplyMesh(
 		for _, r := range p4 {
 			results = append(results, r.Result...)
 			if r.Err != nil {
-				err = fmt.Errorf("phase 4 (central broker setup) failed: %w", r.Err)
+				err = fmt.Errorf("phase 4 (central scheduler setup) failed: %w", r.Err)
 			}
 		}
 	}
 
 	// Phase 5: per non-central host — mint JWT (with caps), update coold unit
-	// with broker env (and builder env when EnableBuilder).
+	// with scheduler env (and builder env when EnableBuilder).
 	if desired.CentralHost != "" && err == nil {
 		privKeyPEM, _, keyErr := runner.Run(ctx, desired.CentralHost, user, port,
-			"cat "+services.BrokerJWTPrivPath)
+			"cat "+services.SchedulerJWTPrivPath)
 		if keyErr != nil {
 			err = fmt.Errorf("read jwt.priv from central %s: %w", desired.CentralHost, keyErr)
 		} else {
 			centralMgmtIP := mgmtAssignments[desired.CentralHost]
-			brokerURL := fmt.Sprintf("http://%s:%d", centralMgmtIP, services.BrokerGRPCPort)
+			schedulerURL := fmt.Sprintf("http://%s:%d", centralMgmtIP, services.SchedulerGRPCPort)
 			// Include central itself: in single-server topology central *is* the coold
-			// target, and in fleet mode central's own coold still benefits from broker
+			// target, and in fleet mode central's own coold still benefits from scheduler
 			// wiring (uniform dispatch path, no standalone-API exception).
 			p5 := ssh.ForEachServer(ctx, desired.Hosts, concurrency,
 				func(ctx context.Context, host string) ([]ActionResult, error) {
 					return phase5PerHost(ctx, runner, host, user, port,
 						desired, fresh, mgmtAssignments, containerAssignments,
-						[]byte(privKeyPEM), brokerURL)
+						[]byte(privKeyPEM), schedulerURL)
 				})
 			for _, r := range p5 {
 				results = append(results, r.Result...)
@@ -520,8 +520,8 @@ chmod %[4]o %[1]s.tmp
 mv %[1]s.tmp %[1]s`, remotePath, body, tag, mode)
 }
 
-// phase4Central installs broker, generates the JWT keypair, and enables
-// the broker systemd service on the central host.
+// phase4Central installs scheduler, generates the JWT keypair, and enables
+// the scheduler systemd service on the central host.
 func phase4Central(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -532,10 +532,10 @@ func phase4Central(
 ) ([]ActionResult, error) {
 	var out []ActionResult
 
-	// 1. Install broker binary.
+	// 1. Install scheduler binary.
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionInstallBroker, "", services.BrokerInstallCommand(desired.BrokerVersion),
-		fmt.Sprintf("install broker on %s", host)); err != nil {
+		ActionInstallScheduler, "", services.SchedulerInstallCommand(desired.SchedulerVersion),
+		fmt.Sprintf("install scheduler on %s", host)); err != nil {
 		return out, err
 	}
 
@@ -546,18 +546,18 @@ func phase4Central(
 		return out, err
 	}
 
-	// 3. Write broker unit + enable service.
+	// 3. Write scheduler unit + enable service.
 	mgmtIP := mgmtAssignments[host]
-	grpcBind := fmt.Sprintf("%s:%d", mgmtIP, services.BrokerGRPCPort)
-	brokerUnit := services.BrokerServiceUnit(grpcBind, services.BrokerJWTPubPath)
-	serviceCmd := heredocWrite("/etc/systemd/system/broker.service",
-		brokerUnit, "COOLIFY_BROKER_UNIT_EOF", 0o644) +
+	grpcBind := fmt.Sprintf("%s:%d", mgmtIP, services.SchedulerGRPCPort)
+	schedulerUnit := services.SchedulerServiceUnit(grpcBind, services.SchedulerJWTPubPath)
+	serviceCmd := heredocWrite("/etc/systemd/system/scheduler.service",
+		schedulerUnit, "COOLIFY_SCHEDULER_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +
-		` && systemctl enable broker` +
-		` && systemctl restart broker`
+		` && systemctl enable scheduler` +
+		` && systemctl restart scheduler`
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionInstallBrokerService, "", serviceCmd,
-		fmt.Sprintf("install broker service on %s", host)); err != nil {
+		ActionInstallSchedulerService, "", serviceCmd,
+		fmt.Sprintf("install scheduler service on %s", host)); err != nil {
 		return out, err
 	}
 
@@ -565,7 +565,7 @@ func phase4Central(
 }
 
 // phase5PerHost mints a host JWT, writes it to the host, rewrites the coold
-// unit with broker env vars, and restarts coold.
+// unit with scheduler env vars, and restarts coold.
 func phase5PerHost(
 	ctx context.Context,
 	runner ssh.Runner,
@@ -576,7 +576,7 @@ func phase5PerHost(
 	mgmtAssignments map[string]net.IP,
 	containerAssignments map[string]map[string]*net.IPNet,
 	privKeyPEM []byte,
-	brokerURL string,
+	schedulerURL string,
 ) ([]ActionResult, error) {
 	var out []ActionResult
 
@@ -585,9 +585,9 @@ func phase5PerHost(
 		return out, fmt.Errorf("no mgmt IP for %s", host)
 	}
 
-	// Mint JWT with sub = wg0 mgmt IP (stable, broker-addressable identifier).
+	// Mint JWT with sub = wg0 mgmt IP (stable, scheduler-addressable identifier).
 	// caps claim must match what coold will advertise in its Hello frame —
-	// the broker cross-checks and rejects a stream whose Hello elevates over
+	// the scheduler cross-checks and rejects a stream whose Hello elevates over
 	// its JWT. Per-host toggle via desired.HasBuilderCap(host).
 	hostID := mgmtIP.String()
 	hasBuilder := desired.HasBuilderCap(host)
@@ -620,12 +620,12 @@ func phase5PerHost(
 		}
 	}
 
-	// 3. Rewrite coold unit with broker env vars (and builder env when
+	// 3. Rewrite coold unit with scheduler env vars (and builder env when
 	// enabled) + restart.
 	nsSorted := desired.SortedNamespaces()
 	nsConfigs := buildNamespaceConfigs(host, nsSorted, containerAssignments)
-	broker := &services.BrokerConfig{
-		URL:     brokerURL,
+	scheduler := &services.SchedulerConfig{
+		URL:     schedulerURL,
 		JWTPath: services.HostJWTPath,
 	}
 	var builderCfg *services.BuilderConfig
@@ -638,18 +638,21 @@ func phase5PerHost(
 			denyNets = append(denyNets, desired.ContainerPool.String())
 		}
 		builderCfg = &services.BuilderConfig{
-			Capacity: desired.BuilderCapacity,
-			DenyNets: denyNets,
+			Capacity:    desired.BuilderCapacity,
+			CPUQuota:    desired.BuilderCPUQuota,
+			MemoryMax:   desired.BuilderMemoryMax,
+			TimeoutSecs: desired.BuilderTimeoutSecs,
+			DenyNets:    denyNets,
 		}
 	}
-	cooldUnit := services.CooldServiceUnitWithBroker(mgmtIP, nsConfigs, broker, builderCfg)
+	cooldUnit := services.CooldServiceUnitWithScheduler(mgmtIP, nsConfigs, scheduler, builderCfg)
 	updateCmd := heredocWrite("/etc/systemd/system/coold.service",
-		cooldUnit, "COOLIFY_COOLD_BROKER_UNIT_EOF", 0o644) +
+		cooldUnit, "COOLIFY_COOLD_SCHEDULER_UNIT_EOF", 0o644) +
 		` && systemctl daemon-reload` +
 		` && systemctl restart coold`
 	if err := runStep(ctx, runner, host, user, port, &out,
-		ActionUpdateCooldBrokerEnv, "", updateCmd,
-		fmt.Sprintf("update coold broker env on %s", host)); err != nil {
+		ActionUpdateCooldSchedulerEnv, "", updateCmd,
+		fmt.Sprintf("update coold scheduler env on %s", host)); err != nil {
 		return out, err
 	}
 

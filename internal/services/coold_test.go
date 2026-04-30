@@ -73,6 +73,68 @@ func TestCooldServiceUnit_EmptyNamespacesSkipsNamespaceEnv(t *testing.T) {
 	}
 }
 
+func TestCooldServiceUnit_EmitsBuilderEnvWhenConfigured(t *testing.T) {
+	builder := &BuilderConfig{
+		Capacity:    4,
+		CPUQuota:    "400%",
+		MemoryMax:   "4G",
+		TimeoutSecs: 900,
+		DenyNets:    []string{"100.64.0.0/16", "10.210.0.0/16"},
+	}
+	got := CooldServiceUnitWithScheduler(
+		net.ParseIP("100.64.0.5"),
+		nil,
+		&SchedulerConfig{URL: "http://100.64.0.1:6443", JWTPath: "/etc/coolify/host-jwt"},
+		builder,
+	)
+
+	for _, want := range []string{
+		"Environment=COOLD_BUILDER_ENABLED=true",
+		"Environment=COOLD_BUILDER_CAPACITY=4",
+		"Environment=COOLD_BUILDER_CPU_QUOTA=400%",
+		"Environment=COOLD_BUILDER_MEMORY_MAX=4G",
+		"Environment=COOLD_BUILDER_TIMEOUT_SECS=900",
+		"Environment=COOLD_BUILDER_DENY_NETS=100.64.0.0/16,10.210.0.0/16",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("unit missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestCooldServiceUnit_BuilderDefaultsWhenZero(t *testing.T) {
+	builder := &BuilderConfig{} // all zero values
+	got := CooldServiceUnitWithScheduler(
+		net.ParseIP("100.64.0.5"),
+		nil,
+		&SchedulerConfig{URL: "http://100.64.0.1:6443", JWTPath: "/etc/coolify/host-jwt"},
+		builder,
+	)
+
+	for _, want := range []string{
+		"Environment=COOLD_BUILDER_CAPACITY=2",
+		"Environment=COOLD_BUILDER_CPU_QUOTA=200%",
+		"Environment=COOLD_BUILDER_MEMORY_MAX=2G",
+		"Environment=COOLD_BUILDER_TIMEOUT_SECS=1800",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("unit missing default %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestCooldServiceUnit_OmitsBuilderEnvWhenNil(t *testing.T) {
+	got := CooldServiceUnitWithScheduler(
+		net.ParseIP("100.64.0.5"),
+		nil,
+		&SchedulerConfig{URL: "http://100.64.0.1:6443", JWTPath: "/etc/coolify/host-jwt"},
+		nil,
+	)
+	if strings.Contains(got, "COOLD_BUILDER_") {
+		t.Errorf("expected no builder env when nil, got:\n%s", got)
+	}
+}
+
 func TestCooldNamespacesEnvValue_Triples(t *testing.T) {
 	ns := []CooldNamespace{
 		{Name: "default", Network: "coolify-default-mesh", BridgeGateway: net.ParseIP("10.210.0.1")},

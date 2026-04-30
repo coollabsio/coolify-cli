@@ -277,19 +277,19 @@ type DesiredMesh struct {
 	// CorrosionAPIPort is the corrosion HTTP API port bound to 127.0.0.1 (default 8080).
 	CorrosionAPIPort int
 
-	// CentralHost is the SSH address of the central VM that runs broker.
-	// Empty string disables phases 4+5 (broker setup).
+	// CentralHost is the SSH address of the central VM that runs scheduler.
+	// Empty string disables phases 4+5 (scheduler setup).
 	// Must be an element of Hosts.
 	CentralHost string
 
-	// BrokerVersion is the release tag for broker (e.g. "nightly").
-	BrokerVersion string
+	// SchedulerVersion is the release tag for scheduler (e.g. "nightly").
+	SchedulerVersion string
 
 	// EnableBuilder, when true and BuilderHosts is empty, installs buildah/
 	// git and the builder binary on every host in Hosts and advertises
 	// "builder" in each host's JWT caps claim. When BuilderHosts is non-
 	// empty it wins and EnableBuilder is ignored. Requires a non-empty
-	// CentralHost (broker issues the JWT) and InstallPodman (buildah needs
+	// CentralHost (scheduler issues the JWT) and InstallPodman (buildah needs
 	// podman's containers-storage).
 	EnableBuilder bool
 
@@ -302,7 +302,65 @@ type DesiredMesh struct {
 	// BuilderCapacity caps concurrent builds per host. 0 falls back to 2 (the
 	// coold builder adapter's own default).
 	BuilderCapacity int
+
+	// BuilderCPUQuota is the systemd CPUQuota applied to each build subprocess
+	// (e.g. "200%" for two full cores). Empty string falls back to coold's
+	// own default ("200%").
+	BuilderCPUQuota string
+
+	// BuilderMemoryMax is the systemd MemoryMax applied to each build
+	// subprocess (e.g. "2G"). Empty string falls back to coold's own default
+	// ("2G").
+	BuilderMemoryMax string
+
+	// BuilderTimeoutSecs is the hard per-build wall-clock timeout in seconds.
+	// 0 falls back to coold's own default (1800).
+	BuilderTimeoutSecs int
+
+	// Intent selects the action filter applied after BuildPlan computes the
+	// raw action list. IntentBootstrap (default, zero value) emits every
+	// applicable action (today's behavior). IntentExtend limits destructive
+	// and version-bump actions to NewHosts only; existing hosts get just the
+	// peer-refresh actions required to route traffic to the new peer.
+	// IntentUpgrade emits only binary-fetch + service-restart actions
+	// cluster-wide.
+	Intent Intent
+
+	// NewHosts is the subset of Hosts that are brand-new to the mesh on this
+	// run. Only meaningful when Intent == IntentExtend. Empty = treat every
+	// host as existing (no-op safe mode).
+	NewHosts []string
+
+	// AllowReplace unlocks destructive-replace actions on existing hosts in
+	// extend mode (e.g. ActionRecreatePodmanNet). Never unlocks the wipe-DB
+	// branch of ActionWriteCorrosionSchema.
+	AllowReplace bool
+
+	// AllowNightly lets the upgrade intent accept version tag "nightly".
+	// Upgrade mode otherwise rejects nightly because it forces a re-install
+	// on every run instead of only when the pinned version changes.
+	AllowNightly bool
 }
+
+// Intent selects the action filter applied by BuildPlan to match the caller's
+// operation (first-time bootstrap vs. adding servers vs. bumping agent
+// versions). See DesiredMesh.Intent.
+type Intent string
+
+const (
+	// IntentBootstrap allows every action. Matches pre-subcommand-split
+	// behavior and is the default for DesiredMesh (zero value).
+	IntentBootstrap Intent = ""
+
+	// IntentExtend runs the full install on hosts in NewHosts and limits
+	// existing hosts to peer-refresh actions (WG config rewrite + service
+	// reload + corrosion config rewrite + firewall unit reinstall on drift).
+	IntentExtend Intent = "extend"
+
+	// IntentUpgrade only emits binary-fetch actions + the service-restart
+	// actions that follow them.
+	IntentUpgrade Intent = "upgrade"
+)
 
 // BuilderHostSet returns the set of hosts that should carry the builder
 // capability given EnableBuilder + BuilderHosts. Hosts in the result are a

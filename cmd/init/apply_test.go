@@ -20,7 +20,10 @@ func TestNewInitCommand(t *testing.T) {
 		subCmds[sub.Use] = sub
 	}
 	assert.Contains(t, subCmds, "plan")
-	assert.Contains(t, subCmds, "apply")
+	assert.Contains(t, subCmds, "bootstrap")
+	assert.Contains(t, subCmds, "extend")
+	assert.Contains(t, subCmds, "upgrade")
+	assert.NotContains(t, subCmds, "apply", "apply removed in favor of bootstrap/extend/upgrade")
 }
 
 // TestNewInitCommand_PersistentFlags verifies shared flags are registered.

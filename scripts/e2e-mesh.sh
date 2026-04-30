@@ -205,10 +205,10 @@ cli init apply \
 if ssh_exec "$SERVER_A" "test -f /etc/coolify/jwt.priv" >/dev/null 2>&1; then
   say "9/10 builder smoke test — POST /v1/build/dispatch, expect localhost image on central"
 
-  # Broker UDS; central runs broker as root so the default 0600 socket is
+  # Scheduler UDS; central runs scheduler as root so the default 0600 socket is
   # reachable for ssh-exec'd curl without group setup.
-  BROKER_SOCK="/run/coolify/broker.sock"
-  UDS_CURL="curl -sS --unix-socket $BROKER_SOCK"
+  SCHEDULER_SOCK="/run/coolify/scheduler.sock"
+  UDS_CURL="curl -sS --unix-socket $SCHEDULER_SOCK"
 
   REQ_ID="e2e-$(date +%s)"
   BUILD_PAYLOAD="{\"request_id\":\"$REQ_ID\",\"command\":{\"type\":\"static_build\",\"repo_url\":\"https://github.com/coollabsio/static-test-site\",\"git_ref\":\"main\",\"target_image\":\"localhost/e2e-$REQ_ID\"}}"

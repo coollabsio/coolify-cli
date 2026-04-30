@@ -35,11 +35,11 @@ const (
 	ActionWriteCorrosionSchema    ActionType = "write-corrosion-schema"
 	ActionInstallCorrosionService ActionType = "install-corrosion-service"
 	ActionInstallCooldService     ActionType = "install-coold-service"
-	ActionInstallBroker           ActionType = "install-broker"
+	ActionInstallScheduler        ActionType = "install-scheduler"
 	ActionGenerateJWTKeypair      ActionType = "generate-jwt-keypair"
-	ActionInstallBrokerService    ActionType = "install-broker-service"
+	ActionInstallSchedulerService ActionType = "install-scheduler-service"
 	ActionWriteHostJWT            ActionType = "write-host-jwt"
-	ActionUpdateCooldBrokerEnv    ActionType = "update-coold-broker-env"
+	ActionUpdateCooldSchedulerEnv ActionType = "update-coold-scheduler-env"
 	ActionInstallBuilder          ActionType = "install-builder"
 )
 
@@ -60,6 +60,17 @@ type Plan struct {
 	SubnetAssignments map[string]map[string]*net.IPNet
 	// Warnings contains non-fatal conflict messages from the IP allocator.
 	Warnings []Warning
+	// Skipped lists actions that were filtered out by the Intent gate
+	// (e.g. destructive-replace on an existing host in extend mode). Exposed
+	// so the plan preview can show operators what would have fired and why.
+	Skipped []SkippedAction
+}
+
+// SkippedAction is a PlannedAction that BuildPlan would have emitted but the
+// Intent filter suppressed. Reason is a short human-readable message.
+type SkippedAction struct {
+	Action PlannedAction
+	Reason string
 }
 
 // IsEmpty returns true when the mesh is already converged (no changes needed).
@@ -76,6 +87,9 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 	}
 	if desired.InstallPodman && len(desired.Namespaces) == 0 {
 		return nil, fmt.Errorf("at least one namespace is required")
+	}
+	if err := ValidateIntent(desired); err != nil {
+		return nil, err
 	}
 
 	// Validate per-host preconditions before computing actions.
@@ -393,13 +407,13 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 		}
 	}
 
-	// --- Broker + JWT stack (central-only) ---
+	// --- Scheduler + JWT stack (central-only) ---
 	if desired.CentralHost != "" {
 		plan.Actions = append(plan.Actions,
 			PlannedAction{
 				Host:   desired.CentralHost,
-				Type:   ActionInstallBroker,
-				Detail: fmt.Sprintf("broker %s → /usr/local/bin/broker", desired.BrokerVersion),
+				Type:   ActionInstallScheduler,
+				Detail: fmt.Sprintf("scheduler %s → /usr/local/bin/scheduler", desired.SchedulerVersion),
 			},
 			PlannedAction{
 				Host:   desired.CentralHost,
@@ -408,13 +422,13 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 			},
 			PlannedAction{
 				Host: desired.CentralHost,
-				Type: ActionInstallBrokerService,
-				Detail: fmt.Sprintf("broker.service (:%d)",
-					services.BrokerGRPCPort),
+				Type: ActionInstallSchedulerService,
+				Detail: fmt.Sprintf("scheduler.service (:%d)",
+					services.SchedulerGRPCPort),
 			},
 		)
 
-		// Per-host: JWT + coold unit rewrite (inject broker env).
+		// Per-host: JWT + coold unit rewrite (inject scheduler env).
 		for _, host := range desired.Hosts {
 			plan.Actions = append(plan.Actions,
 				PlannedAction{
@@ -424,14 +438,14 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 				},
 				PlannedAction{
 					Host:   host,
-					Type:   ActionUpdateCooldBrokerEnv,
-					Detail: "coold.service += BROKER_URL + HOST_JWT_PATH",
+					Type:   ActionUpdateCooldSchedulerEnv,
+					Detail: "coold.service += SCHEDULER_URL + HOST_JWT_PATH",
 				},
 			)
 		}
 	}
 
-	// --- Builder capability (per-host, requires broker) ---
+	// --- Builder capability (per-host, requires scheduler) ---
 	//
 	// No separate systemd unit and no second JWT — the builder binary is a
 	// short-lived subprocess coold spawns under a `systemd-run --pipe`
@@ -452,6 +466,8 @@ func BuildPlan(desired *DesiredMesh, current MeshState) (*Plan, error) {
 			})
 		}
 	}
+
+	filterByIntent(plan, desired)
 
 	return plan, nil
 }

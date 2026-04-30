@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/mattn/go-isatty"
@@ -19,29 +18,26 @@ import (
 // Ensure internalssh is used (for *internalssh.Client in signatures).
 var _ *internalssh.Client
 
-// NewApplyCommand creates the `coolify init apply` subcommand.
-func NewApplyCommand(flags *InitFlags) *cobra.Command {
-	return &cobra.Command{
-		Use:   "apply",
-		Short: "Bootstrap the WireGuard mesh (executes the plan)",
-		Long: `Reconstruct the current state, compute the plan, then execute it.
-Idempotent: re-running with no changes produces an empty plan.`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runApply(cmd.Context(), cmd, flags)
-		},
-	}
+// applyOptions tweaks runApply per subcommand.
+type applyOptions struct {
+	// SkipAlphaGate, when true, bypasses the interactive "press enter"
+	// confirmation. upgrade/extend set it because those are called from the
+	// Coolify backend in production, not a human at a terminal.
+	SkipAlphaGate bool
+
+	// Header is a one-line banner describing the intent (e.g. "extending
+	// mesh with 1 new host"). Printed to stderr before the plan.
+	Header string
 }
 
-func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
-	// Always print the alpha banner to stderr.
+func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags, opts applyOptions) error {
 	fmt.Fprint(os.Stderr, alphaBanner)
 
 	if err := validatePlanFlags(flags); err != nil {
 		return err
 	}
 
-	// Alpha gate: block unless bypassed.
-	if !shouldSkipGate(flags) {
+	if !opts.SkipAlphaGate && !shouldSkipGate(flags) {
 		fmt.Fprintln(os.Stderr, "This command will modify network configuration on the listed servers.")
 		fmt.Fprint(os.Stderr, "Press Enter to continue, or Ctrl+C to abort... ")
 		reader := bufio.NewReader(os.Stdin)
@@ -50,35 +46,12 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		}
 	}
 
-	_, mgmtPool, err := net.ParseCIDR(flags.WGMgmtPool)
+	desired, err := buildDesired(flags)
 	if err != nil {
-		return fmt.Errorf("invalid --wg-mgmt-pool %q: %w", flags.WGMgmtPool, err)
+		return err
 	}
-	_, contPool, err := net.ParseCIDR(flags.ContainerPool)
-	if err != nil {
-		return fmt.Errorf("invalid --container-pool %q: %w", flags.ContainerPool, err)
-	}
-
-	desired := &wireguard.DesiredMesh{
-		Hosts:                 flags.Servers,
-		Interface:             flags.WGInterface,
-		MgmtPool:              mgmtPool,
-		ContainerPool:         contPool,
-		ContainerPrefix:       flags.ContainerPrefix,
-		ListenPort:            flags.WGListenPort,
-		InstallPodman:         true,
-		Namespaces:            flags.Namespaces,
-		DefaultDenyContainers: !flags.SkipDefaultDeny,
-		InstallCoold:          true,
-		CooldVersion:          flags.CooldVersion,
-		CorrosionVersion:      flags.CorrosionVersion,
-		CorrosionGossipPort:   flags.CorrosionGossipPort,
-		CorrosionAPIPort:      flags.CorrosionAPIPort,
-		CentralHost:           flags.CentralHost,
-		BrokerVersion:         flags.BrokerVersion,
-		EnableBuilder:         flags.EnableBuilder,
-		BuilderHosts:          flags.BuilderHosts,
-		BuilderCapacity:       flags.BuilderCapacity,
+	if err := wireguard.ValidateIntent(desired); err != nil {
+		return err
 	}
 
 	sshClient, err := flags.BuildSSHClient()
@@ -86,6 +59,9 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return fmt.Errorf("SSH client: %w", err)
 	}
 
+	if opts.Header != "" {
+		fmt.Fprintln(os.Stderr, opts.Header)
+	}
 	fmt.Fprintf(os.Stderr, "Probing %d server(s)...\n", len(flags.Servers))
 
 	current, probeErr := wireguard.Reconstruct(ctx, sshClient, flags.Servers,
@@ -100,14 +76,12 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return fmt.Errorf("build plan: %w", err)
 	}
 
-	// Surface allocator warnings.
 	for _, w := range plan.Warnings {
 		fmt.Fprintf(os.Stderr, "Warning [%s]: %s\n", w.Host, w.Reason)
 	}
 
 	format, _ := cmd.Root().PersistentFlags().GetString("format")
 
-	// Print the plan before executing.
 	if plan.IsEmpty() {
 		fmt.Fprintln(os.Stderr, "No changes needed. Mesh is already converged.")
 	} else {
@@ -117,18 +91,22 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		}
 		fmt.Fprintln(os.Stderr)
 	}
+	if len(plan.Skipped) > 0 {
+		fmt.Fprintln(os.Stderr, "Skipped by intent filter:")
+		for _, s := range plan.Skipped {
+			fmt.Fprintf(os.Stderr, "  [%s] %s — %s\n", s.Action.Host, s.Action.Type, s.Reason)
+		}
+		fmt.Fprintln(os.Stderr)
+	}
 
 	if plan.IsEmpty() {
-		// Nothing to do; still emit verify output.
 		return runVerify(ctx, sshClient, flags, desired, format)
 	}
 
-	// Execute the plan.
 	fmt.Fprintln(os.Stderr, "Applying...")
 	actionResults, applyErr := wireguard.ApplyMesh(ctx, sshClient,
 		flags.SSHUser, flags.SSHPort, desired, current, flags.Concurrency)
 
-	// Render action results.
 	rows := make([]models.ApplyResultRow, len(actionResults))
 	for i, r := range actionResults {
 		status := "ok"
@@ -148,7 +126,6 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 	}
 
 	if format == output.FormatJSON || format == output.FormatPretty {
-		// Collect verify results first, then emit combined JSON.
 		verifyRows := collectVerifyRows(ctx, sshClient, flags, desired)
 		out := models.ApplyOutput{Results: rows, Verified: verifyRows}
 		formatter, ferr := output.NewFormatter(format, output.Options{Writer: os.Stdout})
@@ -161,7 +138,6 @@ func runApply(ctx context.Context, cmd *cobra.Command, flags *InitFlags) error {
 		return applyErr
 	}
 
-	// Table output: print results, then verify.
 	if len(rows) > 0 {
 		formatter, _ := output.NewFormatter(output.FormatTable, output.Options{Writer: os.Stdout})
 		_ = formatter.Format(rows)
@@ -182,7 +158,6 @@ func shouldSkipGate(flags *InitFlags) bool {
 	if os.Getenv("COOLIFY_NON_INTERACTIVE") == "1" {
 		return true
 	}
-	// Skip when stdin is not a terminal (CI/piped).
 	if !isatty.IsTerminal(os.Stdin.Fd()) && !isatty.IsCygwinTerminal(os.Stdin.Fd()) {
 		return true
 	}

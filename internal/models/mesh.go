@@ -7,6 +7,15 @@ type PlanActionRow struct {
 	Detail string `json:"detail"`
 }
 
+// PlanSkippedRow is a table-friendly row for actions the intent filter
+// suppressed (shown in the plan preview so operators can see what would have
+// run and why).
+type PlanSkippedRow struct {
+	Server string `json:"server"`
+	Action string `json:"action"`
+	Reason string `json:"reason"`
+}
+
 // ApplyResultRow is a table-friendly row for the apply result output.
 type ApplyResultRow struct {
 	Server string `json:"server"`
@@ -25,9 +34,11 @@ type VerifyResultRow struct {
 
 // PlanOutput is the structured JSON output for the plan command.
 type PlanOutput struct {
-	Servers  []string        `json:"servers"`
-	Actions  []PlanActionRow `json:"actions"`
-	Warnings []string        `json:"warnings,omitempty"`
+	Servers  []string         `json:"servers"`
+	Intent   string           `json:"intent,omitempty"`
+	Actions  []PlanActionRow  `json:"actions"`
+	Skipped  []PlanSkippedRow `json:"skipped,omitempty"`
+	Warnings []string         `json:"warnings,omitempty"`
 }
 
 // ApplyOutput is the structured JSON output for the apply command.

@@ -14,11 +14,11 @@ import (
 //
 // privKeyPEM must be PKCS8 EC PEM (produced by `openssl genpkey -algorithm EC
 // -pkeyopt ec_paramgen_curve:P-256`). hostID becomes the `sub` claim; the
-// broker uses it as the key into its host→stream registry.
+// scheduler uses it as the key into its host→stream registry.
 //
 // caps lists the capabilities this host is authorized to advertise in the
 // coold Hello frame. Always includes "coold"; hosts that accept builds also
-// carry "builder". The broker cross-checks the advertised Hello capability
+// carry "builder". The scheduler cross-checks the advertised Hello capability
 // set against this claim and rejects streams that try to elevate.
 func MintHostJWT(privKeyPEM []byte, hostID string, caps []string) (string, error) {
 	block, _ := pem.Decode(privKeyPEM)

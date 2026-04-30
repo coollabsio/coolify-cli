@@ -1,6 +1,6 @@
 # Coolify v5 Control Plane — Server Management Spec
 
-This document lists everything the Coolify v5 control plane must implement on top of the bootstrap performed by `coolify init apply` to fully manage a fleet of mesh-connected hosts.
+This document lists everything the Coolify v5 control plane must implement on top of the host provisioning performed by the `coolify init` subcommand tree (`bootstrap` for first install, `extend` for adding hosts, `upgrade` for bumping agent versions) to fully manage a fleet of mesh-connected hosts.
 
 ## Architecture overview
 
@@ -43,7 +43,7 @@ This document lists everything the Coolify v5 control plane must implement on to
 3. **coold still exposes a local REST API on wg0 mgmt IP** for intra-mesh callers only (the `coolify firewall` CLI via SSH-bounce, other coolds in the same mesh, a per-customer gateway if deployed). Never reachable from public internet; wg0 is the only L3 boundary that can hit it.
 4. **Per-customer gateway (optional)**: for large customers, one host in the mesh runs a stream aggregator that dials central once and proxies commands to the other coolds over wg0. Reduces stream fan-out at central from N-per-customer to 1-per-customer; adds one hop of latency. Transparent to both ends — same protocol each side.
 
-## What `coolify init apply --podman --default-deny` already provides
+## What `coolify init bootstrap` already provides
 
 | Layer | Component | State |
 |---|---|---|
@@ -68,8 +68,8 @@ Each host has a stable `(mgmt-ip, container-subnet)` pair. The bootstrap is idem
 - **Discovery**: query each host's `podman.socket` (over wg0 mgmt IP) for: containers, networks, volumes, images, system stats.
 - **Drift detection**: periodically reconcile desired state (Coolify DB) against actual (podman API). Re-converge or alert.
 - **Mesh join/leave**: when a host is added or removed from the cluster:
-  - Add → invoke `coolify init apply` with the new `--servers` list (extends mesh, generates new mgmt IP + container `/24`, regenerates wg0 config on all peers).
-  - Remove → invoke apply with reduced list; on the removed host, optionally tear down (out of scope for v1).
+  - Add → invoke `coolify init extend --servers <full list> --new-hosts <new host>` (installs the new host end-to-end, regenerates wg0 config on every existing peer with the new mgmt IP + namespace `/24`s, leaves agent binaries on existing hosts untouched).
+  - Remove → not supported by a first-class subcommand today. Documented workaround for alpha: tear the host out-of-band (stop services, drop it from DNS) and re-run `coolify init bootstrap` with the reduced `--servers` list on a maintenance window; a dedicated `remove-host` flow is a follow-up.
 
 ### 2. Container lifecycle
 
@@ -152,7 +152,7 @@ Default = shared `coolify-mesh` bridge. Containers get `.coolify.internal` DNS +
 
 #### coold deployment
 
-coold runs as a privileged container on each host (or as a host systemd service). `coolify init apply --install-coold` puts it in place at bootstrap time: binary, systemd unit with `COOLD_API_BIND=<wg0-mgmt-ip>:8443`, random per-host bearer token at `/etc/coolify/api-token` (mode 0600), outbound stream config written atomically to `/etc/coolify/coold.env`.
+coold runs as a privileged container on each host (or as a host systemd service). `coolify init bootstrap` puts it in place at install time (and `coolify init upgrade` bumps its version later): binary, systemd unit with `COOLD_API_BIND=<wg0-mgmt-ip>:8443`, random per-host bearer token at `/etc/coolify/api-token` (mode 0600), outbound stream config written atomically to `/etc/coolify/coold.env`.
 
 Reference container spec (equivalent to systemd-service deployment):
 ```bash
@@ -185,7 +185,7 @@ Two candidates; spec-time decision, not per-host:
 coold registers once at install using a one-time token from central:
 
 ```bash
-coolify init apply --install-coold \
+coolify init bootstrap \
   --central-url https://cloud.coolify.io \
   --enroll-token <one-time-hex>
 ```
@@ -211,7 +211,7 @@ For customers with 50+ hosts, one designated mesh host runs a **gateway mode coo
 - Accepts incoming streams from its peer coolds over wg0 (they dial `wss://<gateway-mgmt-ip>:8443/v1/agent-peer` instead of central).
 - Relays commands down, responses up. Maintains O(hosts-in-mesh) inbound streams + 1 outbound to central.
 
-Saves N-1 WAN streams at central per customer; costs one hop of latency + one more thing to keep alive. Opt-in via `coolify init apply --gateway-for-mesh` on the chosen host; peers get `--via-gateway <gateway-mgmt-ip>` at install.
+Saves N-1 WAN streams at central per customer; costs one hop of latency + one more thing to keep alive. Opt-in via `coolify init bootstrap --gateway-for-mesh` on the chosen host; peers get `--via-gateway <gateway-mgmt-ip>` at install.
 
 ### 3. Network policy (firewall)
 
@@ -221,7 +221,7 @@ When host has `--default-deny` enabled, **all cross-host container traffic is dr
 
 | Layer | Owner | Responsibility |
 |---|---|---|
-| Chain scaffold (COOLIFY-INTRA, COOLIFY-ALLOW, FORWARD jumps, conntrack early-accept, POSTROUTING RETURN) | `coolify init apply` (one-shot) | Install + idempotently re-converge on flag change. Never touches individual allow rules. |
+| Chain scaffold (COOLIFY-INTRA, COOLIFY-ALLOW, FORWARD jumps, conntrack early-accept, POSTROUTING RETURN) | `coolify init bootstrap` (also reconverges on `extend`) | Install + idempotently re-converge on flag change. Never touches individual allow rules. |
 | Rule metadata (who/when/why, audit log, RBAC, tenant scoping, app→rule mapping) | **Coolify central DB** | Authoritative store. All rich queries, audit trails, and access control live here. |
 | Raw rule tuples `(src, dst, proto, port)` on the host | **coold** (single writer) | Apply to kernel + snapshot to `/etc/coolify/allow.rules` for reboot. Stateless-ish — just a cache of what the caller (central Coolify or `coolify firewall` CLI) told it to apply. No metadata, no DB. |
 
@@ -292,7 +292,7 @@ Apply paths:
 
 coold detects backend (`iptables --version` or presence of nftables socket) and picks. Bootstrap doesn't care.
 
-For **systemctl restart coolify-mesh-fw.service** (e.g. `coolify init apply` re-runs after a flag flip): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — existing rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`, crash mid-write), central's reconcile loop compares its own DB against `iptables -S COOLIFY-ALLOW` from each host and re-pushes any missing tuples within the reconcile interval.
+For **systemctl restart coolify-mesh-fw.service** (e.g. a `coolify init bootstrap` re-run after a flag flip, or `coolify init extend` reinstalling the unit because the namespace list changed): the unit flushes COOLIFY-INTRA but **never flushes COOLIFY-ALLOW** — existing rules survive. If somehow lost (manual `iptables -F COOLIFY-ALLOW`, crash mid-write), central's reconcile loop compares its own DB against `iptables -S COOLIFY-ALLOW` from each host and re-pushes any missing tuples within the reconcile interval.
 
 #### Allow API surface
 
@@ -513,7 +513,7 @@ coold writes Corrosion rows on behalf of central (explicit `POST /services/regis
 
 #### Bootstrap impact
 
-Minimal. `coolify init apply` creates the `coolify-mesh` Podman network with `--disable-dns` so netavark never starts aardvark-dns on `10.210.X.1:53`. coold owns that socket. Bridge gateway IP was always reserved by `MachineIP()`.
+Minimal. `coolify init bootstrap` creates every `coolify-<ns>-mesh` Podman network with `--disable-dns` so netavark never starts aardvark-dns on the bridge gateway `:53`. coold owns that socket. Bridge gateway IP was always reserved by `MachineIP()`.
 
 Pre-alpha deployments that created the network without `--disable-dns` are detected at plan-time (probe reads `podman network inspect .DNSEnabled`). A `recreate-podman-network` action drops and recreates the network — same subnet, same gateway, but with DNS disabled. Any attached containers are disconnected via `podman network rm -f`.
 
@@ -659,7 +659,7 @@ Stream into central time-series store (Prometheus / VictoriaMetrics).
 ### 11. Updates
 
 - Coolify runtime image self-updates (container restart with new image).
-- WireGuard / Podman package updates: `coolify init apply` re-runs idempotently and picks up newer packages from apt. Schedule periodic re-apply (weekly?).
+- WireGuard / Podman package updates: `coolify init bootstrap` re-runs idempotently and picks up newer packages from apt. Agent (coold/corrosion/scheduler/builder) bumps go through `coolify init upgrade --coold-version vX.Y.Z` etc. Schedule periodic re-apply (weekly?).
 - Mesh config changes (new host, removed host) trigger re-apply on all hosts; control plane orchestrates.
 
 ### 12. Security posture
@@ -682,7 +682,7 @@ Stream into central time-series store (Prometheus / VictoriaMetrics).
 | Host SSH unreachable | bootstrap apply error | Manual investigation; node marked unhealthy in DB |
 | WG peer offline (`latest_handshake > 180s`) | `wg show` poll | Mark unhealthy; re-schedule containers if pinning permits |
 | Podman socket unreachable | API call timeout | Restart `podman.socket`; if persistent, re-bootstrap |
-| Firewall service failed | `systemctl is-active != active` | Re-run `coolify init apply`; service is idempotent |
+| Firewall service failed | `systemctl is-active != active` | Re-run `coolify init bootstrap`; service is idempotent |
 | Container OOM/crash | `podman events` watcher | Restart per restart policy; alert after N crashes |
 | Container subnet exhausted | allocator returns error | Alert; offer apply with bigger `--container-prefix` |
 | Mgmt IP exhausted | allocator returns error | Alert; rare for /16 |
@@ -739,17 +739,17 @@ Everything else on the roadmap (`coolify deploy`, `coolify scale`, `coolify logs
 
 ## Summary
 
-`coolify init apply` does the **one-shot host bootstrap**: WG mesh, podman runtime, bridge network, default-deny scaffold. After that, **everything dynamic is the v5 control plane's job**: container lifecycle, allow rules in COOLIFY-ALLOW (via systemd dropins for persistence), scheduling, observability, ingress, updates.
+`coolify init bootstrap` does the **first-time host install**: WG mesh, podman runtime, bridge network, default-deny scaffold, coold/corrosion/scheduler/builder agents. `coolify init extend` adds hosts to an existing mesh without disturbing converged ones; `coolify init upgrade` bumps agent versions across the fleet. After that, **everything dynamic is the v5 control plane's job**: container lifecycle, allow rules in COOLIFY-ALLOW (via systemd dropins for persistence), scheduling, observability, ingress, updates.
 
 The pieces communicate via:
-1. **SSH** for bootstrap + re-converge (idempotent `coolify init apply` re-runs). SSH is the installer channel only, not a steady-state control path.
+1. **SSH** for host provisioning + re-converge (idempotent `coolify init bootstrap` / `extend` / `upgrade` re-runs). SSH is the installer channel only, not a steady-state control path.
 2. **coold → central outbound stream** (WSS / gRPC bidi on :443) for day-to-day runtime ops from central. One topology for self-hosted and cloud SaaS; central never dials coold, never joins any mesh. Per-customer gateway (optional) collapses N streams into 1 per mesh.
 3. **coold local REST API** on wg0 mgmt IP (`http://100.64.0.X:8443`) for intra-mesh callers: the `coolify firewall` CLI via SSH-bounce, other coolds, the per-customer gateway. Never reachable from the public internet.
 
 coold is the *only* process with access to the local podman socket AND the sole writer of allow rules in COOLIFY-ALLOW. Both transports hit the same API surface.
 
 Persistence model:
-- Bootstrap state (chains, jumps, conntrack accept) → idempotent `coolify init apply` re-runs.
+- Bootstrap state (chains, jumps, conntrack accept) → idempotent `coolify init bootstrap` re-runs (and `extend` when a namespace is added).
 - Rule metadata (who/when/why, audit, RBAC, tenant scoping) → central Coolify DB only. coold does not duplicate this.
 - Kernel rules → programmed by coold on every API call (from either central Coolify or the `coolify firewall` CLI); mirrored to `/etc/coolify/allow.rules` for reboot via `coolify-mesh-allow.service` (oneshot `iptables-restore --noflush`).
 - Today the `coolify firewall` CLI is the primary caller of coold (SSH-bounced REST client with per-host `/etc/coolify/api-token` resolution). Central Coolify will call the same API once wired.
