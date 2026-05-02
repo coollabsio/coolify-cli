@@ -1995,11 +1995,6 @@ Parameters:
 Command: coolify init
 Description: [ALPHA] Initialize WireGuard mesh for Coolify v5
 Parameters:
-  - name: --scheduler-version
-    type: string
-    description: Release tag to download for scheduler (e.g. "nightly", "v1.2.3").
-    required: false
-    default: nightly
   - name: --builder-capacity
     type: integer
     description: Concurrent builds accepted per host (COOLD_BUILDER_CAPACITY).
@@ -2080,6 +2075,11 @@ and push a per-host JWT to every other server. Leave empty to skip scheduler set
     description: Comma-separated list of namespaces to create on each host. Each namespace is a separate Podman bridge network (coolify-<ns>-mesh) with its own /<container-prefix> per host
     required: false
     default: [default]
+  - name: --scheduler-version
+    type: string
+    description: Release tag to download for scheduler (e.g. "nightly", "v1.2.3").
+    required: false
+    default: nightly
   - name: --servers
     type: stringSlice
     description: Comma-separated server IPs (required)
@@ -2134,13 +2134,40 @@ and push a per-host JWT to every other server. Leave empty to skip scheduler set
     required: false
     default: false
 
-Command: coolify init apply
-Description: Bootstrap the WireGuard mesh (executes the plan)
+Command: coolify init bootstrap
+Description: First-time mesh install (all actions allowed)
 Parameters: (None)
+
+Command: coolify init extend
+Description: Add new hosts to an existing mesh (existing hosts stay untouched)
+Parameters:
+  - name: --allow-replace
+    type: boolean
+    description: Unlock destructive-replace actions on existing hosts (e.g. recreating a drifted podman bridge). Off by default — drifted existing hosts are surfaced as skipped actions instead.
+    required: false
+    default: false
+  - name: --new-hosts
+    type: stringSlice
+    description: Comma-separated subset of --servers that is brand-new this run (required). Only these hosts receive the full first-time install; all other hosts get peer-refresh only.
+    required: true
 
 Command: coolify init plan
 Description: Show WireGuard mesh changes without applying them
-Parameters: (None)
+Parameters:
+  - name: --intent
+    type: string
+    description: Preview filter: "bootstrap" (all actions), "extend" (treat --new-hosts as fresh, existing hosts peer-refresh only), "upgrade" (version bumps only).
+    required: false
+    default: bootstrap
+
+Command: coolify init upgrade
+Description: Bump agent binary versions (coold / corrosion / scheduler / builder) on every host
+Parameters:
+  - name: --allow-nightly
+    type: boolean
+    description: Permit --coold-version/--corrosion-version/--scheduler-version=nightly. Off by default because nightly re-installs on every run instead of only when the pinned version changes.
+    required: false
+    default: false
 
 Command: coolify private-key add <key_name> <private_key_or_file>
 Description: Add a private key

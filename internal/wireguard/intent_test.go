@@ -65,7 +65,7 @@ func TestValidateIntent_UpgradeAllowsNightlyWhenOpted(t *testing.T) {
 		Intent:           IntentUpgrade,
 		CooldVersion:     "nightly",
 		CorrosionVersion: "nightly",
-		SchedulerVersion:    "nightly",
+		SchedulerVersion: "nightly",
 		AllowNightly:     true,
 	}
 	require.NoError(t, ValidateIntent(d))
@@ -76,7 +76,7 @@ func TestValidateIntent_UpgradeAllowsPinned(t *testing.T) {
 		Intent:           IntentUpgrade,
 		CooldVersion:     "v1.2.3",
 		CorrosionVersion: "v0.9.0",
-		SchedulerVersion:    "v0.3.0",
+		SchedulerVersion: "v0.3.0",
 	}
 	require.NoError(t, ValidateIntent(d))
 }
@@ -175,9 +175,9 @@ func TestFilterByIntent_ExtendExistingHostPeerRefreshOnly(t *testing.T) {
 		{Host: "A-old", Type: ActionReloadService},
 		{Host: "A-old", Type: ActionWriteCorrosionConfig},
 		{Host: "A-old", Type: ActionInstallFirewall},
-		{Host: "A-old", Type: ActionInstallCoold},    // version bump: skipped
-		{Host: "A-old", Type: ActionInstallBuilder},  // version bump: skipped
-		{Host: "A-new", Type: ActionInstallCoold},    // new host: kept
+		{Host: "A-old", Type: ActionInstallCoold},   // version bump: skipped
+		{Host: "A-old", Type: ActionInstallBuilder}, // version bump: skipped
+		{Host: "A-new", Type: ActionInstallCoold},   // new host: kept
 	}}
 	filterByIntent(plan, &DesiredMesh{
 		Intent:   IntentExtend,
@@ -260,11 +260,11 @@ func TestFilterByIntent_UpgradeOnlyKeepsVersionBumpsAndServiceRestarts(t *testin
 		{Host: "A", Type: ActionInstallCooldService},
 		{Host: "A", Type: ActionInstallCorrosionService},
 		{Host: "A", Type: ActionInstallSchedulerService},
-		{Host: "A", Type: ActionWriteConfig},        // skipped
-		{Host: "A", Type: ActionReloadService},      // skipped
-		{Host: "A", Type: ActionCreatePodmanNet},    // skipped
-		{Host: "A", Type: ActionRecreatePodmanNet},  // skipped
-		{Host: "A", Type: ActionInstallFirewall},    // skipped (non-restart peer-refresh)
+		{Host: "A", Type: ActionWriteConfig},       // skipped
+		{Host: "A", Type: ActionReloadService},     // skipped
+		{Host: "A", Type: ActionCreatePodmanNet},   // skipped
+		{Host: "A", Type: ActionRecreatePodmanNet}, // skipped
+		{Host: "A", Type: ActionInstallFirewall},   // skipped (non-restart peer-refresh)
 	}}
 	filterByIntent(plan, &DesiredMesh{Intent: IntentUpgrade})
 
