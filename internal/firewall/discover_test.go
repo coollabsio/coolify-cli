@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseDiscoverLine(t *testing.T) {
@@ -66,7 +67,7 @@ func TestDiscoverContainers(t *testing.T) {
 	}}
 	got, err := DiscoverContainers(context.Background(), r, "h1", "root", 22,
 		"default", "coolify-default-mesh")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, got, 2)
 	assert.Equal(t, "api", got[0].Name) // sorted by name
 	assert.Equal(t, "web", got[1].Name)
@@ -79,7 +80,7 @@ func TestDiscoverContainers_EmptyOutput(t *testing.T) {
 	r := &fakeRunner{responses: map[string]string{}}
 	got, err := DiscoverContainers(context.Background(), r, "h1", "root", 22,
 		"default", "coolify-default-mesh")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, got)
 }
 
@@ -89,7 +90,7 @@ func TestDiscoverContainers_BadLinesSkipped(t *testing.T) {
 	}}
 	got, err := DiscoverContainers(context.Background(), r, "h1", "root", 22,
 		"default", "coolify-default-mesh")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "web", got[0].Name)
 }

@@ -25,7 +25,7 @@ func TestEmitContainers_RunsAndFormatsTable(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitContainers(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// Discovery command was issued, targeting the default-namespace bridge.
 	assert.Len(t, fr.calls, 1)
 	assert.Contains(t, fr.calls[0], "podman ps")
@@ -44,7 +44,7 @@ func TestEmitContainers_EmptyOutput(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitContainers(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // TestEmitContainers_AllNamespaces_FansOutAcrossNetworks verifies that with

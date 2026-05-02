@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEmitList_CallsCooldGet(t *testing.T) {
@@ -18,7 +19,7 @@ func TestEmitList_CallsCooldGet(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitList(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, fr.calls, 1)
 	assert.Contains(t, fr.calls[0], "curl")
 	assert.Contains(t, fr.calls[0], "/api/v1/firewall/allow")
@@ -32,7 +33,7 @@ func TestEmitList_EmptyCoold(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitList(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestEmitList_FetchesPerHostTokenWhenOverrideAbsent(t *testing.T) {
@@ -49,7 +50,7 @@ func TestEmitList_FetchesPerHostTokenWhenOverrideAbsent(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitList(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var ranTokenFetch, ranGet bool
 	for _, c := range fr.calls {
 		if strings.Contains(c, "cat /etc/coolify/api-token") {

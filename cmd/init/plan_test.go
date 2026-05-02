@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/coollabsio/coolify-cli/cmd/common"
 )
@@ -36,7 +37,7 @@ func TestValidatePlanFlags(t *testing.T) {
 				Namespaces: []string{common.DefaultNamespace},
 			},
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("invalid namespace", func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/coollabsio/coolify-cli/internal/ssh"
 )
@@ -84,7 +85,7 @@ func TestCooldApply_SendsJSONPayload(t *testing.T) {
 		Proto: "tcp", Port: 80,
 	}
 	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, fr.calls, 1)
 	assert.Contains(t, fr.calls[0], `"src":"10.0.0.1"`)
 	assert.Contains(t, fr.calls[0], `"dst":"10.0.0.2"`)
@@ -98,7 +99,7 @@ func TestCooldApply_OmitsProtoWhenEmpty(t *testing.T) {
 		Src: net.ParseIP("10.0.0.1"), Dst: net.ParseIP("10.0.0.2"),
 	}
 	err := CooldApply(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// omitempty drops zero port and empty proto — avoids tripping coold's
 	// "port requires proto" validation.
 	assert.NotContains(t, fr.calls[0], `"proto"`)
@@ -120,7 +121,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 		]`,
 	}}
 	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, rules, 2)
 	assert.Equal(t, "h1", rules[0].Host)
 	assert.Equal(t, "cid:abc123def456", rules[0].Comment)
@@ -135,7 +136,7 @@ func TestCooldList_ParsesJSON(t *testing.T) {
 func TestCooldList_EmptyBody(t *testing.T) {
 	fr := &fakeCooldRunner{}
 	rules, err := CooldList(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, rules)
 }
 
@@ -159,7 +160,7 @@ func TestFetchCooldToken_ReadsFile(t *testing.T) {
 		"/etc/coolify/api-token": "deadbeefcafe\n",
 	}}
 	tok, err := FetchCooldToken(context.Background(), fr, "h1", "root", 22)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "deadbeefcafe", tok)
 }
 

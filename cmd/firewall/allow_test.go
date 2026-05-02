@@ -130,7 +130,7 @@ func TestEmitAllowRevoke_CarriesNonDefaultNamespace(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var post string
 	for _, c := range fr.calls {
 		if strings.Contains(c, "-X POST") {
@@ -214,7 +214,7 @@ func TestEmitAllowRevoke_FetchesTokenPerHostWhenOverrideAbsent(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	var post string
 	for _, c := range fr.calls {
 		if strings.Contains(c, "-X POST") && strings.Contains(c, "/api/v1/firewall/allow") {
