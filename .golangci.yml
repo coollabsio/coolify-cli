@@ -42,6 +42,14 @@ linters:
     exhaustive:
       default-signifies-exhaustive: true
 
+    revive:
+      rules:
+        - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skipPackageNameChecks: true
+
     staticcheck:
       checks: ["all", "-ST1005", "-S1016"]
 

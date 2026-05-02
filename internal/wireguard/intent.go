@@ -193,6 +193,8 @@ func decide(a PlannedAction, d *DesiredMesh, newHostSet map[string]struct{}) str
 		case catSafeAlways, catDestructiveReplace, catWipeDB, catCorrosionSchemaFirstWrite:
 			return "upgrade: non-version-bump action skipped"
 		}
+	default:
+		// IntentBootstrap (and unknown intents) keep every action.
 	}
 	return ""
 }
@@ -206,6 +208,7 @@ func isUpgradeServiceRestart(t ActionType) bool {
 		ActionInstallCooldService,
 		ActionInstallSchedulerService:
 		return true
+	default:
+		return false
 	}
-	return false
 }

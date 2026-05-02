@@ -162,7 +162,7 @@ func TestEmitAllowRevoke_Bidirectional(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var posts int
 	for _, c := range fr.calls {

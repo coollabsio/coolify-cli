@@ -39,14 +39,14 @@ func TestResolveEndpoint_ByShortID(t *testing.T) {
 
 func TestResolveEndpoint_ByHostName(t *testing.T) {
 	c, err := resolveEndpoint("h3:web", cs())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "h3", c.Host)
 	assert.Equal(t, "10.210.2.10", c.IP.String())
 }
 
 func TestResolveEndpoint_ByRawIP(t *testing.T) {
 	c, err := resolveEndpoint("10.210.1.10", cs())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "h2", c.Host)
 }
 
