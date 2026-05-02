@@ -94,7 +94,7 @@ func TestEmitAllowRevoke_PostsOneAllowToCoold(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var posts []string
 	for _, c := range fr.calls {
@@ -185,7 +185,7 @@ func TestEmitAllowRevoke_RevokeIssuesDelete(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	var deletes []string
 	for _, c := range fr.calls {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/coollabsio/coolify-cli/cmd/common"
 )
@@ -67,7 +68,7 @@ func TestEmitContainers_AllNamespaces_FansOutAcrossNetworks(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitContainers(context.Background(), inner, parent, fr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Expect one `podman network ls` discovery call + one `podman ps` per
 	// discovered namespace (default + alpha = 2).
