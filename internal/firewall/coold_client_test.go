@@ -109,7 +109,7 @@ func TestCooldApply_OmitsProtoWhenEmpty(t *testing.T) {
 func TestCooldRevoke_RejectsEmptyID(t *testing.T) {
 	fr := &fakeCooldRunner{}
 	err := CooldRevoke(context.Background(), fr, "h1", "root", 22, 8443, "wg0", "t", "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, fr.calls, "no SSH call for empty id")
 }
 
@@ -167,7 +167,7 @@ func TestFetchCooldToken_ReadsFile(t *testing.T) {
 func TestFetchCooldToken_EmptyErrors(t *testing.T) {
 	fr := &fakeCooldRunner{}
 	_, err := FetchCooldToken(context.Background(), fr, "h1", "root", 22)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "is empty")
 }
 

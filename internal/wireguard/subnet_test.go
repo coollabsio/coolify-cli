@@ -200,7 +200,7 @@ func TestAllocate_DuplicateHost_Errors(t *testing.T) {
 	hosts := []string{"1.1.1.1", "1.1.1.1"}
 
 	_, _, err := Allocate(pool, 24, nil, hosts)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate host")
 }
 
@@ -210,7 +210,7 @@ func TestAllocate_PoolExhaustion(t *testing.T) {
 	hosts := []string{"h1", "h2"}
 
 	_, _, err := Allocate(pool, 28, nil, hosts)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exhausted")
 }
 

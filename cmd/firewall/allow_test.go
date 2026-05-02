@@ -242,6 +242,6 @@ func TestEmitAllowRevoke_FetchFailurePropagates(t *testing.T) {
 	rootCmdFor(inner)
 
 	err := emitAllowRevoke(context.Background(), inner, parent, local, fr, false)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "coold token")
 }

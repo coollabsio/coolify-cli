@@ -15,7 +15,7 @@ func TestValidatePlanFlags(t *testing.T) {
 		err := validatePlanFlags(&InitFlags{
 			SSHMeshFlags: common.SSHMeshFlags{SSHKey: "/path/to/key"},
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--servers")
 	})
 
@@ -23,7 +23,7 @@ func TestValidatePlanFlags(t *testing.T) {
 		err := validatePlanFlags(&InitFlags{
 			SSHMeshFlags: common.SSHMeshFlags{Servers: []string{"1.1.1.1"}},
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--ssh-key")
 	})
 
@@ -50,7 +50,7 @@ func TestValidatePlanFlags(t *testing.T) {
 				Namespaces: []string{"Not Valid"},
 			},
 		})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid namespace")
 	})
 }

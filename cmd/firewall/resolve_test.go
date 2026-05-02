@@ -59,12 +59,12 @@ func TestResolveEndpoint_UnknownRawIP_Synthetic(t *testing.T) {
 
 func TestResolveEndpoint_NotFound(t *testing.T) {
 	_, err := resolveEndpoint("nobody", cs())
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestResolveEndpoint_Empty(t *testing.T) {
 	_, err := resolveEndpoint("", cs())
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestFindHostForIP(t *testing.T) {
