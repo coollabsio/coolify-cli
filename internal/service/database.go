@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -109,6 +111,31 @@ func (s *DatabaseService) Restart(ctx context.Context, uuid string) (*models.Dat
 	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/restart", uuid), &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restart database %s: %w", uuid, err)
+	}
+	return &response, nil
+}
+
+// Logs retrieves container logs for a database.
+func (s *DatabaseService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool) (*models.LogsResponse, error) {
+	query := url.Values{}
+	query.Set("lines", strconv.Itoa(lines))
+	query.Set("show_timestamps", strconv.FormatBool(showTimestamps))
+
+	var response models.LogsResponse
+	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/logs?%s", uuid, query.Encode()), &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logs for database %s: %w", uuid, err)
+	}
+	return &response, nil
+}
+
+// Move moves a database to another environment.
+func (s *DatabaseService) Move(ctx context.Context, uuid, environmentUUID string) (*models.MoveResourceResponse, error) {
+	var response models.MoveResourceResponse
+	request := &models.MoveResourceRequest{EnvironmentUUID: environmentUUID}
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/move", uuid), request, &response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to move database %s: %w", uuid, err)
 	}
 	return &response, nil
 }

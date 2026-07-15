@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/application/appflags"
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
@@ -119,6 +120,9 @@ func NewUpdateCommand() *cobra.Command {
 				req.HealthCheckPath = &path
 				hasUpdates = true
 			}
+			if appflags.ApplySettingsFlags(cmd, &req.ApplicationSettingsRequest) {
+				hasUpdates = true
+			}
 
 			if !hasUpdates {
 				return fmt.Errorf("no fields to update. Use --help to see available flags")
@@ -162,6 +166,7 @@ func NewUpdateCommand() *cobra.Command {
 	cmd.Flags().String("ports-mappings", "", "Port mappings")
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health check")
 	cmd.Flags().String("health-check-path", "", "Health check path")
+	appflags.BindSettingsFlags(cmd)
 
 	return cmd
 }

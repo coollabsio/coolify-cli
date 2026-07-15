@@ -87,7 +87,9 @@ coolify app get <uuid>
 coolify app start <uuid>
 coolify app stop <uuid>
 coolify app restart <uuid>
-coolify app logs <uuid> --follow
+coolify app logs <uuid> --show-timestamps
+coolify app move <uuid> --environment-uuid <uuid>
+coolify app tag add <uuid> production
 coolify app deployments list <app-uuid>
 coolify app deployments logs <app-uuid> --follow
 ```
@@ -115,9 +117,27 @@ coolify deploy cancel <deployment-uuid>
 ```bash
 coolify database get <uuid>
 coolify database create postgresql --server-uuid <uuid> --project-uuid <uuid> --environment-name production
+coolify database logs <uuid> --show-timestamps
+coolify database move <uuid> --environment-uuid <uuid>
 coolify database backup list <database-uuid>
 coolify service get <uuid>
 coolify service create <type> --project-uuid <uuid> --server-uuid <uuid> --instant-deploy
+coolify service logs <uuid> --sub-service-name <name> --show-timestamps
+coolify service application list <service-uuid>
+coolify service application restart <service-uuid> <application-uuid>
+coolify service database list <service-uuid>
+coolify service database restart <service-uuid> <database-uuid>
+```
+
+### Tags, Destinations, and Cloud Providers
+
+```bash
+coolify tag list
+coolify destination list --server <server-uuid>
+coolify cloud-token create --provider hetzner --name production --provider-token <token>
+coolify cloud-token validate <uuid>
+coolify server hetzner locations <cloud-token-uuid>
+coolify server hetzner create --cloud-token <uuid> --location <location> --server-type <type> --image <id>
 ```
 
 ## Common Aliases

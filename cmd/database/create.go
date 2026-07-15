@@ -93,6 +93,10 @@ Examples:
 				port, _ := cmd.Flags().GetInt("public-port")
 				req.PublicPort = &port
 			}
+			tags, _ := cmd.Flags().GetStringArray("tag")
+			additionalTags, _ := cmd.Flags().GetStringSlice("tags")
+			req.Tags = append(req.Tags, tags...)
+			req.Tags = append(req.Tags, additionalTags...)
 
 			// Resource limits
 			if cmd.Flags().Changed("limits-memory") {
@@ -247,6 +251,8 @@ Examples:
 	cmd.Flags().Int("public-port", 0, "Public port")
 	cmd.Flags().String("limits-memory", "", "Memory limit (e.g., '512m', '2g')")
 	cmd.Flags().String("limits-cpus", "", "CPU limit (e.g., '0.5', '2')")
+	cmd.Flags().StringArray("tag", nil, "Tag to assign (repeatable)")
+	cmd.Flags().StringSlice("tags", nil, "Comma-separated tags to assign")
 
 	// PostgreSQL flags
 	cmd.Flags().String("postgres-user", "", "PostgreSQL user")

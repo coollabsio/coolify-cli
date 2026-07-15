@@ -54,17 +54,27 @@ Aliases are derived from the CLI command tree:
 - `coolify app previews` | `coolify app preview`
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
+- `coolify app tag` | `coolify app tags`
 - `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
+- `coolify cloud-token` | `coolify cloud-tokens`
 - `coolify database storage` | `coolify database storages`
+- `coolify database tag` | `coolify database tags`
 - `coolify database` | `coolify databases` | `coolify db` | `coolify dbs`
+- `coolify destination delete` | `coolify destination remove`
+- `coolify destination` | `coolify destinations`
 - `coolify github` | `coolify gh` | `coolify github-app` | `coolify github-apps`
 - `coolify private-key` | `coolify private-keys` | `coolify key` | `coolify keys`
 - `coolify project` | `coolify projects`
 - `coolify resource` | `coolify resources`
+- `coolify server digitalocean` | `coolify server digital-ocean` | `coolify server do`
 - `coolify server domains` | `coolify server domain`
 - `coolify server` | `coolify servers`
+- `coolify service application` | `coolify service applications` | `coolify service app` | `coolify service apps`
+- `coolify service database` | `coolify service databases` | `coolify service db` | `coolify service dbs`
 - `coolify service storage` | `coolify service storages`
+- `coolify service tag` | `coolify service tags`
 - `coolify service` | `coolify services` | `coolify svc`
+- `coolify tag` | `coolify tags`
 - `coolify teams members` | `coolify teams member`
 - `coolify teams` | `coolify team`
 
@@ -206,6 +216,16 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -243,6 +263,16 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --install-command
     type: string
     description: Custom install command
@@ -250,6 +280,51 @@ Parameters:
   - name: --instant-deploy
     type: boolean
     description: Deploy immediately after creation
+    required: false
+    default: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
     required: false
     default: false
   - name: --limits-cpus
@@ -292,6 +367,24 @@ Parameters:
     type: string
     description: Custom start command
     required: false
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --tag
+    type: stringArray
+    description: Tag to assign to the application (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Tags to assign to the application
+    required: false
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
 
 Command: coolify app create dockerfile
 Description: Create an application from a custom Dockerfile
@@ -304,6 +397,16 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --dockerfile
     type: string
     description: Dockerfile content (required)
@@ -333,9 +436,64 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --instant-deploy
     type: boolean
     description: Deploy immediately after creation
+    required: false
+    default: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
     required: false
     default: false
   - name: --limits-cpus
@@ -366,6 +524,24 @@ Parameters:
     type: string
     description: Server UUID (required)
     required: true
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --tag
+    type: stringArray
+    description: Tag to assign to the application (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Tags to assign to the application
+    required: false
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
 
 Command: coolify app create dockerimage
 Description: Create an application from a pre-built Docker image
@@ -378,6 +554,16 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --docker-registry-image-name
     type: string
     description: Docker image name from registry (required)
@@ -411,9 +597,64 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --instant-deploy
     type: boolean
     description: Deploy immediately after creation
+    required: false
+    default: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
     required: false
     default: false
   - name: --limits-cpus
@@ -444,6 +685,24 @@ Parameters:
     type: string
     description: Server UUID (required)
     required: true
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --tag
+    type: stringArray
+    description: Tag to assign to the application (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Tags to assign to the application
+    required: false
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
 
 Command: coolify app create github
 Description: Create an application from a private repository using GitHub App
@@ -468,6 +727,16 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -509,6 +778,16 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --install-command
     type: string
     description: Custom install command
@@ -516,6 +795,51 @@ Parameters:
   - name: --instant-deploy
     type: boolean
     description: Deploy immediately after creation
+    required: false
+    default: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
     required: false
     default: false
   - name: --limits-cpus
@@ -554,6 +878,24 @@ Parameters:
     type: string
     description: Custom start command
     required: false
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --tag
+    type: stringArray
+    description: Tag to assign to the application (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Tags to assign to the application
+    required: false
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
 
 Command: coolify app create public
 Description: Create an application from a public git repository
@@ -578,6 +920,16 @@ Parameters:
     type: string
     description: Destination UUID if server has multiple destinations
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -615,6 +967,16 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --install-command
     type: string
     description: Custom install command
@@ -622,6 +984,51 @@ Parameters:
   - name: --instant-deploy
     type: boolean
     description: Deploy immediately after creation
+    required: false
+    default: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
     required: false
     default: false
   - name: --limits-cpus
@@ -660,6 +1067,24 @@ Parameters:
     type: string
     description: Custom start command
     required: false
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --tag
+    type: stringArray
+    description: Tag to assign to the application (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Tags to assign to the application
+    required: false
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
 
 Command: coolify app delete <uuid>
 Description: Delete an application. This action cannot be undone.
@@ -851,6 +1276,19 @@ Parameters:
     description: Number of log lines to retrieve
     required: false
     default: 100
+  - name: --show-timestamps
+    type: boolean
+    description: Show timestamps in log output
+    required: false
+    default: false
+
+Command: coolify app move <uuid>
+Description: Move an application to another environment
+Parameters:
+  - name: --environment-uuid
+    type: string
+    description: Target environment UUID (required)
+    required: true
 
 Command: coolify app previews delete <app_uuid> <pr_id>
 Description: Delete a preview deployment for an application. First argument is the application UUID, second is the pull request ID.
@@ -962,6 +1400,18 @@ Parameters:
     description: Storage UUID (required, use 'storage list' to find)
     required: false
 
+Command: coolify app tag add <application-uuid> <name>
+Description: Add an application tag
+Parameters: (None)
+
+Command: coolify app tag list <application-uuid>
+Description: List application tags
+Parameters: (None)
+
+Command: coolify app tag remove <application-uuid> <tag-uuid>
+Description: Remove an application tag
+Parameters: (None)
+
 Command: coolify app update <uuid>
 Description: Update configuration for a specific application. Only specified fields will be updated.
 Parameters:
@@ -977,10 +1427,20 @@ Parameters:
     type: string
     description: Application description
     required: false
+  - name: --disable-build-cache
+    type: boolean
+    description: Disable the build cache
+    required: false
+    default: false
   - name: --docker-image
     type: string
     description: Docker image name
     required: false
+  - name: --docker-images-to-keep
+    type: integer
+    description: Number of Docker images to retain
+    required: false
+    default: 0
   - name: --docker-tag
     type: string
     description: Docker image tag
@@ -1014,10 +1474,65 @@ Parameters:
     type: string
     description: Health check path
     required: false
+  - name: --include-source-commit-in-build
+    type: boolean
+    description: Include the source commit in the build
+    required: false
+    default: false
+  - name: --inject-build-args-to-dockerfile
+    type: boolean
+    description: Inject build arguments into the Dockerfile
+    required: false
+    default: false
   - name: --install-command
     type: string
     description: Install command
     required: false
+  - name: --is-env-sorting-enabled
+    type: boolean
+    description: Sort environment variables
+    required: false
+    default: false
+  - name: --is-git-lfs-enabled
+    type: boolean
+    description: Enable Git LFS
+    required: false
+    default: false
+  - name: --is-git-shallow-clone-enabled
+    type: boolean
+    description: Use a shallow Git clone
+    required: false
+    default: false
+  - name: --is-git-submodules-enabled
+    type: boolean
+    description: Clone Git submodules
+    required: false
+    default: false
+  - name: --is-gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-pr-deployments-public-enabled
+    type: boolean
+    description: Make pull request deployments public
+    required: false
+    default: false
+  - name: --is-preview-deployments-enabled
+    type: boolean
+    description: Enable preview deployments
+    required: false
+    default: false
+  - name: --is-raw-compose-deployment-enabled
+    type: boolean
+    description: Deploy the raw Docker Compose definition
+    required: false
+    default: false
+  - name: --is-stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
+    required: false
+    default: false
   - name: --name
     type: string
     description: Application name
@@ -1038,6 +1553,56 @@ Parameters:
     type: string
     description: Start command
     required: false
+  - name: --stop-grace-period
+    type: integer
+    description: Container stop grace period in seconds
+    required: false
+    default: 0
+  - name: --use-build-secrets
+    type: boolean
+    description: Use Docker Build Secrets for build-time variables
+    required: false
+    default: false
+
+Command: coolify cloud-token create
+Description: Create a cloud provider token
+Parameters:
+  - name: --name
+    type: string
+    description: Friendly token name
+    required: false
+  - name: --provider
+    type: string
+    description: Cloud provider: hetzner, digitalocean, or vultr
+    required: false
+  - name: --provider-token
+    type: string
+    description: Provider API token (sensitive; never included in output)
+    required: false
+
+Command: coolify cloud-token delete <uuid>
+Description: Delete a cloud provider token
+Parameters: (None)
+
+Command: coolify cloud-token get <uuid>
+Description: Show a cloud provider token
+Parameters: (None)
+
+Command: coolify cloud-token list
+Description: List cloud provider tokens
+Parameters: (None)
+
+Command: coolify cloud-token update <uuid>
+Description: Rename a cloud provider token
+Parameters:
+  - name: --name
+    type: string
+    description: New friendly token name
+    required: false
+
+Command: coolify cloud-token validate <uuid>
+Description: Validate a cloud provider token
+Parameters: (None)
 
 Command: coolify completion <shell>
 Description: Output shell completion code for the specified shell
@@ -1403,6 +1968,14 @@ Parameters:
     type: string
     description: Server UUID (required)
     required: true
+  - name: --tag
+    type: stringArray
+    description: Tag to assign (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Comma-separated tags to assign
+    required: false
 
 Command: coolify database delete <uuid>
 Description: Delete a database and optionally clean up its configurations, volumes, and networks.
@@ -1528,6 +2101,28 @@ Command: coolify database list
 Description: List all databases in Coolify.
 Parameters: (None)
 
+Command: coolify database logs <uuid>
+Description: Get database logs
+Parameters:
+  - name: --lines (-n)
+    type: integer
+    description: Number of log lines to retrieve
+    required: false
+    default: 100
+  - name: --show-timestamps
+    type: boolean
+    description: Include timestamps in logs
+    required: false
+    default: false
+
+Command: coolify database move <uuid>
+Description: Move a database to another environment
+Parameters:
+  - name: --environment-uuid
+    type: string
+    description: Target environment UUID (required)
+    required: true
+
 Command: coolify database restart <uuid>
 Description: Restart a database by UUID.
 Parameters: (None)
@@ -1618,6 +2213,18 @@ Parameters:
     type: string
     description: Storage UUID (required, use 'storage list' to find)
     required: false
+
+Command: coolify database tag add <database-uuid> <name>
+Description: Add a database tag
+Parameters: (None)
+
+Command: coolify database tag list <database-uuid>
+Description: List database tags
+Parameters: (None)
+
+Command: coolify database tag remove <database-uuid> <tag-uuid>
+Description: Remove a database tag
+Parameters: (None)
 
 Command: coolify database update <uuid>
 Description: Update a database's configuration by UUID.
@@ -1723,6 +2330,42 @@ Parameters:
     description: Pull request ID for preview deployments
     required: false
     default: 0
+
+Command: coolify destination create
+Description: Create a destination for a server
+Parameters:
+  - name: --name
+    type: string
+    description: Destination name (defaults on the server)
+    required: false
+  - name: --network
+    type: string
+    description: Docker network name (required)
+    required: true
+  - name: --server
+    type: string
+    description: Server UUID (required)
+    required: true
+  - name: --type
+    type: string
+    description: Destination type: standalone or swarm
+    required: false
+
+Command: coolify destination delete <uuid>
+Description: Delete an unused destination
+Parameters: (None)
+
+Command: coolify destination get <uuid>
+Description: Get a destination
+Parameters: (None)
+
+Command: coolify destination list
+Description: List destinations
+Parameters:
+  - name: --server
+    type: string
+    description: Only destinations belonging to this server UUID
+    required: false
 
 Command: coolify firewall
 Description: [ALPHA] Manage cross-host container allow rules (Coolify v5)
@@ -1856,8 +2499,8 @@ Description: Create a GitHub App integration
 Parameters:
   - name: --api-url
     type: string
-    description: GitHub API URL (required, e.g., https://api.github.com)
-    required: true
+    description: GitHub API URL (derived from --html-url when omitted)
+    required: false
   - name: --app-id
     type: integer
     description: GitHub App ID (required)
@@ -2224,6 +2867,93 @@ Parameters:
     required: false
     default: false
 
+Command: coolify server destinations create <server_uuid>
+Description: Create a server destination
+Parameters:
+  - name: --name
+    type: string
+    description: Destination name
+    required: false
+  - name: --network
+    type: string
+    description: Docker network name (required)
+    required: true
+  - name: --type
+    type: string
+    description: Destination type: standalone or swarm
+    required: false
+
+Command: coolify server destinations list <server_uuid>
+Description: List server destinations
+Parameters: (None)
+
+Command: coolify server digitalocean create
+Description: Create a DigitalOcean server
+Parameters:
+  - name: --cloud-init
+    type: string
+    description: Cloud-init YAML
+    required: false
+  - name: --cloud-token
+    type: string
+    description: Cloud provider token UUID
+    required: false
+  - name: --enable-ipv6
+    type: boolean
+    description: Enable public IPv6
+    required: false
+    default: true
+  - name: --image
+    type: string
+    description: DigitalOcean image ID or slug
+    required: false
+  - name: --monitoring
+    type: boolean
+    description: Enable DigitalOcean monitoring
+    required: false
+    default: true
+  - name: --name
+    type: string
+    description: Server name
+    required: false
+  - name: --private-key
+    type: string
+    description: Coolify private key UUID
+    required: false
+  - name: --region
+    type: string
+    description: DigitalOcean region
+    required: false
+  - name: --size
+    type: string
+    description: DigitalOcean size
+    required: false
+  - name: --ssh-key-ids
+    type: intSlice
+    description: Additional DigitalOcean SSH key IDs
+    required: false
+  - name: --validate
+    type: boolean
+    description: Validate after creation
+    required: false
+    default: false
+
+Command: coolify server digitalocean images <cloud_token_uuid>
+Description: List DigitalOcean images
+Parameters: (None)
+
+Command: coolify server digitalocean regions <cloud_token_uuid>
+Description: List DigitalOcean regions
+Parameters: (None)
+
+Command: coolify server digitalocean sizes <cloud_token_uuid>
+Description: List DigitalOcean sizes
+Parameters: (None)
+
+Command: coolify server digitalocean ssh-keys <cloud_token_uuid>
+Description: List DigitalOcean SSH keys
+Parameters: (None)
+
 Command: coolify server domains <uuid>
 Description: Get server domains by uuid
 Parameters: (None)
@@ -2237,6 +2967,95 @@ Parameters:
     required: false
     default: false
 
+Command: coolify server hetzner create
+Description: Create a Hetzner server
+Parameters:
+  - name: --cloud-init
+    type: string
+    description: Cloud-init YAML
+    required: false
+  - name: --cloud-token
+    type: string
+    description: Cloud provider token UUID
+    required: false
+  - name: --enable-backups
+    type: boolean
+    description: Enable Hetzner backups
+    required: false
+    default: false
+  - name: --enable-ipv4
+    type: boolean
+    description: Enable public IPv4
+    required: false
+    default: true
+  - name: --enable-ipv6
+    type: boolean
+    description: Enable public IPv6
+    required: false
+    default: true
+  - name: --firewall-ids
+    type: intSlice
+    description: Hetzner firewall IDs
+    required: false
+  - name: --image
+    type: integer
+    description: Hetzner image ID
+    required: false
+    default: 0
+  - name: --location
+    type: string
+    description: Hetzner location name
+    required: false
+  - name: --name
+    type: string
+    description: Server name (auto-generated if omitted)
+    required: false
+  - name: --network-ids
+    type: intSlice
+    description: Hetzner network IDs
+    required: false
+  - name: --private-key
+    type: string
+    description: Coolify private key UUID
+    required: false
+  - name: --server-type
+    type: string
+    description: Hetzner server type
+    required: false
+  - name: --ssh-key-ids
+    type: intSlice
+    description: Additional Hetzner SSH key IDs
+    required: false
+  - name: --validate
+    type: boolean
+    description: Validate after creation
+    required: false
+    default: false
+
+Command: coolify server hetzner firewalls <cloud_token_uuid>
+Description: List Hetzner firewalls
+Parameters: (None)
+
+Command: coolify server hetzner images <cloud_token_uuid>
+Description: List Hetzner images
+Parameters: (None)
+
+Command: coolify server hetzner locations <cloud_token_uuid>
+Description: List Hetzner locations
+Parameters: (None)
+
+Command: coolify server hetzner networks <cloud_token_uuid>
+Description: List Hetzner networks
+Parameters: (None)
+
+Command: coolify server hetzner server-types <cloud_token_uuid>
+Description: List Hetzner server types
+Parameters: (None)
+
+Command: coolify server hetzner ssh-keys <cloud_token_uuid>
+Description: List Hetzner SSH keys
+Parameters: (None)
+
 Command: coolify server list
 Description: List all servers
 Parameters: (None)
@@ -2248,6 +3067,158 @@ Parameters: (None)
 Command: coolify server validate <uuid>
 Description: Validate a server
 Parameters: (None)
+
+Command: coolify server vultr create
+Description: Create a Vultr server
+Parameters:
+  - name: --cloud-init
+    type: string
+    description: Cloud-init YAML
+    required: false
+  - name: --cloud-token
+    type: string
+    description: Cloud provider token UUID
+    required: false
+  - name: --disable-public-ipv4
+    type: boolean
+    description: Disable public IPv4
+    required: false
+    default: false
+  - name: --enable-ipv6
+    type: boolean
+    description: Enable public IPv6
+    required: false
+    default: true
+  - name: --name
+    type: string
+    description: Server name
+    required: false
+  - name: --os-id
+    type: integer
+    description: Vultr operating system ID
+    required: false
+    default: 0
+  - name: --plan
+    type: string
+    description: Vultr plan
+    required: false
+  - name: --private-key
+    type: string
+    description: Coolify private key UUID
+    required: false
+  - name: --region
+    type: string
+    description: Vultr region
+    required: false
+  - name: --ssh-key-ids
+    type: stringSlice
+    description: Additional Vultr SSH key IDs
+    required: false
+  - name: --validate
+    type: boolean
+    description: Validate after creation
+    required: false
+    default: false
+
+Command: coolify server vultr os <cloud_token_uuid>
+Description: List Vultr operating systems
+Parameters: (None)
+
+Command: coolify server vultr plans <cloud_token_uuid>
+Description: List Vultr plans
+Parameters: (None)
+
+Command: coolify server vultr regions <cloud_token_uuid>
+Description: List Vultr regions
+Parameters: (None)
+
+Command: coolify server vultr ssh-keys <cloud_token_uuid>
+Description: List Vultr SSH keys
+Parameters: (None)
+
+Command: coolify service application get <service-uuid> <application-uuid>
+Description: Get an application in a service
+Parameters: (None)
+
+Command: coolify service application list <service-uuid>
+Description: List applications in a service
+Parameters: (None)
+
+Command: coolify service application logs <service-uuid> <application-uuid>
+Description: Get logs for an application in a service
+Parameters:
+  - name: --lines (-n)
+    type: integer
+    description: Number of log lines to retrieve
+    required: false
+    default: 100
+
+Command: coolify service application restart <service-uuid> <application-uuid>
+Description: Restart an application in a service
+Parameters: (None)
+
+Command: coolify service application start <service-uuid> <application-uuid>
+Description: Start or redeploy an application in a service
+Parameters:
+  - name: --force
+    type: boolean
+    description: Rebuild the application
+    required: false
+    default: false
+  - name: --latest
+    type: boolean
+    description: Pull the latest image
+    required: false
+    default: false
+
+Command: coolify service application stop <service-uuid> <application-uuid>
+Description: Stop an application in a service
+Parameters: (None)
+
+Command: coolify service application update <service-uuid> <application-uuid>
+Description: Update an application in a service
+Parameters:
+  - name: --description
+    type: string
+    description: Description
+    required: false
+  - name: --exclude-from-status
+    type: boolean
+    description: Exclude from service status
+    required: false
+    default: false
+  - name: --force-domain-override
+    type: boolean
+    description: Allow conflicting or duplicate domains
+    required: false
+    default: false
+  - name: --gzip-enabled
+    type: boolean
+    description: Enable gzip compression
+    required: false
+    default: false
+  - name: --human-name
+    type: string
+    description: Human-readable name
+    required: false
+  - name: --image
+    type: string
+    description: Container image
+    required: false
+  - name: --log-drain-enabled
+    type: boolean
+    description: Enable log drain
+    required: false
+    default: false
+  - name: --stripprefix-enabled
+    type: boolean
+    description: Enable path prefix stripping
+    required: false
+    default: false
+  - name: --url
+    type: string
+    description: Comma-separated public URLs
+    required: false
 
 Command: coolify service create <type>
 Description: Create a new one-click service
@@ -2294,6 +3265,94 @@ Parameters:
     type: string
     description: Server UUID (required)
     required: true
+  - name: --tag
+    type: stringArray
+    description: Tag to assign (repeatable)
+    required: false
+  - name: --tags
+    type: stringSlice
+    description: Comma-separated tags to assign
+    required: false
+
+Command: coolify service database get <service-uuid> <database-uuid>
+Description: Get a database in a service
+Parameters: (None)
+
+Command: coolify service database list <service-uuid>
+Description: List databases in a service
+Parameters: (None)
+
+Command: coolify service database logs <service-uuid> <database-uuid>
+Description: Get logs for a database in a service
+Parameters:
+  - name: --lines (-n)
+    type: integer
+    description: Number of log lines to retrieve
+    required: false
+    default: 100
+
+Command: coolify service database restart <service-uuid> <database-uuid>
+Description: Restart a database in a service
+Parameters: (None)
+
+Command: coolify service database start <service-uuid> <database-uuid>
+Description: Start or redeploy a database in a service
+Parameters:
+  - name: --force
+    type: boolean
+    description: Rebuild the database container
+    required: false
+    default: false
+  - name: --latest
+    type: boolean
+    description: Pull the latest image
+    required: false
+    default: false
+
+Command: coolify service database stop <service-uuid> <database-uuid>
+Description: Stop a database in a service
+Parameters: (None)
+
+Command: coolify service database update <service-uuid> <database-uuid>
+Description: Update a database in a service
+Parameters:
+  - name: --description
+    type: string
+    description: Description
+    required: false
+  - name: --exclude-from-status
+    type: boolean
+    description: Exclude from service status
+    required: false
+    default: false
+  - name: --human-name
+    type: string
+    description: Human-readable name
+    required: false
+  - name: --image
+    type: string
+    description: Container image
+    required: false
+  - name: --log-drain-enabled
+    type: boolean
+    description: Enable log drain
+    required: false
+    default: false
+  - name: --public
+    type: boolean
+    description: Expose the database publicly
+    required: false
+    default: false
+  - name: --public-port
+    type: integer
+    description: Public database port
+    required: false
+    default: 0
+  - name: --public-port-timeout
+    type: integer
+    description: Public proxy timeout in seconds
+    required: false
+    default: 0
 
 Command: coolify service delete <uuid>
 Description: Delete a service and optionally clean up its configurations, volumes, and networks.
@@ -2444,6 +3503,32 @@ Command: coolify service list
 Description: List all services in Coolify.
 Parameters: (None)
 
+Command: coolify service logs <uuid>
+Description: Get logs for a service sub-resource
+Parameters:
+  - name: --lines (-n)
+    type: integer
+    description: Number of log lines to retrieve
+    required: false
+    default: 100
+  - name: --show-timestamps
+    type: boolean
+    description: Include timestamps in logs
+    required: false
+    default: false
+  - name: --sub-service-name
+    type: string
+    description: Sub-service name from the service applications or databases list (required)
+    required: true
+
+Command: coolify service move <uuid>
+Description: Move a service to another environment
+Parameters:
+  - name: --environment-uuid
+    type: string
+    description: Target environment UUID (required)
+    required: true
+
 Command: coolify service restart <uuid>
 Description: Restart a service (restart all containers).
 Parameters: (None)
@@ -2538,6 +3623,22 @@ Parameters:
     type: string
     description: Storage UUID (required, use 'storage list' to find)
     required: false
+
+Command: coolify service tag add <service-uuid> <name>
+Description: Add a service tag
+Parameters: (None)
+
+Command: coolify service tag list <service-uuid>
+Description: List service tags
+Parameters: (None)
+
+Command: coolify service tag remove <service-uuid> <tag-uuid>
+Description: Remove a service tag
+Parameters: (None)
+
+Command: coolify tag list
+Description: List all team tags
+Parameters: (None)
 
 Command: coolify teams current
 Description: Get details of the team associated with the current authentication token.

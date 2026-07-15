@@ -119,6 +119,9 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify server remove <uuid>` - Remove a server
 - `coolify server validate <uuid>` - Validate a server connection
 - `coolify server domains <uuid>` - Get server domains by UUID
+- `coolify server destinations list <server_uuid>` - List a server's destinations
+- `coolify server destinations create <server_uuid>` - Create a server destination
+- `coolify server hetzner|digitalocean|vultr` - List provider options and provision a server
 
 ### Projects
 - `coolify projects list` - List all projects
@@ -154,6 +157,10 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify app stop <uuid>` - Stop an application
 - `coolify app restart <uuid>` - Restart an application
 - `coolify app logs <uuid>` - Get application logs
+  - `--show-timestamps` - Include timestamps in logs
+- `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
+- `coolify app tag list|add|remove` - Manage application tags
+- All application create variants support `--tag` and `--tags`; create and update expose the full application settings surface.
 
 #### Application Environment Variables
 - `coolify app env list <app_uuid>` - List all environment variables
@@ -218,6 +225,10 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify database start <uuid>` - Start a database
 - `coolify database stop <uuid>` - Stop a database
 - `coolify database restart <uuid>` - Restart a database
+- `coolify database logs <uuid>` - Get database logs
+- `coolify database move <uuid> --environment-uuid <uuid>` - Move a database to another environment
+- `coolify database tag list|add|remove` - Manage database tags
+- Database creation supports repeatable `--tag` and comma-separated `--tags`.
 
 #### Database Backups
 - `coolify database backup list <database_uuid>` - List all backup configurations
@@ -249,6 +260,24 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service stop <uuid>` - Stop a service
 - `coolify service restart <uuid>` - Restart a service
 - `coolify service delete <uuid>` - Delete a service
+- `coolify service logs <uuid> --sub-service-name <name>` - Get logs for a service application or database
+- `coolify service move <uuid> --environment-uuid <uuid>` - Move a service to another environment
+- `coolify service tag list|add|remove` - Manage service tags
+- Service creation supports repeatable `--tag` and comma-separated `--tags`.
+
+#### Service Applications
+- `coolify service application list <service_uuid>` - List applications in a service
+- `coolify service application get <service_uuid> <application_uuid>` - Get a service application
+- `coolify service application update <service_uuid> <application_uuid>` - Update a service application
+- `coolify service application logs <service_uuid> <application_uuid>` - Get application logs
+- `coolify service application start|restart|stop <service_uuid> <application_uuid>` - Manage its lifecycle
+
+#### Service Databases
+- `coolify service database list <service_uuid>` - List databases in a service
+- `coolify service database get <service_uuid> <database_uuid>` - Get a service database
+- `coolify service database update <service_uuid> <database_uuid>` - Update metadata, image, log drain, or public access
+- `coolify service database logs <service_uuid> <database_uuid>` - Get database logs
+- `coolify service database start|restart|stop <service_uuid> <database_uuid>` - Manage its lifecycle
 
 #### Service Environment Variables
 - `coolify service env list <service_uuid>` - List all environment variables
@@ -293,7 +322,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify github get <app_uuid>` - Get GitHub App details
 - `coolify github create` - Create a new GitHub App integration
   - `--name <name>` - GitHub App name (required)
-  - `--api-url <url>` - GitHub API URL (required, e.g., https://api.github.com)
+  - `--api-url <url>` - GitHub API URL (optional; defaults to GitHub's public API)
   - `--html-url <url>` - GitHub HTML URL (required, e.g., https://github.com)
   - `--app-id <id>` - GitHub App ID (required)
   - `--installation-id <id>` - GitHub Installation ID (required)
@@ -310,6 +339,19 @@ Commands can use `server` or `servers` interchangeably.
   - `-f, --force` - Skip confirmation prompt
 - `coolify github repos <app_uuid>` - List repositories accessible by a GitHub App
 - `coolify github branches <app_uuid> <owner/repo>` - List branches for a repository
+
+### Tags
+- `coolify tag list` - List all tags for the current team
+
+### Destinations
+- `coolify destination list [--server <server_uuid>]` - List Docker network destinations
+- `coolify destination get <uuid>` - Get a destination
+- `coolify destination create --server <uuid> --network <name> [--type standalone|swarm]` - Create a destination
+- `coolify destination delete <uuid>` - Delete an unused destination
+
+### Cloud Provider Tokens
+- `coolify cloud-token list|get|create|update|delete|validate` - Manage Hetzner, DigitalOcean, and Vultr API tokens
+- Token values are redacted by default. `--show-sensitive` can reveal them only when the Coolify API token has sensitive-data permission.
 
 ### Teams
 - `coolify team list` - List all teams

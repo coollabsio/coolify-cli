@@ -78,12 +78,13 @@ type Database struct {
 
 // DatabaseCreateRequest represents the base request to create a database
 type DatabaseCreateRequest struct {
-	ServerUUID      string  `json:"server_uuid"`
-	ProjectUUID     string  `json:"project_uuid"`
-	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
-	DestinationUUID *string `json:"destination_uuid,omitempty"`
-	InstantDeploy   *bool   `json:"instant_deploy,omitempty"`
+	ServerUUID      string   `json:"server_uuid"`
+	ProjectUUID     string   `json:"project_uuid"`
+	EnvironmentName *string  `json:"environment_name,omitempty"`
+	EnvironmentUUID *string  `json:"environment_uuid,omitempty"`
+	DestinationUUID *string  `json:"destination_uuid,omitempty"`
+	InstantDeploy   *bool    `json:"instant_deploy,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
 
 	// Common fields
 	Name        *string `json:"name,omitempty"`
@@ -143,6 +144,19 @@ type DatabaseCreateRequest struct {
 
 	// Dragonfly specific
 	DragonflyPassword *string `json:"dragonfly_password,omitempty"`
+}
+
+// MoveResourceRequest identifies the target environment for a resource move.
+type MoveResourceRequest struct {
+	EnvironmentUUID string `json:"environment_uuid"`
+}
+
+// MoveResourceResponse represents a successful resource move.
+type MoveResourceResponse struct {
+	Message         string `json:"message"`
+	UUID            string `json:"uuid"`
+	ProjectUUID     string `json:"project_uuid"`
+	EnvironmentUUID string `json:"environment_uuid"`
 }
 
 // DatabaseUpdateRequest represents the request to update a database

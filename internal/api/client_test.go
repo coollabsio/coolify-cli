@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +13,44 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestClient_DebugRedactsSensitiveJSONFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"token-1"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Post(context.Background(), "cloud-tokens", map[string]string{"name": "primary", "token": "provider-secret"}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "provider-secret")
+	assert.Contains(t, logs.String(), `"token":"********"`)
+}
+
+func TestClient_DebugRedactsSensitiveResponseFields(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"token-1","token":"provider-secret"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Get(context.Background(), "cloud-tokens/token-1", &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "provider-secret")
+	assert.Contains(t, logs.String(), `"token":"********"`)
+}
 
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with defaults", func(t *testing.T) {

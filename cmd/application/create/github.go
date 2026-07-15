@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/application/appflags"
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
 	"github.com/coollabsio/coolify-cli/internal/output"
@@ -95,6 +96,8 @@ Examples:
 			setOptionalBoolFlag(cmd, "health-check-enabled", &req.HealthCheckEnabled)
 			setOptionalStringFlag(cmd, "health-check-path", &req.HealthCheckPath)
 			setOptionalStringFlag(cmd, "dockerfile-target-build", &req.DockerfileTargetBuild)
+			appflags.ApplySettingsFlags(cmd, &req.ApplicationSettingsRequest)
+			appflags.ApplyTagsFlag(cmd, &req.Tags)
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -150,6 +153,8 @@ Examples:
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health checks")
 	cmd.Flags().String("health-check-path", "", "Health check path")
 	cmd.Flags().String("dockerfile-target-build", "", "Dockerfile target build stage")
+	appflags.BindSettingsFlags(cmd)
+	appflags.BindTagsFlag(cmd)
 
 	return cmd
 }

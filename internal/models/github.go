@@ -22,7 +22,7 @@ type GitHubApp struct {
 type GitHubAppCreateRequest struct {
 	Name           string  `json:"name"`
 	Organization   *string `json:"organization,omitempty"`
-	APIURL         string  `json:"api_url"`
+	APIURL         *string `json:"api_url,omitempty"`
 	HTMLURL        string  `json:"html_url"`
 	CustomUser     *string `json:"custom_user,omitempty"`
 	CustomPort     *int    `json:"custom_port,omitempty"`

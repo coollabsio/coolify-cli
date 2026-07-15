@@ -202,6 +202,10 @@ Popular service types:
 				compose, _ := cmd.Flags().GetString("docker-compose")
 				req.DockerCompose = &compose
 			}
+			tags, _ := cmd.Flags().GetStringArray("tag")
+			additionalTags, _ := cmd.Flags().GetStringSlice("tags")
+			req.Tags = append(req.Tags, tags...)
+			req.Tags = append(req.Tags, additionalTags...)
 
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
@@ -239,6 +243,8 @@ Popular service types:
 	cmd.Flags().String("destination-uuid", "", "Destination UUID if server has multiple destinations")
 	cmd.Flags().Bool("instant-deploy", false, "Deploy immediately after creation")
 	cmd.Flags().String("docker-compose", "", "Custom Docker Compose content (for advanced customization)")
+	cmd.Flags().StringArray("tag", nil, "Tag to assign (repeatable)")
+	cmd.Flags().StringSlice("tags", nil, "Comma-separated tags to assign")
 
 	// Add completion for service type positional argument
 	cmd.ValidArgsFunction = func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {

@@ -76,7 +76,9 @@ func TestBuildQuickLLMSTextIncludesCoreGuidance(t *testing.T) {
 		"# Coolify CLI - llms.txt",
 		"Prefer `--format json` for automation and parsing.",
 		"coolify context verify",
-		"coolify app logs <uuid> --follow",
+		"coolify app logs <uuid> --show-timestamps",
+		"coolify cloud-token validate <uuid>",
+		"coolify service database restart <service-uuid> <database-uuid>",
 		"Full command and parameter catalog: ./llms-full.txt",
 	} {
 		if !strings.Contains(got, want) {

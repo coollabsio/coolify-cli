@@ -20,6 +20,10 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewAddCommand())
 	cmd.AddCommand(NewRemoveCommand())
 	cmd.AddCommand(NewValidateCommand())
+	cmd.AddCommand(NewDestinationsCommand())
+	cmd.AddCommand(NewHetznerCommand())
+	cmd.AddCommand(NewDigitalOceanCommand())
+	cmd.AddCommand(NewVultrCommand())
 
 	return cmd
 }

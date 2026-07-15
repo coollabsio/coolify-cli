@@ -10,11 +10,13 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/coollabsio/coolify-cli/cmd/application"
+	"github.com/coollabsio/coolify-cli/cmd/cloudtoken"
 	"github.com/coollabsio/coolify-cli/cmd/completion"
 	configcmd "github.com/coollabsio/coolify-cli/cmd/config"
 	"github.com/coollabsio/coolify-cli/cmd/context"
 	"github.com/coollabsio/coolify-cli/cmd/database"
 	"github.com/coollabsio/coolify-cli/cmd/deployment"
+	"github.com/coollabsio/coolify-cli/cmd/destination"
 	"github.com/coollabsio/coolify-cli/cmd/firewall"
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	initcmd "github.com/coollabsio/coolify-cli/cmd/init"
@@ -23,6 +25,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/resources"
 	"github.com/coollabsio/coolify-cli/cmd/server"
 	"github.com/coollabsio/coolify-cli/cmd/service"
+	"github.com/coollabsio/coolify-cli/cmd/tag"
 	"github.com/coollabsio/coolify-cli/cmd/teams"
 	"github.com/coollabsio/coolify-cli/cmd/update"
 	cliversion "github.com/coollabsio/coolify-cli/cmd/version"
@@ -88,11 +91,13 @@ func init() {
 
 	// Register all subcommands
 	rootCmd.AddCommand(application.NewAppCommand())
+	rootCmd.AddCommand(cloudtoken.NewCloudTokenCommand())
 	rootCmd.AddCommand(completion.NewCompletionsCommand())
 	rootCmd.AddCommand(configcmd.NewConfigCommand())
 	rootCmd.AddCommand(context.NewContextCommand())
 	rootCmd.AddCommand(database.NewDatabaseCommand())
 	rootCmd.AddCommand(deployment.NewDeploymentCommand())
+	rootCmd.AddCommand(destination.NewDestinationCommand())
 	rootCmd.AddCommand(firewall.NewFirewallCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(initcmd.NewInitCommand())
@@ -102,6 +107,7 @@ func init() {
 	rootCmd.AddCommand(server.NewServerCommand())
 	rootCmd.AddCommand(service.NewServiceCommand())
 	rootCmd.AddCommand(teams.NewTeamsCommand())
+	rootCmd.AddCommand(tag.NewTagCommand())
 	rootCmd.AddCommand(update.NewUpdateCommand())
 	rootCmd.AddCommand(cliversion.NewVersionCommand())
 	rootCmd.AddCommand(NewDocsCommand())

@@ -31,10 +31,11 @@ func NewLogsCommand() *cobra.Command {
 
 			lines, _ := cmd.Flags().GetInt("lines")
 			follow, _ := cmd.Flags().GetBool("follow")
+			showTimestamps, _ := cmd.Flags().GetBool("show-timestamps")
 			appSvc := service.NewApplicationService(client)
 
 			if !follow {
-				resp, err := appSvc.Logs(ctx, uuid, lines)
+				resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
 				if err != nil {
 					return fmt.Errorf("failed to get logs: %w", err)
 				}
@@ -50,7 +51,7 @@ func NewLogsCommand() *cobra.Command {
 
 			lastLogs := ""
 
-			resp, err := appSvc.Logs(ctx, uuid, lines)
+			resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
 			if err != nil {
 				return fmt.Errorf("failed to get logs: %w", err)
 			}
@@ -63,7 +64,7 @@ func NewLogsCommand() *cobra.Command {
 					fmt.Println("\nStopping log follow...")
 					return nil
 				case <-ticker.C:
-					resp, err := appSvc.Logs(ctx, uuid, lines)
+					resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
 					if err != nil {
 						continue
 					}
@@ -82,5 +83,6 @@ func NewLogsCommand() *cobra.Command {
 
 	cmd.Flags().IntP("lines", "n", 100, "Number of log lines to retrieve")
 	cmd.Flags().BoolP("follow", "f", false, "Follow log output (like tail -f)")
+	cmd.Flags().Bool("show-timestamps", false, "Show timestamps in log output")
 	return cmd
 }

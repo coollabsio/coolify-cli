@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -115,18 +117,33 @@ func (s *ApplicationService) Restart(ctx context.Context, uuid string) (*models.
 }
 
 // Logs retrieves logs for an application
-func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int) (*models.ApplicationLogsResponse, error) {
-	url := fmt.Sprintf("applications/%s/logs", uuid)
-
-	// Add lines parameter if specified
+func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool) (*models.ApplicationLogsResponse, error) {
+	endpoint := fmt.Sprintf("applications/%s/logs", uuid)
+	query := url.Values{}
 	if lines > 0 {
-		url = fmt.Sprintf("%s?lines=%d", url, lines)
+		query.Set("lines", strconv.Itoa(lines))
+	}
+	if showTimestamps {
+		query.Set("show_timestamps", strconv.FormatBool(showTimestamps))
+	}
+	if encodedQuery := query.Encode(); encodedQuery != "" {
+		endpoint += "?" + encodedQuery
 	}
 
 	var resp models.ApplicationLogsResponse
-	err := s.client.Get(ctx, url, &resp)
+	err := s.client.Get(ctx, endpoint, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get logs for application %s: %w", uuid, err)
+	}
+	return &resp, nil
+}
+
+// Move moves an application to another environment.
+func (s *ApplicationService) Move(ctx context.Context, uuid string, req models.ApplicationMoveRequest) (*models.ApplicationMoveResponse, error) {
+	var resp models.ApplicationMoveResponse
+	err := s.client.Post(ctx, fmt.Sprintf("applications/%s/move", uuid), req, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to move application %s: %w", uuid, err)
 	}
 	return &resp, nil
 }

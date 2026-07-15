@@ -7,6 +7,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/application/env"
 	"github.com/coollabsio/coolify-cli/cmd/application/previews"
 	"github.com/coollabsio/coolify-cli/cmd/application/storage"
+	"github.com/coollabsio/coolify-cli/cmd/application/tag"
 )
 
 // NewAppCommand creates the app parent command
@@ -29,6 +30,8 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(NewRestartCommand())
 	cmd.AddCommand(NewLogsCommand())
 	cmd.AddCommand(NewDeploymentsCommand())
+	cmd.AddCommand(NewMoveCommand())
+	cmd.AddCommand(tag.NewCommand())
 
 	// Add env subcommand with its children
 	envCmd := &cobra.Command{

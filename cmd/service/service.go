@@ -3,8 +3,11 @@ package service
 import (
 	"github.com/spf13/cobra"
 
+	serviceapplication "github.com/coollabsio/coolify-cli/cmd/service/application"
+	servicedatabase "github.com/coollabsio/coolify-cli/cmd/service/database"
 	"github.com/coollabsio/coolify-cli/cmd/service/env"
 	"github.com/coollabsio/coolify-cli/cmd/service/storage"
+	"github.com/coollabsio/coolify-cli/cmd/service/tag"
 )
 
 // NewServiceCommand creates the service parent command with all subcommands
@@ -24,6 +27,11 @@ func NewServiceCommand() *cobra.Command {
 	cmd.AddCommand(NewStopCommand())
 	cmd.AddCommand(NewRestartCommand())
 	cmd.AddCommand(NewDeleteCommand())
+	cmd.AddCommand(NewLogsCommand())
+	cmd.AddCommand(NewMoveCommand())
+	cmd.AddCommand(tag.NewCommand())
+	cmd.AddCommand(serviceapplication.NewCommand())
+	cmd.AddCommand(servicedatabase.NewCommand())
 
 	// Add env subcommand
 	envCmd := &cobra.Command{

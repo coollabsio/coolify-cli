@@ -218,6 +218,40 @@ func TestDatabaseService_Create(t *testing.T) {
 	}
 }
 
+func TestDatabaseService_Logs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-1/logs", r.URL.Path)
+		assert.Equal(t, "250", r.URL.Query().Get("lines"))
+		assert.Equal(t, "true", r.URL.Query().Get("show_timestamps"))
+		_, _ = w.Write([]byte(`{"logs":"database output"}`))
+	}))
+	defer server.Close()
+
+	svc := NewDatabaseService(api.NewClient(server.URL, "test-token"))
+	response, err := svc.Logs(context.Background(), "db-1", 250, true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "database output", response.Logs)
+}
+
+func TestDatabaseService_Move(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/databases/db-1/move", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		var request models.MoveResourceRequest
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		assert.Equal(t, "env-2", request.EnvironmentUUID)
+		_, _ = w.Write([]byte(`{"message":"Database moved successfully.","uuid":"db-1","project_uuid":"project-1","environment_uuid":"env-2"}`))
+	}))
+	defer server.Close()
+
+	svc := NewDatabaseService(api.NewClient(server.URL, "test-token"))
+	response, err := svc.Move(context.Background(), "db-1", "env-2")
+
+	require.NoError(t, err)
+	assert.Equal(t, "env-2", response.EnvironmentUUID)
+}
+
 func TestDatabaseService_Update(t *testing.T) {
 	tests := []struct {
 		name       string

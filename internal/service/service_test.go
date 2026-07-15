@@ -56,6 +56,162 @@ func TestService_List(t *testing.T) {
 	assert.Equal(t, "stopped", services[1].Status)
 }
 
+func TestService_Logs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/services/service-1/logs", r.URL.Path)
+		assert.Equal(t, "app", r.URL.Query().Get("sub_service_name"))
+		assert.Equal(t, "75", r.URL.Query().Get("lines"))
+		assert.Equal(t, "true", r.URL.Query().Get("show_timestamps"))
+		_, _ = w.Write([]byte(`{"logs":"service output"}`))
+	}))
+	defer server.Close()
+
+	svc := NewService(api.NewClient(server.URL, "test-token"))
+	response, err := svc.Logs(context.Background(), "service-1", "app", 75, true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "service output", response.Logs)
+}
+
+func TestService_Move(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/services/service-1/move", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		var request models.MoveResourceRequest
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		assert.Equal(t, "env-2", request.EnvironmentUUID)
+		_, _ = w.Write([]byte(`{"message":"Service moved successfully.","uuid":"service-1","project_uuid":"project-1","environment_uuid":"env-2"}`))
+	}))
+	defer server.Close()
+
+	svc := NewService(api.NewClient(server.URL, "test-token"))
+	response, err := svc.Move(context.Background(), "service-1", "env-2")
+
+	require.NoError(t, err)
+	assert.Equal(t, "service-1", response.UUID)
+}
+
+func TestService_ServiceApplicationOperations(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		call   func(*Service) error
+	}{
+		{name: "list", method: http.MethodGet, path: "/api/v1/services/service-1/applications", call: func(s *Service) error { _, err := s.ListApplications(context.Background(), "service-1"); return err }},
+		{name: "get", method: http.MethodGet, path: "/api/v1/services/service-1/applications/app-1", call: func(s *Service) error {
+			_, err := s.GetApplication(context.Background(), "service-1", "app-1")
+			return err
+		}},
+		{name: "update", method: http.MethodPatch, path: "/api/v1/services/service-1/applications/app-1?force_domain_override=true", call: func(s *Service) error {
+			_, err := s.UpdateApplication(context.Background(), "service-1", "app-1", true, &models.ServiceApplicationUpdateRequest{HumanName: stringPointer("Frontend")})
+			return err
+		}},
+		{name: "logs", method: http.MethodGet, path: "/api/v1/services/service-1/applications/app-1/logs?lines=42", call: func(s *Service) error {
+			_, err := s.ApplicationLogs(context.Background(), "service-1", "app-1", 42)
+			return err
+		}},
+		{name: "start", method: http.MethodPost, path: "/api/v1/services/service-1/applications/app-1/start?force=true&latest=true", call: func(s *Service) error {
+			_, err := s.StartApplication(context.Background(), "service-1", "app-1", true, true)
+			return err
+		}},
+		{name: "restart", method: http.MethodPost, path: "/api/v1/services/service-1/applications/app-1/restart", call: func(s *Service) error {
+			_, err := s.RestartApplication(context.Background(), "service-1", "app-1")
+			return err
+		}},
+		{name: "stop", method: http.MethodPost, path: "/api/v1/services/service-1/applications/app-1/stop", call: func(s *Service) error {
+			_, err := s.StopApplication(context.Background(), "service-1", "app-1")
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, tt.method, r.Method)
+				assert.Equal(t, tt.path, r.URL.RequestURI())
+				if tt.name == "list" {
+					_, _ = w.Write([]byte(`[]`))
+					return
+				}
+				if tt.name == "logs" {
+					_, _ = w.Write([]byte(`{"logs":"output"}`))
+					return
+				}
+				if tt.name == "start" || tt.name == "restart" || tt.name == "stop" {
+					_, _ = w.Write([]byte(`{"message":"queued"}`))
+					return
+				}
+				_, _ = w.Write([]byte(`{"uuid":"app-1","name":"app"}`))
+			}))
+			defer server.Close()
+
+			err := tt.call(NewService(api.NewClient(server.URL, "test-token")))
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestService_ServiceDatabaseOperations(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		call   func(*Service) error
+	}{
+		{name: "list", method: http.MethodGet, path: "/api/v1/services/service-1/databases", call: func(s *Service) error { _, err := s.ListDatabases(context.Background(), "service-1"); return err }},
+		{name: "get", method: http.MethodGet, path: "/api/v1/services/service-1/databases/database-1", call: func(s *Service) error {
+			_, err := s.GetDatabase(context.Background(), "service-1", "database-1")
+			return err
+		}},
+		{name: "update", method: http.MethodPatch, path: "/api/v1/services/service-1/databases/database-1", call: func(s *Service) error {
+			_, err := s.UpdateDatabase(context.Background(), "service-1", "database-1", &models.ServiceDatabaseUpdateRequest{HumanName: stringPointer("Primary")})
+			return err
+		}},
+		{name: "logs", method: http.MethodGet, path: "/api/v1/services/service-1/databases/database-1/logs?lines=42", call: func(s *Service) error {
+			_, err := s.DatabaseLogs(context.Background(), "service-1", "database-1", 42)
+			return err
+		}},
+		{name: "start", method: http.MethodPost, path: "/api/v1/services/service-1/databases/database-1/start?force=true&latest=true", call: func(s *Service) error {
+			_, err := s.StartDatabase(context.Background(), "service-1", "database-1", true, true)
+			return err
+		}},
+		{name: "restart", method: http.MethodPost, path: "/api/v1/services/service-1/databases/database-1/restart", call: func(s *Service) error {
+			_, err := s.RestartDatabase(context.Background(), "service-1", "database-1")
+			return err
+		}},
+		{name: "stop", method: http.MethodPost, path: "/api/v1/services/service-1/databases/database-1/stop", call: func(s *Service) error {
+			_, err := s.StopDatabase(context.Background(), "service-1", "database-1")
+			return err
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, tt.method, r.Method)
+				assert.Equal(t, tt.path, r.URL.RequestURI())
+				switch tt.name {
+				case "list":
+					_, _ = w.Write([]byte(`[]`))
+				case "logs":
+					_, _ = w.Write([]byte(`{"logs":"output"}`))
+				case "start", "restart", "stop":
+					_, _ = w.Write([]byte(`{"message":"queued"}`))
+				default:
+					_, _ = w.Write([]byte(`{"uuid":"database-1","name":"postgres"}`))
+				}
+			}))
+			defer server.Close()
+
+			err := tt.call(NewService(api.NewClient(server.URL, "test-token")))
+			require.NoError(t, err)
+		})
+	}
+}
+
+func stringPointer(value string) *string { return &value }
+
 func TestService_List_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

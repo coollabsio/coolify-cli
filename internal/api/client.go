@@ -137,7 +137,7 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 		bodyReader = bytes.NewReader(jsonBody)
 
 		if c.debug {
-			log.Printf("Request body: %s", string(jsonBody))
+			log.Printf("Request body: %s", redactJSONForLog(jsonBody))
 		}
 	}
 
@@ -168,7 +168,7 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 
 	if c.debug {
 		log.Printf("Response status: %d", resp.StatusCode)
-		log.Printf("Response body: %s", string(respBody))
+		log.Printf("Response body: %s", redactJSONForLog(respBody))
 	}
 
 	// Check status code
@@ -208,4 +208,34 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 	}
 
 	return nil
+}
+
+func redactJSONForLog(jsonBody []byte) string {
+	var value any
+	if err := json.Unmarshal(jsonBody, &value); err != nil {
+		return "<unavailable>"
+	}
+	redactSensitiveFields(value)
+	redacted, err := json.Marshal(value)
+	if err != nil {
+		return "<unavailable>"
+	}
+	return string(redacted)
+}
+
+func redactSensitiveFields(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if key == "token" {
+				typed[key] = "********"
+				continue
+			}
+			redactSensitiveFields(child)
+		}
+	case []any:
+		for _, child := range typed {
+			redactSensitiveFields(child)
+		}
+	}
 }

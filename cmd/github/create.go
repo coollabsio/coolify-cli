@@ -17,9 +17,9 @@ func NewCreateCommand() *cobra.Command {
 		Short: "Create a GitHub App integration",
 		Long: `Create a new GitHub App integration. This allows you to deploy private repositories from GitHub.
 
-Required flags: --name, --api-url, --html-url, --app-id, --installation-id, --client-id, --client-secret, --private-key-uuid
+Required flags: --name, --html-url, --app-id, --installation-id, --client-id, --client-secret, --private-key-uuid
 
-Example: coolify github create --name "My GitHub App" --api-url "https://api.github.com" --html-url "https://github.com" --app-id 123456 --installation-id 789012 --client-id "Iv1.abc123" --client-secret "secret123" --private-key-uuid "abc-123-def-456"`,
+Example: coolify github create --name "My GitHub App" --html-url "https://github.com" --app-id 123456 --installation-id 789012 --client-id "Iv1.abc123" --client-secret "secret123" --private-key-uuid "abc-123-def-456"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
@@ -29,7 +29,6 @@ Example: coolify github create --name "My GitHub App" --api-url "https://api.git
 			}
 
 			name, _ := cmd.Flags().GetString("name")
-			apiURL, _ := cmd.Flags().GetString("api-url")
 			htmlURL, _ := cmd.Flags().GetString("html-url")
 			appID, _ := cmd.Flags().GetInt("app-id")
 			installationID, _ := cmd.Flags().GetInt("installation-id")
@@ -39,7 +38,6 @@ Example: coolify github create --name "My GitHub App" --api-url "https://api.git
 
 			req := &models.GitHubAppCreateRequest{
 				Name:           name,
-				APIURL:         apiURL,
 				HTMLURL:        htmlURL,
 				AppID:          appID,
 				InstallationID: installationID,
@@ -49,6 +47,10 @@ Example: coolify github create --name "My GitHub App" --api-url "https://api.git
 			}
 
 			// Optional fields
+			if cmd.Flags().Changed("api-url") {
+				apiURL, _ := cmd.Flags().GetString("api-url")
+				req.APIURL = &apiURL
+			}
 			if cmd.Flags().Changed("organization") {
 				org, _ := cmd.Flags().GetString("organization")
 				req.Organization = &org
@@ -88,7 +90,7 @@ Example: coolify github create --name "My GitHub App" --api-url "https://api.git
 
 	createCmd.Flags().String("name", "", "GitHub App name (required)")
 	createCmd.Flags().String("organization", "", "GitHub organization")
-	createCmd.Flags().String("api-url", "", "GitHub API URL (required, e.g., https://api.github.com)")
+	createCmd.Flags().String("api-url", "", "GitHub API URL (derived from --html-url when omitted)")
 	createCmd.Flags().String("html-url", "", "GitHub HTML URL (required, e.g., https://github.com)")
 	createCmd.Flags().String("custom-user", "", "Custom user for SSH (default: git)")
 	createCmd.Flags().Int("custom-port", 0, "Custom port for SSH (default: 22)")
@@ -101,7 +103,6 @@ Example: coolify github create --name "My GitHub App" --api-url "https://api.git
 	createCmd.Flags().Bool("system-wide", false, "Is this app system-wide (cloud only)")
 
 	_ = createCmd.MarkFlagRequired("name")
-	_ = createCmd.MarkFlagRequired("api-url")
 	_ = createCmd.MarkFlagRequired("html-url")
 	_ = createCmd.MarkFlagRequired("app-id")
 	_ = createCmd.MarkFlagRequired("installation-id")

@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// LogsResponse represents container logs returned by resource log endpoints.
+type LogsResponse struct {
+	Logs string `json:"logs"`
+}
+
 // LogEntry represents a single log entry from a deployment
 type LogEntry struct {
 	Command   *string `json:"command"`
