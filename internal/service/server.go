@@ -58,8 +58,9 @@ func (s *ServerService) Delete(ctx context.Context, uuid string) error {
 }
 
 // Validate validates a server by UUID
-func (s *ServerService) Validate(ctx context.Context, uuid string) (*models.Response, error) {
+func (s *ServerService) Validate(ctx context.Context, uuid string, install bool) (*models.Response, error) {
 	var response models.Response
-	err := s.client.Get(ctx, "servers/"+uuid+"/validate", &response)
+	request := models.ServerValidationRequest{Install: install}
+	err := s.client.Post(ctx, "servers/"+uuid+"/validate", request, &response)
 	return &response, err
 }

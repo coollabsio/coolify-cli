@@ -88,7 +88,7 @@ func (s *DatabaseService) Delete(ctx context.Context, uuid string, deleteConfigu
 // Start starts a database
 func (s *DatabaseService) Start(ctx context.Context, uuid string) (*models.DatabaseLifecycleResponse, error) {
 	var response models.DatabaseLifecycleResponse
-	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/start", uuid), &response)
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/start", uuid), nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start database %s: %w", uuid, err)
 	}
@@ -98,7 +98,7 @@ func (s *DatabaseService) Start(ctx context.Context, uuid string) (*models.Datab
 // Stop stops a database
 func (s *DatabaseService) Stop(ctx context.Context, uuid string) (*models.DatabaseLifecycleResponse, error) {
 	var response models.DatabaseLifecycleResponse
-	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/stop", uuid), &response)
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/stop", uuid), nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stop database %s: %w", uuid, err)
 	}
@@ -108,7 +108,7 @@ func (s *DatabaseService) Stop(ctx context.Context, uuid string) (*models.Databa
 // Restart restarts a database
 func (s *DatabaseService) Restart(ctx context.Context, uuid string) (*models.DatabaseLifecycleResponse, error) {
 	var response models.DatabaseLifecycleResponse
-	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/restart", uuid), &response)
+	err := s.client.Post(ctx, fmt.Sprintf("databases/%s/restart", uuid), nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restart database %s: %w", uuid, err)
 	}

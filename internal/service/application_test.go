@@ -454,7 +454,7 @@ func TestApplicationService_Start(t *testing.T) {
 	deploymentUUID := "deploy-uuid-123"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/applications/app-uuid-123/start", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		resp := models.ApplicationLifecycleResponse{
@@ -538,7 +538,7 @@ func TestApplicationService_Start_Error(t *testing.T) {
 func TestApplicationService_Stop(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/applications/app-uuid-123/stop", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		resp := models.ApplicationLifecycleResponse{
@@ -577,7 +577,7 @@ func TestApplicationService_Stop_Error(t *testing.T) {
 func TestApplicationService_Restart(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/applications/app-uuid-123/restart", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 
 		resp := models.ApplicationLifecycleResponse{

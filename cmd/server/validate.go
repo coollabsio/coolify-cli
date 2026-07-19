@@ -11,7 +11,7 @@ import (
 
 // NewValidateCommand creates the validate command
 func NewValidateCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "validate <uuid>",
 		Args:  cli.ExactArgs(1, "<uuid>"),
 		Short: "Validate a server",
@@ -27,8 +27,9 @@ func NewValidateCommand() *cobra.Command {
 			// Use service layer
 			serverSvc := service.NewServerService(client)
 			uuid := args[0]
+			install, _ := cmd.Flags().GetBool("install")
 
-			response, err := serverSvc.Validate(ctx, uuid)
+			response, err := serverSvc.Validate(ctx, uuid, install)
 			if err != nil {
 				return fmt.Errorf("failed to validate server: %w", err)
 			}
@@ -42,4 +43,8 @@ func NewValidateCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().Bool("install", false, "Install missing prerequisites and Docker (may restart Docker)")
+
+	return cmd
 }

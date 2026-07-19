@@ -89,7 +89,7 @@ func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool,
 		}
 	}
 
-	err := s.client.Get(ctx, url, &resp)
+	err := s.client.Post(ctx, url, nil, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start application %s: %w", uuid, err)
 	}
@@ -99,7 +99,7 @@ func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool,
 // Stop stops an application
 func (s *ApplicationService) Stop(ctx context.Context, uuid string) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse
-	err := s.client.Get(ctx, fmt.Sprintf("applications/%s/stop", uuid), &resp)
+	err := s.client.Post(ctx, fmt.Sprintf("applications/%s/stop", uuid), nil, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stop application %s: %w", uuid, err)
 	}
@@ -109,7 +109,7 @@ func (s *ApplicationService) Stop(ctx context.Context, uuid string) (*models.App
 // Restart restarts an application
 func (s *ApplicationService) Restart(ctx context.Context, uuid string) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse
-	err := s.client.Get(ctx, fmt.Sprintf("applications/%s/restart", uuid), &resp)
+	err := s.client.Post(ctx, fmt.Sprintf("applications/%s/restart", uuid), nil, &resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to restart application %s: %w", uuid, err)
 	}

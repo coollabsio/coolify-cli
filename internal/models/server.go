@@ -27,6 +27,11 @@ type ServerCreateRequest struct {
 	InstantValidate bool   `json:"instant_validate"`
 }
 
+// ServerValidationRequest configures server validation behavior.
+type ServerValidationRequest struct {
+	Install bool `json:"install"`
+}
+
 // Domain represents a domain configuration
 type Domain struct {
 	IP      string   `json:"ip"`

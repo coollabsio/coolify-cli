@@ -142,7 +142,11 @@ func TestServerService_Delete(t *testing.T) {
 func TestServerService_Validate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/servers/test-uuid/validate", r.URL.Path)
-		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var request models.ServerValidationRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		assert.False(t, request.Install)
 
 		response := models.Response{Message: "Server is valid"}
 		_ = json.NewEncoder(w).Encode(response)
@@ -152,8 +156,30 @@ func TestServerService_Validate(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewServerService(client)
 
-	result, err := svc.Validate(context.Background(), "test-uuid")
+	result, err := svc.Validate(context.Background(), "test-uuid", false)
 
 	require.NoError(t, err)
 	assert.Equal(t, "Server is valid", result.Message)
+}
+
+func TestServerService_ValidateAndInstall(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/servers/test-uuid/validate", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var request models.ServerValidationRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+		assert.True(t, request.Install)
+
+		_ = json.NewEncoder(w).Encode(models.Response{Message: "Validation and installation started."})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewServerService(client)
+
+	result, err := svc.Validate(context.Background(), "test-uuid", true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Validation and installation started.", result.Message)
 }

@@ -420,7 +420,7 @@ func TestDatabaseService_Start(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/start", r.URL.Path)
-				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, http.MethodPost, r.Method)
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
@@ -472,7 +472,7 @@ func TestDatabaseService_Stop(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/stop", r.URL.Path)
-				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, http.MethodPost, r.Method)
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
@@ -524,7 +524,7 @@ func TestDatabaseService_Restart(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "/api/v1/databases/"+tt.uuid+"/restart", r.URL.Path)
-				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, http.MethodPost, r.Method)
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.serverResponse))
 			}))
