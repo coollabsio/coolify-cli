@@ -19,7 +19,8 @@ func TestProviderServices_OptionsUseTokenQueryAndCreationUsesPost(t *testing.T) 
 		uri    string
 		body   map[string]any
 	}
-	requests := make(chan observed, 15)
+	// 6 Hetzner GETs + 1 POST + 4 DO GETs + 1 POST + 4 Vultr GETs + 1 POST = 17
+	requests := make(chan observed, 32)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		item := observed{method: r.Method, uri: r.URL.RequestURI()}
 		if r.Method == http.MethodPost {
@@ -34,7 +35,8 @@ func TestProviderServices_OptionsUseTokenQueryAndCreationUsesPost(t *testing.T) 
 	}))
 	defer server.Close()
 	ctx := context.Background()
-	client := api.NewClient(server.URL, "token")
+	// Disable retries so a single bad response cannot flood the request channel.
+	client := api.NewClient(server.URL, "token", api.WithRetries(0))
 
 	hetzner := NewHetznerService(client)
 	_, _ = hetzner.Locations(ctx, "token/id")
