@@ -208,6 +208,10 @@ Parameters:
     type: string
     description: Build pack: nixpacks, static, dockerfile, dockercompose (required)
     required: true
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -719,6 +723,10 @@ Parameters:
     type: string
     description: Build pack: nixpacks, static, dockerfile, dockercompose (required)
     required: true
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -912,6 +920,10 @@ Parameters:
     type: string
     description: Build pack: nixpacks, static, dockerfile, dockercompose (required)
     required: true
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -1413,7 +1425,7 @@ Description: Remove an application tag
 Parameters: (None)
 
 Command: coolify app update <uuid>
-Description: Update configuration for a specific application. Only specified fields will be updated.
+Description: Update application configuration
 Parameters:
   - name: --base-directory
     type: string
@@ -1422,6 +1434,10 @@ Parameters:
   - name: --build-command
     type: string
     description: Build command
+    required: false
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
     required: false
   - name: --description
     type: string

@@ -25,3 +25,16 @@ func TestCreateCommands_ExposeNewSettingsAndTagsFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestGitCreateCommands_ExposeComposeDomainFlag(t *testing.T) {
+	commands := []*cobra.Command{
+		NewPublicCommand(), NewGitHubCommand(), NewDeployKeyCommand(),
+	}
+
+	for _, command := range commands {
+		assert.NotNil(t, command.Flags().Lookup("compose-domain"), "%s missing --compose-domain", command.Name())
+	}
+
+	assert.Nil(t, NewDockerfileCommand().Flags().Lookup("compose-domain"))
+	assert.Nil(t, NewDockerImageCommand().Flags().Lookup("compose-domain"))
+}

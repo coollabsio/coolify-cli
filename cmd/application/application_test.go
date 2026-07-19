@@ -29,6 +29,7 @@ func TestNewAppCommand_RegistersMoveAndTagCommands(t *testing.T) {
 func TestNewApplicationCommands_ExposeParityFlags(t *testing.T) {
 	assert.NotNil(t, NewLogsCommand().Flags().Lookup("show-timestamps"))
 	assert.NotNil(t, NewMoveCommand().Flags().Lookup("environment-uuid"))
+	assert.NotNil(t, NewUpdateCommand().Flags().Lookup("compose-domain"))
 
 	for _, flag := range []string{
 		"disable-build-cache", "docker-images-to-keep", "include-source-commit-in-build",
@@ -40,4 +41,20 @@ func TestNewApplicationCommands_ExposeParityFlags(t *testing.T) {
 	} {
 		assert.NotNil(t, NewUpdateCommand().Flags().Lookup(flag), "missing --%s", flag)
 	}
+}
+
+func TestUpdateCommand_RejectsDomainsWithComposeDomain(t *testing.T) {
+	cmd := NewUpdateCommand()
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
+	cmd.SetArgs([]string{
+		"app-uuid",
+		"--domains", "https://app.example.com",
+		"--compose-domain", "app=https://app.example.com",
+	})
+
+	err := cmd.Execute()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "group [domains compose-domain]")
 }
