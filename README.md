@@ -81,6 +81,9 @@ You can change the default context with `coolify context use <context_name>` or 
 ### Update
 - `coolify update` - Update the CLI to the latest version
 
+### Version
+- `coolify version` - Show the current CLI version
+
 ### Configuration
 - `coolify config` - Show configuration file location
 
@@ -126,6 +129,9 @@ Commands can use `server` or `servers` interchangeably.
 ### Projects
 - `coolify projects list` - List all projects
 - `coolify projects get <uuid>` - Get project environments
+- `coolify projects create` - Create a new project
+  - `--name <name>` - Project name (required)
+  - `--description <description>` - Project description
 
 ### Resources
 - `coolify resources list` - List all resources
@@ -157,10 +163,64 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify app stop <uuid>` - Stop an application
 - `coolify app restart <uuid>` - Restart an application
 - `coolify app logs <uuid>` - Get application logs
+  - `-f, --follow` - Follow log output (like tail -f)
+  - `-n, --lines <n>` - Number of log lines to retrieve (default: 100)
   - `--show-timestamps` - Include timestamps in logs
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
 - All application create variants support `--tag` and `--tags`; create and update expose the full application settings surface.
+
+#### Application Creation
+- `coolify app create public` - Create an application from a public git repository
+  - `--server-uuid <uuid>` - Server UUID (required)
+  - `--project-uuid <uuid>` - Project UUID (required)
+  - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
+  - `--git-repository <url>` - Git repository URL (required)
+  - `--git-branch <branch>` - Git branch (required)
+  - `--build-pack <pack>` - Build pack: `nixpacks`, `static`, `dockerfile`, `dockercompose` (required)
+  - `--ports-exposes <ports>` - Exposed ports, e.g., '3000' or '3000,8080' (required)
+  - `--domains <domains>` - Domain(s) for the application
+  - `--instant-deploy` - Deploy immediately after creation
+  - More flags: `--name`, `--description`, `--base-directory`, `--publish-directory`, `--build-command`, `--start-command`, `--install-command`, `--health-check-enabled`, `--health-check-path`, `--limits-memory`, `--limits-cpus`, `--ports-mappings`, `--git-commit-sha`, `--destination-uuid`, `--dockerfile-target-build`
+- `coolify app create github` - Create an application from a private repository using a GitHub App
+  - Same flags as `public`, plus `--github-app-uuid <uuid>` (required)
+  - `--git-repository` takes the `owner/repo` format
+- `coolify app create deploy-key` - Create an application from a private repository using an SSH deploy key
+  - Same flags as `public`, plus `--private-key-uuid <uuid>` (required)
+  - `--git-repository` takes an SSH URL, e.g., `git@github.com:owner/repo.git`
+- `coolify app create dockerfile` - Create an application from a custom Dockerfile
+  - `--dockerfile <content>` - Dockerfile content (required)
+  - `--server-uuid <uuid>` - Server UUID (required)
+  - `--project-uuid <uuid>` - Project UUID (required)
+  - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
+- `coolify app create dockerimage` - Create an application from a pre-built Docker image
+  - `--docker-registry-image-name <image>` - Docker image name from registry (required)
+  - `--docker-registry-image-tag <tag>` - Docker image tag (defaults to `latest`)
+  - `--ports-exposes <ports>` - Exposed ports (required)
+  - `--server-uuid <uuid>` - Server UUID (required)
+  - `--project-uuid <uuid>` - Project UUID (required)
+  - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
+
+#### Application Previews
+- `coolify app previews delete <app_uuid> <pr_id>` - Delete a preview deployment
+  - `--force` - Skip confirmation prompt
+
+#### Application Storage
+- `coolify app storage list <app_uuid>` - List all storages for an application
+- `coolify app storage create <app_uuid>` - Create a storage for an application
+  - `--type <type>` - Storage type: `persistent` or `file` (required)
+  - `--mount-path <path>` - Mount path inside the container (required)
+  - `--name <name>` - Volume name (persistent only)
+  - `--host-path <path>` - Host path (persistent only)
+  - `--content <content>` - File content (file only)
+  - `--is-directory` - Whether this is a directory mount (file only)
+  - `--fs-path <path>` - Host directory path (file only, required when `--is-directory` is set)
+- `coolify app storage update <app_uuid>` - Update a storage for an application
+  - `--uuid <uuid>` - Storage UUID (required, use `storage list` to find)
+  - `--type <type>` - Storage type: `persistent` or `file` (required)
+  - `--is-preview-suffix-enabled` - Enable preview suffix for this storage
+  - Other flags same as `create`
+- `coolify app storage delete <app_uuid> <storage_uuid>` - Delete a storage from an application
 
 #### Application Environment Variables
 - `coolify app env list <app_uuid>` - List all environment variables
@@ -169,21 +229,26 @@ Commands can use `server` or `servers` interchangeably.
   - `--key <key>` - Variable key (required)
   - `--value <value>` - Variable value (required)
   - `--preview` - Available in preview deployments
-  - `--build-time` - Available at build time
+  - `--build-time` - Available at build time (default: true)
+  - `--runtime` - Available at runtime (default: true)
+  - `--comment <comment>` - Comment for the environment variable
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
 - `coolify app env update <app_uuid> <env_uuid_or_key>` - Update an environment variable
   - `--value <value>` - Variable value (required)
   - `--key <key>` - New variable key (optional, for renaming)
   - `--preview` - Available in preview deployments
-  - `--build-time` - Available at build time
+  - `--build-time` - Available at build time (default: true)
+  - `--runtime` - Available at runtime (default: true)
+  - `--comment <comment>` - Comment for the environment variable
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
-  - `--runtime` - Available at runtime
 - `coolify app env delete <app_uuid> <env_uuid>` - Delete an environment variable
+  - `--force` - Skip confirmation prompt
 - `coolify app env sync <app_uuid>` - Sync environment variables from a .env file
-  - `--file <path>` - Path to .env file (required)
-  - `--build-time` - Make all variables available at build time
+  - `-f, --file <path>` - Path to .env file (required)
+  - `--build-time` - Make all variables available at build time (default: true)
+  - `--runtime` - Make all variables available at runtime (default: true)
   - `--preview` - Make all variables available in preview deployments
   - `--is-literal` - Treat all values as literal (don't interpolate variables)
   - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
@@ -239,23 +304,62 @@ Commands can use `server` or `servers` interchangeably.
   - `--s3-storage-uuid <uuid>` - S3 storage UUID
   - `--databases-to-backup <list>` - Comma-separated list of databases to backup
   - `--dump-all` - Dump all databases
-  - `--retention-amount-local <n>` - Number of backups to retain locally
-  - `--retention-days-local <n>` - Days to retain backups locally
-  - `--retention-storage-local <size>` - Max storage for local backups (e.g., '1GB', '500MB')
+  - `--retention-amount-locally <n>` - Number of backups to retain locally
+  - `--retention-days-locally <n>` - Days to retain backups locally
+  - `--retention-max-storage-locally <size>` - Max storage for local backups (e.g., '1GB', '500MB')
   - `--retention-amount-s3 <n>` - Number of backups to retain in S3
   - `--retention-days-s3 <n>` - Days to retain backups in S3
-  - `--retention-storage-s3 <size>` - Max storage for S3 backups (e.g., '1GB', '500MB')
+  - `--retention-max-storage-s3 <size>` - Max storage for S3 backups (e.g., '1GB', '500MB')
   - `--timeout <seconds>` - Backup timeout in seconds
-  - `--disable-local` - Disable local backup storage
+  - `--disable-local-backup` - Disable local backup storage
 - `coolify database backup update <database_uuid> <backup_uuid>` - Update a backup configuration
 - `coolify database backup delete <database_uuid> <backup_uuid>` - Delete a backup configuration
 - `coolify database backup trigger <database_uuid> <backup_uuid>` - Trigger an immediate backup
 - `coolify database backup executions <database_uuid> <backup_uuid>` - List backup executions
 - `coolify database backup delete-execution <database_uuid> <backup_uuid> <execution_uuid>` - Delete a backup execution
 
+#### Database Environment Variables
+- `coolify database env list <database_uuid>` - List all environment variables
+- `coolify database env get <database_uuid> <env_uuid_or_key>` - Get a specific environment variable
+- `coolify database env create <database_uuid>` - Create a new environment variable
+  - `--key <key>` - Variable key (required)
+  - `--value <value>` - Variable value (required)
+  - `--comment <comment>` - Comment for the environment variable
+  - `--is-literal` - Treat value as literal (don't interpolate variables)
+  - `--is-multiline` - Value is multiline
+  - `--is-shown-once` - Only show value once
+- `coolify database env update <database_uuid> <env_uuid_or_key>` - Update an environment variable
+  - `--value <value>` - New variable value (required)
+  - `--key <key>` - New variable key (optional, for renaming)
+  - Other flags same as `create`
+- `coolify database env delete <database_uuid> <env_uuid>` - Delete an environment variable
+  - `--force` - Skip confirmation prompt
+- `coolify database env sync <database_uuid>` - Sync environment variables from a .env file
+  - `-f, --file <path>` - Path to .env file (required)
+  - `--is-literal` - Treat all values as literal (don't interpolate variables)
+  - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
+
+#### Database Storage
+- `coolify database storage list <db_uuid>` - List all storages for a database
+- `coolify database storage create <db_uuid>` - Create a storage for a database
+  - Same flags as `coolify app storage create`
+- `coolify database storage update <db_uuid>` - Update a storage for a database
+  - Same flags as `coolify app storage update`
+- `coolify database storage delete <db_uuid> <storage_uuid>` - Delete a storage from a database
+
 ### Services
 - `coolify service list` - List all services
 - `coolify service get <uuid>` - Get service details
+- `coolify service create <type>` - Create a new one-click service (e.g., `wordpress-with-mysql`, `ghost`, `n8n`)
+  - `--list-types` - List all available service types
+  - `--server-uuid <uuid>` - Server UUID (required)
+  - `--project-uuid <uuid>` - Project UUID (required)
+  - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
+  - `--name <name>` - Service name
+  - `--description <description>` - Service description
+  - `--docker-compose <content>` - Custom Docker Compose content (for advanced customization)
+  - `--destination-uuid <uuid>` - Destination UUID if server has multiple destinations
+  - `--instant-deploy` - Deploy immediately after creation
 - `coolify service start <uuid>` - Start a service
 - `coolify service stop <uuid>` - Stop a service
 - `coolify service restart <uuid>` - Restart a service
@@ -283,33 +387,44 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service env list <service_uuid>` - List all environment variables
 - `coolify service env get <service_uuid> <env_uuid_or_key>` - Get a specific environment variable
 - `coolify service env create <service_uuid>` - Create a new environment variable
-  - Same flags as application environment variables
+  - Same flags as application environment variables, except `--preview` (not available for services)
 - `coolify service env update <service_uuid> <env_uuid_or_key>` - Update an environment variable
   - `--value <value>` - Variable value (required)
   - `--key <key>` - New variable key (optional, for renaming)
-  - `--build-time` - Available at build time
+  - `--build-time` - Available at build time (default: true)
+  - `--runtime` - Available at runtime (default: true)
+  - `--comment <comment>` - Comment for the environment variable
   - `--is-literal` - Treat value as literal (don't interpolate variables)
   - `--is-multiline` - Value is multiline
-  - `--runtime` - Available at runtime
 - `coolify service env delete <service_uuid> <env_uuid>` - Delete an environment variable
+  - `--force` - Skip confirmation prompt
 - `coolify service env sync <service_uuid>` - Sync environment variables from a .env file
-  - `--file <path>` - Path to .env file (required)
-  - `--build-time` - Make all variables available at build time
-  - `--preview` - Make all variables available in preview deployments
+  - `-f, --file <path>` - Path to .env file (required)
+  - `--build-time` - Make all variables available at build time (default: true)
+  - `--runtime` - Make all variables available at runtime (default: true)
   - `--is-literal` - Treat all values as literal (don't interpolate variables)
   - **Behavior**: Updates existing variables, creates missing ones. Does NOT delete variables not in the file.
 
+#### Service Storage
+- `coolify service storage list <service_uuid>` - List all storages for a service
+- `coolify service storage create <service_uuid>` - Create a storage for a service
+  - `--resource-uuid <uuid>` - UUID of the service application or database that owns the storage (required)
+  - Other flags are the same as `coolify app storage create`
+- `coolify service storage update <service_uuid>` - Update a storage for a service
+  - Same flags as `coolify app storage update`
+- `coolify service storage delete <service_uuid> <storage_uuid>` - Delete a storage from a service
+
 ### Deployments
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
-  - `-f, --force` - Force deployment
+  - `--force` - Force deployment
   - `--pull-request-id <id>` - Pull request ID for preview deployments
   - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy name <name>` - Deploy a resource by name
-  - `-f, --force` - Force deployment
+  - `--force` - Force deployment
   - `--pull-request-id <id>` - Pull request ID for preview deployments
   - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy batch <name1,name2,...>` - Deploy multiple resources at once
-  - `-f, --force` - Force all deployments
+  - `--force` - Force all deployments
   - `--pull-request-id <id>` - Pull request ID for preview deployments
   - `--docker-tag <tag>` - Docker image tag override for the deployment (requires Coolify `4.0.0-beta.471+`)
 - `coolify deploy list` - List all deployments
@@ -364,20 +479,33 @@ Commands can use `server` or `servers` interchangeably.
 Commands can use `private-key`, `private-keys`, `key`, or `keys` interchangeably.
 
 - `coolify private-key list` - List all private keys
-- `coolify private-key add <key_name> <private-key>` - Add a new private key
-  - Use `@filename` to read from file: `coolify private-key add mykey @~/.ssh/id_rsa`
+- `coolify private-key add <key_name> <private_key_or_file>` - Add a new private key
+  - Pass the key content directly or a path to a key file: `coolify private-key add mykey ~/.ssh/id_rsa`
 - `coolify private-key remove <uuid>` - Remove a private key
+
+### Coolify v5 Mesh (alpha)
+
+These commands are an early preview of Coolify v5 fleet provisioning. Unlike the rest of the CLI they don't talk to the Coolify API: they connect to your servers over SSH to set up a WireGuard mesh with Podman and to manage cross-host container firewall rules.
+
+- `coolify init plan` - Show WireGuard mesh changes without applying them
+- `coolify init bootstrap` - First-time mesh install across all servers
+- `coolify init extend` - Add new hosts to an existing mesh; existing hosts receive peer-refresh updates
+- `coolify init upgrade` - Bump agent binary versions on every host
+- `coolify firewall containers` - List containers on the Coolify mesh bridge across all servers
+- `coolify firewall list` - List installed allow rules across all servers
+- `coolify firewall allow` - Add an allow rule between containers
+- `coolify firewall revoke` - Remove an allow rule
+
+Both command trees require `--servers` and `--ssh-key` and take many more flags; run `coolify init --help` / `coolify firewall --help` or see [`llms-full.txt`](./llms-full.txt) for the full reference.
 
 ## Global Flags
 
 All commands support these global flags:
 
 - `--context <name>` - Use a specific context instead of default
-- `--host <fqdn>` - Override the Coolify instance hostname
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
 - `-s, --show-sensitive` - Show sensitive information (tokens, IPs, etc.)
-- `-f, --force` - Force operation (skip confirmations)
 - `--debug` - Enable debug mode
 
 ## Examples
@@ -410,6 +538,14 @@ coolify app list
 
 # Get application details
 coolify app get <uuid>
+
+# Create an application from a public git repository
+coolify app create public --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
+  --git-repository "https://github.com/user/repo" --git-branch main --build-pack nixpacks --ports-exposes 3000
+
+# Create an application from a pre-built Docker image
+coolify app create dockerimage --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
+  --docker-registry-image-name "nginx:latest" --ports-exposes 80
 
 # Manage application lifecycle
 coolify app start <uuid>
@@ -464,6 +600,12 @@ coolify service list
 
 # Get service details
 coolify service get <uuid>
+
+# See all available one-click service types
+coolify service create --list-types
+
+# Create a one-click service
+coolify service create wordpress-with-mysql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production
 
 # Manage services
 coolify service start <uuid>

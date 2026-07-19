@@ -3066,7 +3066,12 @@ Parameters: (None)
 
 Command: coolify server validate <uuid>
 Description: Validate a server
-Parameters: (None)
+Parameters:
+  - name: --install
+    type: boolean
+    description: Install missing prerequisites and Docker (may restart Docker)
+    required: false
+    default: false
 
 Command: coolify server vultr create
 Description: Create a Vultr server
