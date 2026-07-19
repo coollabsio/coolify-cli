@@ -16,8 +16,14 @@ func NewUpdateCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <uuid>",
 		Short: "Update application configuration",
-		Long:  `Update configuration for a specific application. Only specified fields will be updated.`,
-		Args:  cli.ExactArgs(1, "<uuid>"),
+		Long: `Update configuration for a specific application. Only specified fields will be updated.
+
+Docker Compose domains are supplied as the complete service-to-domain mapping for the update.
+
+Example:
+  coolify app update <uuid> --compose-domain "api=https://api.example.com" \
+    --compose-domain "admin=https://admin.example.com,https://admin2.example.com"`,
+		Args: cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			uuid := args[0]
@@ -53,6 +59,11 @@ func NewUpdateCommand() *cobra.Command {
 			if cmd.Flags().Changed("domains") {
 				domains, _ := cmd.Flags().GetString("domains")
 				req.Domains = &domains
+				hasUpdates = true
+			}
+			if changed, err := appflags.ApplyComposeDomainsFlag(cmd, &req.DockerComposeDomains); err != nil {
+				return err
+			} else if changed {
 				hasUpdates = true
 			}
 			if cmd.Flags().Changed("build-command") {
@@ -153,6 +164,7 @@ func NewUpdateCommand() *cobra.Command {
 	cmd.Flags().String("git-branch", "", "Git branch")
 	cmd.Flags().String("git-repository", "", "Git repository URL")
 	cmd.Flags().String("domains", "", "Domains (comma-separated)")
+	appflags.BindComposeDomainsFlag(cmd)
 	cmd.Flags().String("build-command", "", "Build command")
 	cmd.Flags().String("start-command", "", "Start command")
 	cmd.Flags().String("install-command", "", "Install command")
@@ -167,6 +179,7 @@ func NewUpdateCommand() *cobra.Command {
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health check")
 	cmd.Flags().String("health-check-path", "", "Health check path")
 	appflags.BindSettingsFlags(cmd)
+	cmd.MarkFlagsMutuallyExclusive("domains", "compose-domain")
 
 	return cmd
 }

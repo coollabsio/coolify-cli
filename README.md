@@ -139,6 +139,7 @@ Commands can use `server` or `servers` interchangeably.
   - `--git-branch <branch>` - Git branch
   - `--git-repository <url>` - Git repository URL
   - `--domains <domains>` - Domains (comma-separated)
+  - `--compose-domain <service>=<url>[,<url>]` - Docker Compose service domains (repeatable; update replaces the existing mapping)
   - `--build-command <cmd>` - Build command
   - `--start-command <cmd>` - Start command
   - `--install-command <cmd>` - Install command
@@ -160,6 +161,7 @@ Commands can use `server` or `servers` interchangeably.
   - `--show-timestamps` - Include timestamps in logs
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
+- Git-backed application create variants (`public`, `github`, and `deploy-key`) and `app update` support repeatable `--compose-domain <service>=<url>[,<url>]` flags for Docker Compose routing. On update, the supplied entries replace the existing mapping.
 - All application create variants support `--tag` and `--tags`; create and update expose the full application settings surface.
 
 #### Application Environment Variables

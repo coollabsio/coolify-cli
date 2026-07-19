@@ -83,3 +83,42 @@ func TestApplicationCreateSettings_MarshalNewAPIFields(t *testing.T) {
 		assert.Contains(t, body, field)
 	}
 }
+
+func TestDockerComposeDomains_MarshalRequestShape(t *testing.T) {
+	domains := []DockerComposeDomain{
+		{Name: "litellm", Domain: "https://litellm.example.com"},
+		{Name: "admin", Domain: "https://admin.example.com,https://admin2.example.com"},
+	}
+	tests := []struct {
+		name string
+		req  any
+	}{
+		{name: "public create", req: ApplicationCreatePublicRequest{DockerComposeDomains: domains}},
+		{name: "github create", req: ApplicationCreateGitHubAppRequest{DockerComposeDomains: domains}},
+		{name: "deploy key create", req: ApplicationCreateDeployKeyRequest{DockerComposeDomains: domains}},
+		{name: "update", req: ApplicationUpdateRequest{DockerComposeDomains: domains}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.req)
+			require.NoError(t, err)
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(data, &body))
+			items, ok := body["docker_compose_domains"].([]any)
+			require.True(t, ok)
+			require.Len(t, items, 2)
+			assert.Equal(t, map[string]any{
+				"name":   "litellm",
+				"domain": "https://litellm.example.com",
+			}, items[0])
+		})
+	}
+}
+
+func TestDockerComposeDomains_OmittedWhenUnset(t *testing.T) {
+	data, err := json.Marshal(ApplicationUpdateRequest{})
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "docker_compose_domains")
+}
