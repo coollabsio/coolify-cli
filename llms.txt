@@ -92,6 +92,7 @@ coolify app move <uuid> --environment-uuid <uuid>
 coolify app tag add <uuid> production
 coolify app deployments list <app-uuid>
 coolify app deployments logs <app-uuid> --follow
+coolify app update <uuid> --compose-domain api=https://api.example.com --compose-domain admin=https://admin.example.com,https://admin2.example.com
 ```
 
 ### Environment Variables

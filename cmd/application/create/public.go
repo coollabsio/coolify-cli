@@ -23,9 +23,13 @@ Examples:
   coolify app create public --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
     --git-repository "https://github.com/user/repo" --git-branch main --build-pack nixpacks --ports-exposes 3000
 
-  coolify app create public --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
-    --git-repository "https://github.com/user/repo" --git-branch main --build-pack dockerfile --ports-exposes 8080 \
-    --instant-deploy --domains "myapp.example.com"`,
+	  coolify app create public --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
+	    --git-repository "https://github.com/user/repo" --git-branch main --build-pack dockerfile --ports-exposes 8080 \
+	    --instant-deploy --domains "myapp.example.com"
+
+	  coolify app create public --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
+	    --git-repository "https://github.com/user/repo" --git-branch main --build-pack dockercompose --ports-exposes 4000 \
+	    --compose-domain "api=https://api.example.com" --compose-domain "admin=https://admin.example.com,https://admin2.example.com"`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
@@ -73,6 +77,9 @@ Examples:
 			setOptionalStringFlag(cmd, "name", &req.Name)
 			setOptionalStringFlag(cmd, "description", &req.Description)
 			setOptionalStringFlag(cmd, "domains", &req.Domains)
+			if _, err := appflags.ApplyComposeDomainsFlag(cmd, &req.DockerComposeDomains); err != nil {
+				return err
+			}
 			setOptionalStringFlag(cmd, "git-commit-sha", &req.GitCommitSHA)
 			setOptionalStringFlag(cmd, "destination-uuid", &req.DestinationUUID)
 			setOptionalStringFlag(cmd, "build-command", &req.BuildCommand)
@@ -129,6 +136,7 @@ Examples:
 	cmd.Flags().String("name", "", "Application name")
 	cmd.Flags().String("description", "", "Application description")
 	cmd.Flags().String("domains", "", "Domain(s) for the application")
+	appflags.BindComposeDomainsFlag(cmd)
 	cmd.Flags().Bool("instant-deploy", false, "Deploy immediately after creation")
 	cmd.Flags().String("git-commit-sha", "", "Specific commit SHA to deploy")
 	cmd.Flags().String("destination-uuid", "", "Destination UUID if server has multiple destinations")
@@ -145,6 +153,7 @@ Examples:
 	cmd.Flags().String("dockerfile-target-build", "", "Dockerfile target build stage")
 	appflags.BindSettingsFlags(cmd)
 	appflags.BindTagsFlag(cmd)
+	cmd.MarkFlagsMutuallyExclusive("domains", "compose-domain")
 
 	return cmd
 }

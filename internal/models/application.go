@@ -173,20 +173,21 @@ type ApplicationListItem struct {
 type ApplicationUpdateRequest struct {
 	ApplicationSettingsRequest
 
-	Name             *string `json:"name,omitempty"`
-	Description      *string `json:"description,omitempty"`
-	GitBranch        *string `json:"git_branch,omitempty"`
-	GitRepository    *string `json:"git_repository,omitempty"`
-	GitCommitSHA     *string `json:"git_commit_sha,omitempty"`
-	Domains          *string `json:"domains,omitempty"`
-	BuildCommand     *string `json:"build_command,omitempty"`
-	StartCommand     *string `json:"start_command,omitempty"`
-	InstallCommand   *string `json:"install_command,omitempty"`
-	BaseDirectory    *string `json:"base_directory,omitempty"`
-	PublishDirectory *string `json:"publish_directory,omitempty"`
-	BuildPack        *string `json:"build_pack,omitempty"`
-	PortsExposes     *string `json:"ports_exposes,omitempty"`
-	PortsMappings    *string `json:"ports_mappings,omitempty"`
+	Name                 *string               `json:"name,omitempty"`
+	Description          *string               `json:"description,omitempty"`
+	GitBranch            *string               `json:"git_branch,omitempty"`
+	GitRepository        *string               `json:"git_repository,omitempty"`
+	GitCommitSHA         *string               `json:"git_commit_sha,omitempty"`
+	Domains              *string               `json:"domains,omitempty"`
+	DockerComposeDomains []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	BuildCommand         *string               `json:"build_command,omitempty"`
+	StartCommand         *string               `json:"start_command,omitempty"`
+	InstallCommand       *string               `json:"install_command,omitempty"`
+	BaseDirectory        *string               `json:"base_directory,omitempty"`
+	PublishDirectory     *string               `json:"publish_directory,omitempty"`
+	BuildPack            *string               `json:"build_pack,omitempty"`
+	PortsExposes         *string               `json:"ports_exposes,omitempty"`
+	PortsMappings        *string               `json:"ports_mappings,omitempty"`
 
 	// Docker configuration
 	Dockerfile              *string `json:"dockerfile,omitempty"`
@@ -229,6 +230,12 @@ type ApplicationUpdateRequest struct {
 	Redirect   *string `json:"redirect,omitempty"`
 	WatchPaths *string `json:"watch_paths,omitempty"`
 	IsStatic   *bool   `json:"is_static,omitempty"`
+}
+
+// DockerComposeDomain assigns one or more URLs to a Docker Compose service.
+type DockerComposeDomain struct {
+	Name   string `json:"name"`
+	Domain string `json:"domain"`
 }
 
 // ApplicationLifecycleResponse represents the response from lifecycle operations
@@ -440,21 +447,22 @@ type ApplicationCreatePublicRequest struct {
 	EnvironmentUUID *string `json:"environment,omitempty"`
 
 	// Optional fields
-	Name                   *string `json:"name,omitempty"`
-	Description            *string `json:"description,omitempty"`
-	Domains                *string `json:"domains,omitempty"`
-	InstantDeploy          *bool   `json:"instant_deploy,omitempty"`
-	GitCommitSHA           *string `json:"git_commit_sha,omitempty"`
-	DestinationUUID        *string `json:"destination_uuid,omitempty"`
-	BuildCommand           *string `json:"build_command,omitempty"`
-	StartCommand           *string `json:"start_command,omitempty"`
-	InstallCommand         *string `json:"install_command,omitempty"`
-	BaseDirectory          *string `json:"base_directory,omitempty"`
-	PublishDirectory       *string `json:"publish_directory,omitempty"`
-	PortsMappings          *string `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions *string `json:"custom_docker_run_options,omitempty"`
-	CustomLabels           *string `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild  *string `json:"dockerfile_target_build,omitempty"`
+	Name                   *string               `json:"name,omitempty"`
+	Description            *string               `json:"description,omitempty"`
+	Domains                *string               `json:"domains,omitempty"`
+	DockerComposeDomains   []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	InstantDeploy          *bool                 `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string               `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string               `json:"destination_uuid,omitempty"`
+	BuildCommand           *string               `json:"build_command,omitempty"`
+	StartCommand           *string               `json:"start_command,omitempty"`
+	InstallCommand         *string               `json:"install_command,omitempty"`
+	BaseDirectory          *string               `json:"base_directory,omitempty"`
+	PublishDirectory       *string               `json:"publish_directory,omitempty"`
+	PortsMappings          *string               `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string               `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
 
 	// Health checks
 	HealthCheckEnabled *bool   `json:"health_check_enabled,omitempty"`
@@ -487,28 +495,29 @@ type ApplicationCreateGitHubAppRequest struct {
 	EnvironmentUUID *string `json:"environment,omitempty"`
 
 	// Optional fields (same as public)
-	Name                   *string  `json:"name,omitempty"`
-	Description            *string  `json:"description,omitempty"`
-	Domains                *string  `json:"domains,omitempty"`
-	InstantDeploy          *bool    `json:"instant_deploy,omitempty"`
-	GitCommitSHA           *string  `json:"git_commit_sha,omitempty"`
-	DestinationUUID        *string  `json:"destination_uuid,omitempty"`
-	BuildCommand           *string  `json:"build_command,omitempty"`
-	StartCommand           *string  `json:"start_command,omitempty"`
-	InstallCommand         *string  `json:"install_command,omitempty"`
-	BaseDirectory          *string  `json:"base_directory,omitempty"`
-	PublishDirectory       *string  `json:"publish_directory,omitempty"`
-	PortsMappings          *string  `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions *string  `json:"custom_docker_run_options,omitempty"`
-	CustomLabels           *string  `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild  *string  `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled     *bool    `json:"health_check_enabled,omitempty"`
-	HealthCheckPath        *string  `json:"health_check_path,omitempty"`
-	HealthCheckPort        *string  `json:"health_check_port,omitempty"`
-	HealthCheckMethod      *string  `json:"health_check_method,omitempty"`
-	LimitsCPUs             *string  `json:"limits_cpus,omitempty"`
-	LimitsMemory           *string  `json:"limits_memory,omitempty"`
-	Tags                   []string `json:"tags,omitempty"`
+	Name                   *string               `json:"name,omitempty"`
+	Description            *string               `json:"description,omitempty"`
+	Domains                *string               `json:"domains,omitempty"`
+	DockerComposeDomains   []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	InstantDeploy          *bool                 `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string               `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string               `json:"destination_uuid,omitempty"`
+	BuildCommand           *string               `json:"build_command,omitempty"`
+	StartCommand           *string               `json:"start_command,omitempty"`
+	InstallCommand         *string               `json:"install_command,omitempty"`
+	BaseDirectory          *string               `json:"base_directory,omitempty"`
+	PublishDirectory       *string               `json:"publish_directory,omitempty"`
+	PortsMappings          *string               `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string               `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool                 `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string               `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string               `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string               `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string               `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string               `json:"limits_memory,omitempty"`
+	Tags                   []string              `json:"tags,omitempty"`
 }
 
 // ApplicationCreateDeployKeyRequest for POST /applications/private-deploy-key
@@ -530,28 +539,29 @@ type ApplicationCreateDeployKeyRequest struct {
 	EnvironmentUUID *string `json:"environment,omitempty"`
 
 	// Optional fields (same as public)
-	Name                   *string  `json:"name,omitempty"`
-	Description            *string  `json:"description,omitempty"`
-	Domains                *string  `json:"domains,omitempty"`
-	InstantDeploy          *bool    `json:"instant_deploy,omitempty"`
-	GitCommitSHA           *string  `json:"git_commit_sha,omitempty"`
-	DestinationUUID        *string  `json:"destination_uuid,omitempty"`
-	BuildCommand           *string  `json:"build_command,omitempty"`
-	StartCommand           *string  `json:"start_command,omitempty"`
-	InstallCommand         *string  `json:"install_command,omitempty"`
-	BaseDirectory          *string  `json:"base_directory,omitempty"`
-	PublishDirectory       *string  `json:"publish_directory,omitempty"`
-	PortsMappings          *string  `json:"ports_mappings,omitempty"`
-	CustomDockerRunOptions *string  `json:"custom_docker_run_options,omitempty"`
-	CustomLabels           *string  `json:"custom_labels,omitempty"`
-	DockerfileTargetBuild  *string  `json:"dockerfile_target_build,omitempty"`
-	HealthCheckEnabled     *bool    `json:"health_check_enabled,omitempty"`
-	HealthCheckPath        *string  `json:"health_check_path,omitempty"`
-	HealthCheckPort        *string  `json:"health_check_port,omitempty"`
-	HealthCheckMethod      *string  `json:"health_check_method,omitempty"`
-	LimitsCPUs             *string  `json:"limits_cpus,omitempty"`
-	LimitsMemory           *string  `json:"limits_memory,omitempty"`
-	Tags                   []string `json:"tags,omitempty"`
+	Name                   *string               `json:"name,omitempty"`
+	Description            *string               `json:"description,omitempty"`
+	Domains                *string               `json:"domains,omitempty"`
+	DockerComposeDomains   []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	InstantDeploy          *bool                 `json:"instant_deploy,omitempty"`
+	GitCommitSHA           *string               `json:"git_commit_sha,omitempty"`
+	DestinationUUID        *string               `json:"destination_uuid,omitempty"`
+	BuildCommand           *string               `json:"build_command,omitempty"`
+	StartCommand           *string               `json:"start_command,omitempty"`
+	InstallCommand         *string               `json:"install_command,omitempty"`
+	BaseDirectory          *string               `json:"base_directory,omitempty"`
+	PublishDirectory       *string               `json:"publish_directory,omitempty"`
+	PortsMappings          *string               `json:"ports_mappings,omitempty"`
+	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
+	CustomLabels           *string               `json:"custom_labels,omitempty"`
+	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
+	HealthCheckEnabled     *bool                 `json:"health_check_enabled,omitempty"`
+	HealthCheckPath        *string               `json:"health_check_path,omitempty"`
+	HealthCheckPort        *string               `json:"health_check_port,omitempty"`
+	HealthCheckMethod      *string               `json:"health_check_method,omitempty"`
+	LimitsCPUs             *string               `json:"limits_cpus,omitempty"`
+	LimitsMemory           *string               `json:"limits_memory,omitempty"`
+	Tags                   []string              `json:"tags,omitempty"`
 }
 
 // ApplicationCreateDockerfileRequest for POST /applications/dockerfile

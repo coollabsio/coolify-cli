@@ -1133,6 +1133,74 @@ func TestApplicationService_CreatePublic(t *testing.T) {
 	assert.Equal(t, "My App", result.Name)
 }
 
+func TestApplicationService_CreatePublic_SendsDockerComposeDomains(t *testing.T) {
+	domains := []models.DockerComposeDomain{
+		{Name: "litellm", Domain: "https://litellm.example.com"},
+		{Name: "admin", Domain: "https://admin.example.com,https://admin2.example.com"},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/public", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		items, ok := body["docker_compose_domains"].([]any)
+		require.True(t, ok)
+		require.Len(t, items, 2)
+		assert.Equal(t, "litellm", items[0].(map[string]any)["name"])
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"uuid":"new-app-uuid","name":"Compose App"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+	req := &models.ApplicationCreatePublicRequest{
+		ProjectUUID:          "proj-uuid",
+		ServerUUID:           "server-uuid",
+		GitRepository:        "https://github.com/user/repo",
+		GitBranch:            "main",
+		BuildPack:            "dockercompose",
+		PortsExposes:         "4000",
+		DockerComposeDomains: domains,
+	}
+
+	_, err := svc.CreatePublic(context.Background(), req)
+	require.NoError(t, err)
+}
+
+func TestApplicationService_Update_SendsDockerComposeDomains(t *testing.T) {
+	domains := []models.DockerComposeDomain{
+		{Name: "litellm", Domain: "https://litellm.example.com"},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid", r.URL.Path)
+		assert.Equal(t, http.MethodPatch, r.Method)
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.NotContains(t, body, "domains")
+		items, ok := body["docker_compose_domains"].([]any)
+		require.True(t, ok)
+		require.Len(t, items, 1)
+		assert.Equal(t, "https://litellm.example.com", items[0].(map[string]any)["domain"])
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"uuid":"app-uuid","name":"Compose App"}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+
+	_, err := svc.Update(context.Background(), "app-uuid", models.ApplicationUpdateRequest{
+		DockerComposeDomains: domains,
+	})
+	require.NoError(t, err)
+}
+
 func TestApplicationService_CreatePublic_Error(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
