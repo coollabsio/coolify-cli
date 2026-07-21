@@ -630,7 +630,7 @@ func TestApplicationService_Logs(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false)
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "")
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Contains(t, result.Logs, "Application started")
@@ -653,7 +653,7 @@ func TestApplicationService_Logs_WithLines(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 50, false)
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 50, false, "")
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -668,10 +668,27 @@ func TestApplicationService_Logs_WithLinesAndTimestamps(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 25, true)
+	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 25, true, "")
 
 	require.NoError(t, err)
 	assert.Equal(t, "timestamped", result.Logs)
+}
+
+func TestApplicationService_Logs_WithServiceName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/logs", r.URL.Path)
+		assert.Equal(t, "web", r.URL.Query().Get("service_name"))
+		assert.Equal(t, "50", r.URL.Query().Get("lines"))
+		assert.Equal(t, "true", r.URL.Query().Get("show_timestamps"))
+		_ = json.NewEncoder(w).Encode(models.ApplicationLogsResponse{Logs: "web service logs"})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 50, true, "web")
+
+	require.NoError(t, err)
+	assert.Equal(t, "web service logs", result.Logs)
 }
 
 func TestApplicationService_Move(t *testing.T) {
@@ -710,7 +727,7 @@ func TestApplicationService_Logs_Error(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false)
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "")
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get logs for application")

@@ -116,8 +116,10 @@ func (s *ApplicationService) Restart(ctx context.Context, uuid string) (*models.
 	return &resp, nil
 }
 
-// Logs retrieves logs for an application
-func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool) (*models.ApplicationLogsResponse, error) {
+// Logs retrieves logs for an application.
+// serviceName selects a docker-compose service container (API query service_name).
+// Empty serviceName keeps legacy behavior (first/only container).
+func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool, serviceName string) (*models.ApplicationLogsResponse, error) {
 	endpoint := fmt.Sprintf("applications/%s/logs", uuid)
 	query := url.Values{}
 	if lines > 0 {
@@ -125,6 +127,9 @@ func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, s
 	}
 	if showTimestamps {
 		query.Set("show_timestamps", strconv.FormatBool(showTimestamps))
+	}
+	if serviceName != "" {
+		query.Set("service_name", serviceName)
 	}
 	if encodedQuery := query.Encode(); encodedQuery != "" {
 		endpoint += "?" + encodedQuery

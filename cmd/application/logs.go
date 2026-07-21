@@ -18,8 +18,12 @@ func NewLogsCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs <uuid>",
 		Short: "Get application logs",
-		Long:  `Retrieve logs for an application. Use --follow to continuously stream new logs.`,
-		Args:  cli.ExactArgs(1, "<uuid>"),
+		Long: `Retrieve logs for an application. Use --follow to continuously stream new logs.
+
+For Docker Compose applications with multiple services, pass --service <name>
+(the compose service key, e.g. web or db) to select which container's logs to return.
+Without --service, the API returns logs from the first running container.`,
+		Args: cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			uuid := args[0]
@@ -32,10 +36,11 @@ func NewLogsCommand() *cobra.Command {
 			lines, _ := cmd.Flags().GetInt("lines")
 			follow, _ := cmd.Flags().GetBool("follow")
 			showTimestamps, _ := cmd.Flags().GetBool("show-timestamps")
+			serviceName, _ := cmd.Flags().GetString("service")
 			appSvc := service.NewApplicationService(client)
 
 			if !follow {
-				resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
+				resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
 				if err != nil {
 					return fmt.Errorf("failed to get logs: %w", err)
 				}
@@ -51,7 +56,7 @@ func NewLogsCommand() *cobra.Command {
 
 			lastLogs := ""
 
-			resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
+			resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
 			if err != nil {
 				return fmt.Errorf("failed to get logs: %w", err)
 			}
@@ -64,7 +69,7 @@ func NewLogsCommand() *cobra.Command {
 					fmt.Println("\nStopping log follow...")
 					return nil
 				case <-ticker.C:
-					resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps)
+					resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
 					if err != nil {
 						continue
 					}
@@ -84,5 +89,6 @@ func NewLogsCommand() *cobra.Command {
 	cmd.Flags().IntP("lines", "n", 100, "Number of log lines to retrieve")
 	cmd.Flags().BoolP("follow", "f", false, "Follow log output (like tail -f)")
 	cmd.Flags().Bool("show-timestamps", false, "Show timestamps in log output")
+	cmd.Flags().String("service", "", "Docker Compose service name (selects one container in multi-service apps)")
 	return cmd
 }

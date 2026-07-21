@@ -167,6 +167,7 @@ Commands can use `server` or `servers` interchangeably.
   - `-f, --follow` - Follow log output (like tail -f)
   - `-n, --lines <n>` - Number of log lines to retrieve (default: 100)
   - `--show-timestamps` - Include timestamps in logs
+  - `--service <name>` - Docker Compose service name (select one container in multi-service compose apps)
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
 - Git-backed application create variants (`public`, `github`, and `deploy-key`) and `app update` support repeatable `--compose-domain <service>=<url>[,<url>]` flags for Docker Compose routing. On update, the supplied entries replace the existing mapping.
@@ -556,6 +557,9 @@ coolify app restart <uuid>
 
 # View application logs
 coolify app logs <uuid>
+
+# View logs for one service in a Docker Compose application
+coolify app logs <uuid> --service web
 
 # Environment variables
 coolify app env list <uuid>
