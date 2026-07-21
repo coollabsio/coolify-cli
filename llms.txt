@@ -88,6 +88,7 @@ coolify app start <uuid>
 coolify app stop <uuid>
 coolify app restart <uuid>
 coolify app logs <uuid> --show-timestamps
+coolify app logs <uuid> --service web --follow
 coolify app move <uuid> --environment-uuid <uuid>
 coolify app tag add <uuid> production
 coolify app deployments list <app-uuid>

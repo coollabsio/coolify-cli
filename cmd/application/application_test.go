@@ -28,6 +28,7 @@ func TestNewAppCommand_RegistersMoveAndTagCommands(t *testing.T) {
 
 func TestNewApplicationCommands_ExposeParityFlags(t *testing.T) {
 	assert.NotNil(t, NewLogsCommand().Flags().Lookup("show-timestamps"))
+	assert.NotNil(t, NewLogsCommand().Flags().Lookup("service"))
 	assert.NotNil(t, NewMoveCommand().Flags().Lookup("environment-uuid"))
 	assert.NotNil(t, NewUpdateCommand().Flags().Lookup("compose-domain"))
 

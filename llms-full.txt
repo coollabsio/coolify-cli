@@ -1543,7 +1543,7 @@ Description: List all applications in Coolify.
 Parameters: (None)
 
 Command: coolify app logs <uuid>
-Description: Retrieve logs for an application. Use --follow to continuously stream new logs.
+Description: Get application logs
 Parameters:
   - name: --follow (-f)
     type: boolean
@@ -1555,6 +1555,10 @@ Parameters:
     description: Number of log lines to retrieve
     required: false
     default: 100
+  - name: --service
+    type: string
+    description: Docker Compose service name (selects one container in multi-service apps)
+    required: false
   - name: --show-timestamps
     type: boolean
     description: Show timestamps in log output
