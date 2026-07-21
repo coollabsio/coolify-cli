@@ -29,6 +29,9 @@ func NewServiceCommand() *cobra.Command {
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewLogsCommand())
 	cmd.AddCommand(NewMoveCommand())
+	cmd.AddCommand(NewCloneCommand())
+	cmd.AddCommand(NewExecuteTaskCommand())
+	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
 	cmd.AddCommand(serviceapplication.NewCommand())
 	cmd.AddCommand(servicedatabase.NewCommand())
@@ -57,6 +60,9 @@ func NewServiceCommand() *cobra.Command {
 	storageCmd.AddCommand(storage.NewCreateCommand())
 	storageCmd.AddCommand(storage.NewUpdateCommand())
 	storageCmd.AddCommand(storage.NewDeleteCommand())
+	storageCmd.AddCommand(storage.NewSetBackupScheduleCommand())
+	storageCmd.AddCommand(storage.NewDeleteBackupScheduleCommand())
+	storageCmd.AddCommand(storage.NewRunBackupCommand())
 	cmd.AddCommand(storageCmd)
 
 	return cmd

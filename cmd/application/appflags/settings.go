@@ -24,6 +24,17 @@ func BindSettingsFlags(cmd *cobra.Command) {
 	flags.Bool("is-stripprefix-enabled", false, "Enable path prefix stripping")
 	flags.Int("stop-grace-period", 0, "Container stop grace period in seconds")
 	flags.Bool("use-build-secrets", false, "Use Docker Build Secrets for build-time variables")
+	// Advanced settings exposed via API parity
+	flags.Bool("is-log-drain-enabled", false, "Enable application log drain")
+	flags.Bool("is-gpu-enabled", false, "Enable GPU")
+	flags.String("gpu-driver", "", "GPU driver")
+	flags.String("gpu-count", "", "GPU count")
+	flags.String("gpu-device-ids", "", "GPU device IDs")
+	flags.String("gpu-options", "", "GPU options")
+	flags.Bool("is-consistent-container-name-enabled", false, "Use consistent container names")
+	flags.String("custom-internal-name", "", "Custom internal hostname")
+	flags.String("preview-url-template", "", "Preview URL template")
+	flags.Int("max-restart-count", 0, "Maximum container restart count")
 }
 
 // ApplySettingsFlags copies explicitly changed flags to an API request.
@@ -59,7 +70,39 @@ func ApplySettingsFlags(cmd *cobra.Command, settings *models.ApplicationSettings
 	setBool("is-stripprefix-enabled", &settings.IsStripPrefixEnabled)
 	setInt("stop-grace-period", &settings.StopGracePeriod)
 	setBool("use-build-secrets", &settings.UseBuildSecrets)
+	setBool("is-log-drain-enabled", &settings.IsLogDrainEnabled)
+	setBool("is-gpu-enabled", &settings.IsGPUEnabled)
+	setBool("is-consistent-container-name-enabled", &settings.IsConsistentContainerNameEnabled)
 
+	setString := func(flag string, target **string) {
+		if cmd.Flags().Changed(flag) {
+			value, _ := cmd.Flags().GetString(flag)
+			*target = &value
+			changed = true
+		}
+	}
+	setString("gpu-driver", &settings.GPUDriver)
+	setString("gpu-count", &settings.GPUCount)
+	setString("gpu-device-ids", &settings.GPUDeviceIDs)
+	setString("gpu-options", &settings.GPUOptions)
+	setString("custom-internal-name", &settings.CustomInternalName)
+
+	return changed
+}
+
+// ApplyAdvancedAppFlags applies top-level application fields not nested under settings.
+func ApplyAdvancedAppFlags(cmd *cobra.Command, req *models.ApplicationUpdateRequest) bool {
+	changed := false
+	if cmd.Flags().Changed("preview-url-template") {
+		v, _ := cmd.Flags().GetString("preview-url-template")
+		req.PreviewURLTemplate = &v
+		changed = true
+	}
+	if cmd.Flags().Changed("max-restart-count") {
+		v, _ := cmd.Flags().GetInt("max-restart-count")
+		req.MaxRestartCount = &v
+		changed = true
+	}
 	return changed
 }
 

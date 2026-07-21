@@ -31,6 +31,11 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(NewLogsCommand())
 	cmd.AddCommand(NewDeploymentsCommand())
 	cmd.AddCommand(NewMoveCommand())
+	cmd.AddCommand(NewCloneCommand())
+	cmd.AddCommand(NewRollbackCommand())
+	cmd.AddCommand(NewDestinationsCommand())
+	cmd.AddCommand(NewExecuteTaskCommand())
+	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
 
 	// Add env subcommand with its children
@@ -59,6 +64,9 @@ func NewAppCommand() *cobra.Command {
 	storageCmd.AddCommand(storage.NewCreateCommand())
 	storageCmd.AddCommand(storage.NewUpdateCommand())
 	storageCmd.AddCommand(storage.NewDeleteCommand())
+	storageCmd.AddCommand(storage.NewSetBackupScheduleCommand())
+	storageCmd.AddCommand(storage.NewDeleteBackupScheduleCommand())
+	storageCmd.AddCommand(storage.NewRunBackupCommand())
 	cmd.AddCommand(storageCmd)
 
 	// Add previews subcommand with its children

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/coollabsio/coolify-cli/cmd/application"
+	"github.com/coollabsio/coolify-cli/cmd/cloudinit"
 	"github.com/coollabsio/coolify-cli/cmd/cloudtoken"
 	"github.com/coollabsio/coolify-cli/cmd/completion"
 	configcmd "github.com/coollabsio/coolify-cli/cmd/config"
@@ -20,11 +21,14 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/firewall"
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	initcmd "github.com/coollabsio/coolify-cli/cmd/init"
+	"github.com/coollabsio/coolify-cli/cmd/notification"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
 	"github.com/coollabsio/coolify-cli/cmd/project"
 	"github.com/coollabsio/coolify-cli/cmd/resources"
+	"github.com/coollabsio/coolify-cli/cmd/s3"
 	"github.com/coollabsio/coolify-cli/cmd/server"
 	"github.com/coollabsio/coolify-cli/cmd/service"
+	"github.com/coollabsio/coolify-cli/cmd/sharedenv"
 	"github.com/coollabsio/coolify-cli/cmd/tag"
 	"github.com/coollabsio/coolify-cli/cmd/teams"
 	"github.com/coollabsio/coolify-cli/cmd/update"
@@ -91,6 +95,7 @@ func init() {
 
 	// Register all subcommands
 	rootCmd.AddCommand(application.NewAppCommand())
+	rootCmd.AddCommand(cloudinit.NewCloudInitCommand())
 	rootCmd.AddCommand(cloudtoken.NewCloudTokenCommand())
 	rootCmd.AddCommand(completion.NewCompletionsCommand())
 	rootCmd.AddCommand(configcmd.NewConfigCommand())
@@ -101,11 +106,14 @@ func init() {
 	rootCmd.AddCommand(firewall.NewFirewallCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(initcmd.NewInitCommand())
+	rootCmd.AddCommand(notification.NewNotificationCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())
 	rootCmd.AddCommand(project.NewProjectCommand())
 	rootCmd.AddCommand(resources.NewResourceCommand())
+	rootCmd.AddCommand(s3.NewS3Command())
 	rootCmd.AddCommand(server.NewServerCommand())
 	rootCmd.AddCommand(service.NewServiceCommand())
+	rootCmd.AddCommand(sharedenv.NewSharedEnvCommand())
 	rootCmd.AddCommand(teams.NewTeamsCommand())
 	rootCmd.AddCommand(tag.NewTagCommand())
 	rootCmd.AddCommand(update.NewUpdateCommand())

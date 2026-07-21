@@ -71,6 +71,11 @@ func (c *Client) Patch(ctx context.Context, path string, body, result interface{
 	return c.doRequest(ctx, "PATCH", path, body, result)
 }
 
+// Put makes a PUT request to the API
+func (c *Client) Put(ctx context.Context, path string, body, result interface{}) error {
+	return c.doRequest(ctx, "PUT", path, body, result)
+}
+
 // GetVersion fetches the API version
 func (c *Client) GetVersion(ctx context.Context) (string, error) {
 	var version string

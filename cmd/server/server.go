@@ -24,6 +24,11 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewHetznerCommand())
 	cmd.AddCommand(NewDigitalOceanCommand())
 	cmd.AddCommand(NewVultrCommand())
+	cmd.AddCommand(NewDockerCleanupCommand())
+	cmd.AddCommand(NewLogDrainsCommand())
+	cmd.AddCommand(NewSentinelCommand())
+	cmd.AddCommand(NewCloudflareTunnelCommand())
+	cmd.AddCommand(NewProxyCommand())
 
 	return cmd
 }

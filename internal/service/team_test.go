@@ -151,8 +151,8 @@ func TestTeamService_Current(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/api/v1/teams/current" {
-					t.Errorf("Expected path /api/v1/teams/current, got %s", r.URL.Path)
+				if r.URL.Path != "/api/v1/team" {
+					t.Errorf("Expected path /api/v1/team, got %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.response))
@@ -258,8 +258,8 @@ func TestTeamService_CurrentMembers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/api/v1/teams/current/members" {
-					t.Errorf("Expected path /api/v1/teams/current/members, got %s", r.URL.Path)
+				if r.URL.Path != "/api/v1/team/members" {
+					t.Errorf("Expected path /api/v1/team/members, got %s", r.URL.Path)
 				}
 				w.WriteHeader(tt.statusCode)
 				_, _ = w.Write([]byte(tt.response))

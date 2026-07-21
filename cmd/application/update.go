@@ -134,6 +134,9 @@ Example:
 			if appflags.ApplySettingsFlags(cmd, &req.ApplicationSettingsRequest) {
 				hasUpdates = true
 			}
+			if appflags.ApplyAdvancedAppFlags(cmd, &req) {
+				hasUpdates = true
+			}
 
 			if !hasUpdates {
 				return fmt.Errorf("no fields to update. Use --help to see available flags")

@@ -38,12 +38,12 @@ func (s *TeamService) Get(ctx context.Context, id string) (*models.Team, error) 
 	return &team, nil
 }
 
-// Current retrieves the currently authenticated team
+// Current retrieves the team bound to the API token
 func (s *TeamService) Current(ctx context.Context) (*models.Team, error) {
 	var team models.Team
-	err := s.client.Get(ctx, "teams/current", &team)
+	err := s.client.Get(ctx, "team", &team)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current team: %w", err)
+		return nil, fmt.Errorf("failed to get token team: %w", err)
 	}
 	return &team, nil
 }
@@ -58,12 +58,12 @@ func (s *TeamService) ListMembers(ctx context.Context, teamID string) ([]models.
 	return members, nil
 }
 
-// CurrentMembers retrieves members of the currently authenticated team
+// CurrentMembers retrieves members of the team bound to the API token
 func (s *TeamService) CurrentMembers(ctx context.Context) ([]models.TeamMember, error) {
 	var members []models.TeamMember
-	err := s.client.Get(ctx, "teams/current/members", &members)
+	err := s.client.Get(ctx, "team/members", &members)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list current team members: %w", err)
+		return nil, fmt.Errorf("failed to list token team members: %w", err)
 	}
 	return members, nil
 }

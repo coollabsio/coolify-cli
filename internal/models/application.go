@@ -45,21 +45,29 @@ type ApplicationSettings struct {
 
 // ApplicationSettingsRequest contains settings added to application create and update requests.
 type ApplicationSettingsRequest struct {
-	DisableBuildCache             *bool `json:"disable_build_cache,omitempty"`
-	DockerImagesToKeep            *int  `json:"docker_images_to_keep,omitempty"`
-	IncludeSourceCommitInBuild    *bool `json:"include_source_commit_in_build,omitempty"`
-	InjectBuildArgsToDockerfile   *bool `json:"inject_build_args_to_dockerfile,omitempty"`
-	IsEnvSortingEnabled           *bool `json:"is_env_sorting_enabled,omitempty"`
-	IsGitLFSEnabled               *bool `json:"is_git_lfs_enabled,omitempty"`
-	IsGitShallowCloneEnabled      *bool `json:"is_git_shallow_clone_enabled,omitempty"`
-	IsGitSubmodulesEnabled        *bool `json:"is_git_submodules_enabled,omitempty"`
-	IsGzipEnabled                 *bool `json:"is_gzip_enabled,omitempty"`
-	IsPRDeploymentsPublicEnabled  *bool `json:"is_pr_deployments_public_enabled,omitempty"`
-	IsPreviewDeploymentsEnabled   *bool `json:"is_preview_deployments_enabled,omitempty"`
-	IsRawComposeDeploymentEnabled *bool `json:"is_raw_compose_deployment_enabled,omitempty"`
-	IsStripPrefixEnabled          *bool `json:"is_stripprefix_enabled,omitempty"`
-	StopGracePeriod               *int  `json:"stop_grace_period,omitempty"`
-	UseBuildSecrets               *bool `json:"use_build_secrets,omitempty"`
+	DisableBuildCache                *bool   `json:"disable_build_cache,omitempty"`
+	DockerImagesToKeep               *int    `json:"docker_images_to_keep,omitempty"`
+	IncludeSourceCommitInBuild       *bool   `json:"include_source_commit_in_build,omitempty"`
+	InjectBuildArgsToDockerfile      *bool   `json:"inject_build_args_to_dockerfile,omitempty"`
+	IsEnvSortingEnabled              *bool   `json:"is_env_sorting_enabled,omitempty"`
+	IsGitLFSEnabled                  *bool   `json:"is_git_lfs_enabled,omitempty"`
+	IsGitShallowCloneEnabled         *bool   `json:"is_git_shallow_clone_enabled,omitempty"`
+	IsGitSubmodulesEnabled           *bool   `json:"is_git_submodules_enabled,omitempty"`
+	IsGzipEnabled                    *bool   `json:"is_gzip_enabled,omitempty"`
+	IsPRDeploymentsPublicEnabled     *bool   `json:"is_pr_deployments_public_enabled,omitempty"`
+	IsPreviewDeploymentsEnabled      *bool   `json:"is_preview_deployments_enabled,omitempty"`
+	IsRawComposeDeploymentEnabled    *bool   `json:"is_raw_compose_deployment_enabled,omitempty"`
+	IsStripPrefixEnabled             *bool   `json:"is_stripprefix_enabled,omitempty"`
+	StopGracePeriod                  *int    `json:"stop_grace_period,omitempty"`
+	UseBuildSecrets                  *bool   `json:"use_build_secrets,omitempty"`
+	IsLogDrainEnabled                *bool   `json:"is_log_drain_enabled,omitempty"`
+	IsGPUEnabled                     *bool   `json:"is_gpu_enabled,omitempty"`
+	GPUDriver                        *string `json:"gpu_driver,omitempty"`
+	GPUCount                         *string `json:"gpu_count,omitempty"`
+	GPUDeviceIDs                     *string `json:"gpu_device_ids,omitempty"`
+	GPUOptions                       *string `json:"gpu_options,omitempty"`
+	IsConsistentContainerNameEnabled *bool   `json:"is_consistent_container_name_enabled,omitempty"`
+	CustomInternalName               *string `json:"custom_internal_name,omitempty"`
 }
 
 // Application represents a Coolify application
@@ -188,6 +196,8 @@ type ApplicationUpdateRequest struct {
 	BuildPack            *string               `json:"build_pack,omitempty"`
 	PortsExposes         *string               `json:"ports_exposes,omitempty"`
 	PortsMappings        *string               `json:"ports_mappings,omitempty"`
+	PreviewURLTemplate   *string               `json:"preview_url_template,omitempty"`
+	MaxRestartCount      *int                  `json:"max_restart_count,omitempty"`
 
 	// Docker configuration
 	Dockerfile              *string `json:"dockerfile,omitempty"`

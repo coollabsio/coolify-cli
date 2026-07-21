@@ -13,7 +13,7 @@ import (
 
 func NewDestinationCommand() *cobra.Command {
 	cmd := &cobra.Command{Use: "destination", Aliases: []string{"destinations"}, Short: "Manage Docker network destinations"}
-	cmd.AddCommand(newListCommand(), newGetCommand(), newCreateCommand(), newDeleteCommand())
+	cmd.AddCommand(newListCommand(), newGetCommand(), newCreateCommand(), newUpdateCommand(), newDeleteCommand())
 	return cmd
 }
 
@@ -87,6 +87,26 @@ func newCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&name, "name", "", "Destination name (defaults on the server)")
 	cmd.Flags().StringVar(&network, "network", "", "Docker network name (required)")
 	cmd.Flags().StringVar(&destinationType, "type", "", "Destination type: standalone or swarm")
+	return cmd
+}
+
+func newUpdateCommand() *cobra.Command {
+	var name string
+	cmd := &cobra.Command{Use: "update <uuid>", Args: cli.ExactArgs(1, "<uuid>"), Short: "Rename a destination", RunE: func(cmd *cobra.Command, args []string) error {
+		if name == "" {
+			return fmt.Errorf("--name is required")
+		}
+		client, err := cli.GetAPIClient(cmd)
+		if err != nil {
+			return fmt.Errorf("failed to get API client: %w", err)
+		}
+		destination, err := service.NewDestinationService(client).Update(cmd.Context(), args[0], models.DestinationUpdateRequest{Name: name})
+		if err != nil {
+			return fmt.Errorf("failed to update destination: %w", err)
+		}
+		return print(cmd, destination)
+	}}
+	cmd.Flags().StringVar(&name, "name", "", "New destination name")
 	return cmd
 }
 
