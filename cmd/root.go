@@ -20,6 +20,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/destination"
 	"github.com/coollabsio/coolify-cli/cmd/firewall"
 	"github.com/coollabsio/coolify-cli/cmd/github"
+	"github.com/coollabsio/coolify-cli/cmd/gitlab"
 	initcmd "github.com/coollabsio/coolify-cli/cmd/init"
 	"github.com/coollabsio/coolify-cli/cmd/notification"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
@@ -105,6 +106,7 @@ func init() {
 	rootCmd.AddCommand(destination.NewDestinationCommand())
 	rootCmd.AddCommand(firewall.NewFirewallCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
+	rootCmd.AddCommand(gitlab.NewGitLabCommand())
 	rootCmd.AddCommand(initcmd.NewInitCommand())
 	rootCmd.AddCommand(notification.NewNotificationCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())

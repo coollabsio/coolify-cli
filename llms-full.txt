@@ -50,12 +50,14 @@ All commands support `--format` flag:
 ## Command Aliases
 
 Aliases are derived from the CLI command tree:
+- `coolify app destinations` | `coolify app destination`
 - `coolify app env` | `coolify app envs` | `coolify app environment`
 - `coolify app previews` | `coolify app preview`
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
 - `coolify app tag` | `coolify app tags`
 - `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
+- `coolify cloud-init` | `coolify cloudinit` | `coolify cloud-init-script`
 - `coolify cloud-token` | `coolify cloud-tokens`
 - `coolify database storage` | `coolify database storages`
 - `coolify database tag` | `coolify database tags`
@@ -63,9 +65,14 @@ Aliases are derived from the CLI command tree:
 - `coolify destination delete` | `coolify destination remove`
 - `coolify destination` | `coolify destinations`
 - `coolify github` | `coolify gh` | `coolify github-app` | `coolify github-apps`
+- `coolify gitlab` | `coolify gl` | `coolify gitlab-app` | `coolify gitlab-apps`
+- `coolify notification` | `coolify notifications`
 - `coolify private-key` | `coolify private-keys` | `coolify key` | `coolify keys`
 - `coolify project` | `coolify projects`
 - `coolify resource` | `coolify resources`
+- `coolify s3 delete` | `coolify s3 remove`
+- `coolify s3` | `coolify s3-storage` | `coolify s3-storages`
+- `coolify server cloudflare-tunnel` | `coolify server cf-tunnel`
 - `coolify server digitalocean` | `coolify server digital-ocean` | `coolify server do`
 - `coolify server domains` | `coolify server domain`
 - `coolify server` | `coolify servers`
@@ -74,7 +81,10 @@ Aliases are derived from the CLI command tree:
 - `coolify service storage` | `coolify service storages`
 - `coolify service tag` | `coolify service tags`
 - `coolify service` | `coolify services` | `coolify svc`
+- `coolify shared-env environment` | `coolify shared-env env`
+- `coolify shared-env` | `coolify shared-envs` | `coolify sharedenv`
 - `coolify tag` | `coolify tags`
+- `coolify teams current` | `coolify teams me`
 - `coolify teams members` | `coolify teams member`
 - `coolify teams` | `coolify team`
 
@@ -193,6 +203,23 @@ Parameters:
     description: Token for authentication (override context token)
     required: false
 
+Command: coolify app clone <uuid>
+Description: Clone an application to a destination
+Parameters:
+  - name: --clone-volumes
+    type: boolean
+    description: Clone volume data
+    required: false
+    default: false
+  - name: --destination
+    type: string
+    description: Destination UUID
+    required: false
+  - name: --name
+    type: string
+    description: Optional new name
+    required: false
+
 Command: coolify app create deploy-key
 Description: Create an application from a private repository using SSH deploy key
 Parameters:
@@ -211,6 +238,10 @@ Parameters:
   - name: --compose-domain
     type: stringArray
     description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
     required: false
   - name: --description
     type: string
@@ -258,6 +289,22 @@ Parameters:
     type: string
     description: Git repository SSH URL, e.g., 'git@github.com:owner/repo.git' (required)
     required: true
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health checks
@@ -286,6 +333,11 @@ Parameters:
     description: Deploy immediately after creation
     required: false
     default: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -306,9 +358,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -339,6 +401,11 @@ Parameters:
     type: string
     description: Memory limit
     required: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -350,6 +417,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings (host:container)
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --private-key-uuid
     type: string
@@ -393,6 +464,10 @@ Parameters:
 Command: coolify app create dockerfile
 Description: Create an application from a custom Dockerfile
 Parameters:
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -431,6 +506,22 @@ Parameters:
     type: string
     description: Environment UUID
     required: false
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health checks
@@ -455,6 +546,11 @@ Parameters:
     description: Deploy immediately after creation
     required: false
     default: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -475,9 +571,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -508,6 +614,11 @@ Parameters:
     type: string
     description: Memory limit
     required: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -519,6 +630,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings (host:container)
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --project-uuid
     type: string
@@ -550,6 +665,10 @@ Parameters:
 Command: coolify app create dockerimage
 Description: Create an application from a pre-built Docker image
 Parameters:
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -592,6 +711,22 @@ Parameters:
     type: string
     description: Environment UUID
     required: false
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health checks
@@ -616,6 +751,11 @@ Parameters:
     description: Deploy immediately after creation
     required: false
     default: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -636,9 +776,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -669,6 +819,11 @@ Parameters:
     type: string
     description: Memory limit
     required: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -680,6 +835,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings (host:container)
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --project-uuid
     type: string
@@ -726,6 +885,10 @@ Parameters:
   - name: --compose-domain
     type: stringArray
     description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
     required: false
   - name: --description
     type: string
@@ -777,6 +940,22 @@ Parameters:
     type: string
     description: GitHub App UUID (required)
     required: true
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health checks
@@ -805,6 +984,11 @@ Parameters:
     description: Deploy immediately after creation
     required: false
     default: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -825,9 +1009,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -858,6 +1052,11 @@ Parameters:
     type: string
     description: Memory limit
     required: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -869,6 +1068,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings (host:container)
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --project-uuid
     type: string
@@ -924,6 +1127,10 @@ Parameters:
     type: stringArray
     description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
     required: false
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -970,6 +1177,22 @@ Parameters:
     type: string
     description: Git repository URL (required)
     required: true
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health checks
@@ -998,6 +1221,11 @@ Parameters:
     description: Deploy immediately after creation
     required: false
     default: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -1018,9 +1246,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -1051,6 +1289,11 @@ Parameters:
     type: string
     description: Memory limit
     required: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -1062,6 +1305,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings (host:container)
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --project-uuid
     type: string
@@ -1129,6 +1376,22 @@ Parameters:
     description: Number of log lines to display (0 = all)
     required: false
     default: 0
+
+Command: coolify app destinations add <uuid>
+Description: Attach a destination
+Parameters:
+  - name: --destination
+    type: string
+    description: Destination UUID
+    required: false
+
+Command: coolify app destinations list <uuid>
+Description: List application destinations
+Parameters: (None)
+
+Command: coolify app destinations remove <uuid> <destination_uuid>
+Description: Detach a destination
+Parameters: (None)
 
 Command: coolify app env create <app_uuid>
 Description: Create a new environment variable for a specific application. Use --key and --value flags to specify the variable.
@@ -1267,6 +1530,10 @@ Parameters:
     description: New environment variable value (required)
     required: true
 
+Command: coolify app execute-task <uuid> <task_uuid>
+Description: Execute a scheduled task now
+Parameters: (None)
+
 Command: coolify app get <uuid>
 Description: Retrieve detailed information about a specific application.
 Parameters: (None)
@@ -1313,6 +1580,22 @@ Parameters:
 
 Command: coolify app restart <uuid>
 Description: Restart a running application.
+Parameters: (None)
+
+Command: coolify app rollback images <uuid>
+Description: List rollback images
+Parameters: (None)
+
+Command: coolify app rollback run <uuid>
+Description: Rollback application to a commit
+Parameters:
+  - name: --commit
+    type: string
+    description: Git commit SHA
+    required: false
+
+Command: coolify app run-storage-backup <uuid> <storage_uuid>
+Description: Run volume backup schedule now
 Parameters: (None)
 
 Command: coolify app start <uuid>
@@ -1370,9 +1653,84 @@ Command: coolify app storage delete <app_uuid> <storage_uuid>
 Description: Delete a storage from an application
 Parameters: (None)
 
+Command: coolify app storage delete-backup <app_uuid> <storage_uuid>
+Description: Delete storage volume backup schedule
+Parameters: (None)
+
 Command: coolify app storage list <app_uuid>
 Description: List all persistent volumes and file storages for a specific application.
 Parameters: (None)
+
+Command: coolify app storage run-backup <app_uuid> <storage_uuid>
+Description: Run storage volume backup now
+Parameters: (None)
+
+Command: coolify app storage set-backup <app_uuid> <storage_uuid>
+Description: Create or replace storage volume backup schedule
+Parameters:
+  - name: --disable-local-backup
+    type: boolean
+    description: Disable local backup retention
+    required: false
+    default: false
+  - name: --enabled
+    type: boolean
+    description: Enable the schedule
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron frequency (required)
+    required: true
+  - name: --retention-amount-locally
+    type: integer
+    description: Local retention count
+    required: false
+    default: 7
+  - name: --retention-amount-s3
+    type: integer
+    description: S3 retention count
+    required: false
+    default: 7
+  - name: --retention-days-locally
+    type: integer
+    description: Local retention days
+    required: false
+    default: 0
+  - name: --retention-days-s3
+    type: integer
+    description: S3 retention days
+    required: false
+    default: 0
+  - name: --retention-max-storage-locally
+    type: float64
+    description: Local max storage
+    required: false
+    default: 0
+  - name: --retention-max-storage-s3
+    type: float64
+    description: S3 max storage
+    required: false
+    default: 0
+  - name: --s3-storage-uuid
+    type: string
+    description: S3 storage UUID when --save-s3 is set
+    required: false
+  - name: --save-s3
+    type: boolean
+    description: Also save backups to S3
+    required: false
+    default: false
+  - name: --stop-during-backup
+    type: boolean
+    description: Stop resource during backup
+    required: false
+    default: false
+  - name: --timeout
+    type: integer
+    description: Backup timeout seconds
+    required: false
+    default: 3600
 
 Command: coolify app storage update <app_uuid>
 Description: Update a storage for an application
@@ -1439,6 +1797,10 @@ Parameters:
     type: stringArray
     description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
     required: false
+  - name: --custom-internal-name
+    type: string
+    description: Custom internal hostname
+    required: false
   - name: --description
     type: string
     description: Application description
@@ -1481,6 +1843,22 @@ Parameters:
     type: string
     description: Git repository URL
     required: false
+  - name: --gpu-count
+    type: string
+    description: GPU count
+    required: false
+  - name: --gpu-device-ids
+    type: string
+    description: GPU device IDs
+    required: false
+  - name: --gpu-driver
+    type: string
+    description: GPU driver
+    required: false
+  - name: --gpu-options
+    type: string
+    description: GPU options
+    required: false
   - name: --health-check-enabled
     type: boolean
     description: Enable health check
@@ -1504,6 +1882,11 @@ Parameters:
     type: string
     description: Install command
     required: false
+  - name: --is-consistent-container-name-enabled
+    type: boolean
+    description: Use consistent container names
+    required: false
+    default: false
   - name: --is-env-sorting-enabled
     type: boolean
     description: Sort environment variables
@@ -1524,9 +1907,19 @@ Parameters:
     description: Clone Git submodules
     required: false
     default: false
+  - name: --is-gpu-enabled
+    type: boolean
+    description: Enable GPU
+    required: false
+    default: false
   - name: --is-gzip-enabled
     type: boolean
     description: Enable gzip compression
+    required: false
+    default: false
+  - name: --is-log-drain-enabled
+    type: boolean
+    description: Enable application log drain
     required: false
     default: false
   - name: --is-pr-deployments-public-enabled
@@ -1549,6 +1942,11 @@ Parameters:
     description: Enable path prefix stripping
     required: false
     default: false
+  - name: --max-restart-count
+    type: integer
+    description: Maximum container restart count
+    required: false
+    default: 0
   - name: --name
     type: string
     description: Application name
@@ -1560,6 +1958,10 @@ Parameters:
   - name: --ports-mappings
     type: string
     description: Port mappings
+    required: false
+  - name: --preview-url-template
+    type: string
+    description: Preview URL template
     required: false
   - name: --publish-directory
     type: string
@@ -1579,6 +1981,50 @@ Parameters:
     description: Use Docker Build Secrets for build-time variables
     required: false
     default: false
+
+Command: coolify cloud-init create
+Description: Create a cloud-init script
+Parameters:
+  - name: --name
+    type: string
+    description: Script name
+    required: false
+  - name: --script
+    type: string
+    description: Script contents
+    required: false
+  - name: --script-file
+    type: string
+    description: Read script contents from file
+    required: false
+
+Command: coolify cloud-init delete <uuid>
+Description: Delete a cloud-init script
+Parameters: (None)
+
+Command: coolify cloud-init get <uuid>
+Description: Get a cloud-init script
+Parameters: (None)
+
+Command: coolify cloud-init list
+Description: List cloud-init scripts
+Parameters: (None)
+
+Command: coolify cloud-init update <uuid>
+Description: Update a cloud-init script
+Parameters:
+  - name: --name
+    type: string
+    description: Script name
+    required: false
+  - name: --script
+    type: string
+    description: Script contents
+    required: false
+  - name: --script-file
+    type: string
+    description: Read script contents from file
+    required: false
 
 Command: coolify cloud-token create
 Description: Create a cloud provider token
@@ -1849,6 +2295,23 @@ Parameters:
     description: Save backups to S3
     required: false
     default: false
+
+Command: coolify database clone <uuid>
+Description: Clone a database to a destination
+Parameters:
+  - name: --clone-volumes
+    type: boolean
+    description: Clone volume data
+    required: false
+    default: false
+  - name: --destination
+    type: string
+    description: Destination UUID
+    required: false
+  - name: --name
+    type: string
+    description: Optional new name
+    required: false
 
 Command: coolify database create <type>
 Description: Create a new database
@@ -2143,6 +2606,10 @@ Command: coolify database restart <uuid>
 Description: Restart a database by UUID.
 Parameters: (None)
 
+Command: coolify database run-storage-backup <uuid> <storage_uuid>
+Description: Run a volume backup schedule now
+Parameters: (None)
+
 Command: coolify database start <uuid>
 Description: Start a database by UUID.
 Parameters: (None)
@@ -2188,9 +2655,84 @@ Command: coolify database storage delete <db_uuid> <storage_uuid>
 Description: Delete a storage from a database
 Parameters: (None)
 
+Command: coolify database storage delete-backup <db_uuid> <storage_uuid>
+Description: Delete database storage volume backup schedule
+Parameters: (None)
+
 Command: coolify database storage list <db_uuid>
 Description: List all persistent volumes and file storages for a specific database.
 Parameters: (None)
+
+Command: coolify database storage run-backup <db_uuid> <storage_uuid>
+Description: Run database storage volume backup now
+Parameters: (None)
+
+Command: coolify database storage set-backup <db_uuid> <storage_uuid>
+Description: Create or replace database storage volume backup schedule
+Parameters:
+  - name: --disable-local-backup
+    type: boolean
+    description: Disable local backup retention
+    required: false
+    default: false
+  - name: --enabled
+    type: boolean
+    description: Enable the schedule
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron frequency (required)
+    required: true
+  - name: --retention-amount-locally
+    type: integer
+    description: Local retention count
+    required: false
+    default: 7
+  - name: --retention-amount-s3
+    type: integer
+    description: S3 retention count
+    required: false
+    default: 7
+  - name: --retention-days-locally
+    type: integer
+    description: Local retention days
+    required: false
+    default: 0
+  - name: --retention-days-s3
+    type: integer
+    description: S3 retention days
+    required: false
+    default: 0
+  - name: --retention-max-storage-locally
+    type: float64
+    description: Local max storage
+    required: false
+    default: 0
+  - name: --retention-max-storage-s3
+    type: float64
+    description: S3 max storage
+    required: false
+    default: 0
+  - name: --s3-storage-uuid
+    type: string
+    description: S3 storage UUID when --save-s3 is set
+    required: false
+  - name: --save-s3
+    type: boolean
+    description: Also save backups to S3
+    required: false
+    default: false
+  - name: --stop-during-backup
+    type: boolean
+    description: Stop resource during backup
+    required: false
+    default: false
+  - name: --timeout
+    type: integer
+    description: Backup timeout seconds
+    required: false
+    default: 3600
 
 Command: coolify database storage update <db_uuid>
 Description: Update a storage for a database
@@ -2381,6 +2923,14 @@ Parameters:
   - name: --server
     type: string
     description: Only destinations belonging to this server UUID
+    required: false
+
+Command: coolify destination update <uuid>
+Description: Rename a destination
+Parameters:
+  - name: --name
+    type: string
+    description: New destination name
     required: false
 
 Command: coolify firewall
@@ -2651,6 +3201,123 @@ Parameters:
     description: GitHub Webhook Secret
     required: false
 
+Command: coolify gitlab create
+Description: Create a GitLab App integration
+Parameters:
+  - name: --api-url
+    type: string
+    description: GitLab API URL (defaults to {html-url}/api/v4)
+    required: false
+  - name: --client-id
+    type: string
+    description: GitLab OAuth Application ID
+    required: false
+  - name: --client-secret
+    type: string
+    description: GitLab OAuth Application Secret
+    required: false
+  - name: --custom-port
+    type: integer
+    description: Custom SSH port (default: 22)
+    required: false
+    default: 0
+  - name: --custom-user
+    type: string
+    description: Custom SSH user (default: git)
+    required: false
+  - name: --group-name
+    type: string
+    description: Optional comma-separated group filter
+    required: false
+  - name: --html-url
+    type: string
+    description: GitLab instance URL (required, e.g. https://gitlab.com)
+    required: true
+  - name: --name
+    type: string
+    description: GitLab App name (required)
+    required: true
+  - name: --redirect-uri
+    type: string
+    description: OAuth redirect URI registered in GitLab
+    required: false
+  - name: --system-wide
+    type: boolean
+    description: Make this app system-wide (non-cloud instances only)
+    required: false
+    default: false
+  - name: --webhook-token
+    type: string
+    description: Webhook secret token (auto-generated when omitted)
+    required: false
+
+Command: coolify gitlab delete <app_id_or_uuid>
+Description: Delete a GitLab App integration. The app must not be used by any applications.
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify gitlab get <app_id_or_uuid>
+Description: Get detailed information about a specific GitLab App integration.
+Parameters: (None)
+
+Command: coolify gitlab list
+Description: List all GitLab App integrations configured in Coolify for the current team (includes system-wide sources).
+Parameters: (None)
+
+Command: coolify gitlab update <app_id_or_uuid>
+Description: Update an existing GitLab App integration. Provide the app ID or UUID and the fields you want to update.
+Parameters:
+  - name: --api-url
+    type: string
+    description: GitLab API URL
+    required: false
+  - name: --client-id
+    type: string
+    description: GitLab OAuth Application ID
+    required: false
+  - name: --client-secret
+    type: string
+    description: GitLab OAuth Application Secret
+    required: false
+  - name: --custom-port
+    type: integer
+    description: Custom SSH port
+    required: false
+    default: 0
+  - name: --custom-user
+    type: string
+    description: Custom SSH user
+    required: false
+  - name: --group-name
+    type: string
+    description: Optional comma-separated group filter
+    required: false
+  - name: --html-url
+    type: string
+    description: GitLab instance URL
+    required: false
+  - name: --name
+    type: string
+    description: GitLab App name
+    required: false
+  - name: --redirect-uri
+    type: string
+    description: OAuth redirect URI
+    required: false
+  - name: --system-wide
+    type: boolean
+    description: Is this app system-wide
+    required: false
+    default: false
+  - name: --webhook-token
+    type: string
+    description: Webhook secret token
+    required: false
+
 Command: coolify init
 Description: [ALPHA] Initialize WireGuard mesh for Coolify v5
 Parameters:
@@ -2828,6 +3495,18 @@ Parameters:
     required: false
     default: false
 
+Command: coolify notification get <channel>
+Description: Channels: email, discord, slack, telegram, pushover, webhook
+Parameters: (None)
+
+Command: coolify notification update <channel>
+Description: Pass settings as JSON via --json. Example: coolify notification update webhook --json '{"webhook_enabled":true}'
+Parameters:
+  - name: --json
+    type: string
+    description: JSON object of fields to update
+    required: false
+
 Command: coolify private-key add <key_name> <private_key_or_file>
 Description: Add a private key
 Parameters: (None)
@@ -2860,8 +3539,110 @@ Command: coolify project list
 Description: List all projects
 Parameters: (None)
 
+Command: coolify project update-environment <project_uuid> <environment>
+Description: Update a project environment name or description
+Parameters:
+  - name: --description
+    type: string
+    description: Environment description
+    required: false
+  - name: --name
+    type: string
+    description: Environment name
+    required: false
+
 Command: coolify resource list
 Description: List all resources
+Parameters: (None)
+
+Command: coolify s3 create
+Description: Create an S3 storage
+Parameters:
+  - name: --bucket
+    type: string
+    description: Bucket name
+    required: false
+  - name: --description
+    type: string
+    description: Description
+    required: false
+  - name: --endpoint
+    type: string
+    description: S3 endpoint URL
+    required: false
+  - name: --key
+    type: string
+    description: Access key
+    required: false
+  - name: --name
+    type: string
+    description: Storage name
+    required: false
+  - name: --region
+    type: string
+    description: Region
+    required: false
+  - name: --secret
+    type: string
+    description: Secret key
+    required: false
+  - name: --usable
+    type: boolean
+    description: Mark storage as usable
+    required: false
+    default: true
+
+Command: coolify s3 delete <uuid>
+Description: Delete an S3 storage
+Parameters: (None)
+
+Command: coolify s3 get <uuid>
+Description: Get an S3 storage
+Parameters: (None)
+
+Command: coolify s3 list
+Description: List S3 storages
+Parameters: (None)
+
+Command: coolify s3 update <uuid>
+Description: Update an S3 storage
+Parameters:
+  - name: --bucket
+    type: string
+    description: Bucket name
+    required: false
+  - name: --description
+    type: string
+    description: Description
+    required: false
+  - name: --endpoint
+    type: string
+    description: S3 endpoint URL
+    required: false
+  - name: --key
+    type: string
+    description: Access key
+    required: false
+  - name: --name
+    type: string
+    description: Storage name
+    required: false
+  - name: --region
+    type: string
+    description: Region
+    required: false
+  - name: --secret
+    type: string
+    description: Secret key
+    required: false
+  - name: --usable
+    type: boolean
+    description: Mark storage as usable
+    required: false
+    default: true
+
+Command: coolify s3 validate <uuid>
+Description: Validate S3 connection
 Parameters: (None)
 
 Command: coolify server add <server_name> <ip_address> <private_key_uuid>
@@ -2882,6 +3663,18 @@ Parameters:
     description: Validate the server
     required: false
     default: false
+
+Command: coolify server cloudflare-tunnel disable <server_uuid>
+Description: Disable Cloudflare tunnel flag
+Parameters: (None)
+
+Command: coolify server cloudflare-tunnel enable <server_uuid>
+Description: Enable Cloudflare tunnel flag
+Parameters: (None)
+
+Command: coolify server cloudflare-tunnel get <server_uuid>
+Description: Get Cloudflare tunnel state
+Parameters: (None)
 
 Command: coolify server destinations create <server_uuid>
 Description: Create a server destination
@@ -2969,6 +3762,51 @@ Parameters: (None)
 Command: coolify server digitalocean ssh-keys <cloud_token_uuid>
 Description: List DigitalOcean SSH keys
 Parameters: (None)
+
+Command: coolify server docker-cleanup executions <server_uuid>
+Description: List docker cleanup executions
+Parameters: (None)
+
+Command: coolify server docker-cleanup get <server_uuid>
+Description: Get docker cleanup settings
+Parameters: (None)
+
+Command: coolify server docker-cleanup run <server_uuid>
+Description: Run docker cleanup now
+Parameters: (None)
+
+Command: coolify server docker-cleanup update <server_uuid>
+Description: Update docker cleanup settings
+Parameters:
+  - name: --delete-unused-networks
+    type: boolean
+    description: Delete unused networks
+    required: false
+    default: false
+  - name: --delete-unused-volumes
+    type: boolean
+    description: Delete unused volumes
+    required: false
+    default: false
+  - name: --disable-image-retention
+    type: boolean
+    description: Disable application image retention
+    required: false
+    default: false
+  - name: --force
+    type: boolean
+    description: Force cleanup
+    required: false
+    default: false
+  - name: --frequency
+    type: string
+    description: Cron frequency
+    required: false
+  - name: --threshold
+    type: integer
+    description: Disk usage threshold percent
+    required: false
+    default: 0
 
 Command: coolify server domains <uuid>
 Description: Get server domains by uuid
@@ -3076,9 +3914,75 @@ Command: coolify server list
 Description: List all servers
 Parameters: (None)
 
+Command: coolify server log-drains get <server_uuid>
+Description: Get log drain settings
+Parameters: (None)
+
+Command: coolify server log-drains update <server_uuid>
+Description: Update log drain settings via JSON
+Parameters:
+  - name: --json
+    type: string
+    description: JSON fields to patch
+    required: false
+
+Command: coolify server proxy get <server_uuid>
+Description: Get proxy settings
+Parameters: (None)
+
+Command: coolify server proxy restart <server_uuid>
+Description: Restart proxy
+Parameters: (None)
+
+Command: coolify server proxy set-config <server_uuid>
+Description: Save raw proxy configuration
+Parameters:
+  - name: --configuration
+    type: string
+    description: Raw proxy configuration
+    required: false
+  - name: --configuration-file
+    type: string
+    description: Read configuration from file
+    required: false
+
+Command: coolify server proxy update <server_uuid>
+Description: Update proxy settings
+Parameters:
+  - name: --generate-exact-labels
+    type: boolean
+    description: Generate exact labels
+    required: false
+    default: false
+  - name: --proxy-type
+    type: string
+    description: Proxy type (e.g. TRAEFIK)
+    required: false
+  - name: --redirect-enabled
+    type: boolean
+    description: Enable proxy redirect
+    required: false
+    default: true
+  - name: --redirect-url
+    type: string
+    description: Redirect URL
+    required: false
+
 Command: coolify server remove <uuid>
 Description: Remove a server
 Parameters: (None)
+
+Command: coolify server sentinel get <server_uuid>
+Description: Get Sentinel settings
+Parameters: (None)
+
+Command: coolify server sentinel update <server_uuid>
+Description: Update Sentinel settings via JSON
+Parameters:
+  - name: --json
+    type: string
+    description: JSON fields to patch
+    required: false
 
 Command: coolify server validate <uuid>
 Description: Validate a server
@@ -3239,6 +4143,23 @@ Parameters:
   - name: --url
     type: string
     description: Comma-separated public URLs
+    required: false
+
+Command: coolify service clone <uuid>
+Description: Clone a service to a destination
+Parameters:
+  - name: --clone-volumes
+    type: boolean
+    description: Clone volume data
+    required: false
+    default: false
+  - name: --destination
+    type: string
+    description: Destination UUID
+    required: false
+  - name: --name
+    type: string
+    description: Optional new name
     required: false
 
 Command: coolify service create <type>
@@ -3516,6 +4437,10 @@ Parameters:
     description: New environment variable value (required)
     required: true
 
+Command: coolify service execute-task <uuid> <task_uuid>
+Description: Execute a service scheduled task now
+Parameters: (None)
+
 Command: coolify service get <uuid>
 Description: Get detailed information about a specific service.
 Parameters: (None)
@@ -3552,6 +4477,10 @@ Parameters:
 
 Command: coolify service restart <uuid>
 Description: Restart a service (restart all containers).
+Parameters: (None)
+
+Command: coolify service run-storage-backup <uuid> <storage_uuid>
+Description: Run a service volume backup schedule now
 Parameters: (None)
 
 Command: coolify service start <uuid>
@@ -3603,9 +4532,84 @@ Command: coolify service storage delete <service_uuid> <storage_uuid>
 Description: Delete a storage from a service
 Parameters: (None)
 
+Command: coolify service storage delete-backup <service_uuid> <storage_uuid>
+Description: Delete service storage volume backup schedule
+Parameters: (None)
+
 Command: coolify service storage list <service_uuid>
 Description: List all persistent volumes and file storages for a specific service.
 Parameters: (None)
+
+Command: coolify service storage run-backup <service_uuid> <storage_uuid>
+Description: Run service storage volume backup now
+Parameters: (None)
+
+Command: coolify service storage set-backup <service_uuid> <storage_uuid>
+Description: Create or replace service storage volume backup schedule
+Parameters:
+  - name: --disable-local-backup
+    type: boolean
+    description: Disable local backup retention
+    required: false
+    default: false
+  - name: --enabled
+    type: boolean
+    description: Enable the schedule
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron frequency (required)
+    required: true
+  - name: --retention-amount-locally
+    type: integer
+    description: Local retention count
+    required: false
+    default: 7
+  - name: --retention-amount-s3
+    type: integer
+    description: S3 retention count
+    required: false
+    default: 7
+  - name: --retention-days-locally
+    type: integer
+    description: Local retention days
+    required: false
+    default: 0
+  - name: --retention-days-s3
+    type: integer
+    description: S3 retention days
+    required: false
+    default: 0
+  - name: --retention-max-storage-locally
+    type: float64
+    description: Local max storage
+    required: false
+    default: 0
+  - name: --retention-max-storage-s3
+    type: float64
+    description: S3 max storage
+    required: false
+    default: 0
+  - name: --s3-storage-uuid
+    type: string
+    description: S3 storage UUID when --save-s3 is set
+    required: false
+  - name: --save-s3
+    type: boolean
+    description: Also save backups to S3
+    required: false
+    default: false
+  - name: --stop-during-backup
+    type: boolean
+    description: Stop resource during backup
+    required: false
+    default: false
+  - name: --timeout
+    type: integer
+    description: Backup timeout seconds
+    required: false
+    default: 3600
 
 Command: coolify service storage update <service_uuid>
 Description: Update a storage for a service
@@ -3657,12 +4661,312 @@ Command: coolify service tag remove <service-uuid> <tag-uuid>
 Description: Remove a service tag
 Parameters: (None)
 
+Command: coolify shared-env environment create <project_uuid> <environment>
+Description: Create environment shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env environment delete <project_uuid> <environment> <id>
+Description: Delete environment shared env
+Parameters: (None)
+
+Command: coolify shared-env environment list <project_uuid> <environment>
+Description: List environment shared envs
+Parameters: (None)
+
+Command: coolify shared-env environment update <project_uuid> <environment> <id>
+Description: Update environment shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env project create <project_uuid>
+Description: Create project shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env project delete <project_uuid> <id>
+Description: Delete project shared env
+Parameters: (None)
+
+Command: coolify shared-env project list <project_uuid>
+Description: List project shared envs
+Parameters: (None)
+
+Command: coolify shared-env project update <project_uuid> <id>
+Description: Update project shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env server create <server_uuid>
+Description: Create server shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env server delete <server_uuid> <id>
+Description: Delete server shared env
+Parameters: (None)
+
+Command: coolify shared-env server list <server_uuid>
+Description: List server shared envs
+Parameters: (None)
+
+Command: coolify shared-env server update <server_uuid> <id>
+Description: Update server shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env team create
+Description: Create team shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify shared-env team delete <id>
+Description: Delete team shared env
+Parameters: (None)
+
+Command: coolify shared-env team list
+Description: List team shared envs
+Parameters: (None)
+
+Command: coolify shared-env team update <id>
+Description: Update team shared env
+Parameters:
+  - name: --comment
+    type: string
+    description: Comment
+    required: false
+  - name: --key
+    type: string
+    description: Variable key
+    required: false
+  - name: --literal
+    type: boolean
+    description: Treat value as literal
+    required: false
+    default: false
+  - name: --multiline
+    type: boolean
+    description: Multiline value
+    required: false
+    default: false
+  - name: --shown-once
+    type: boolean
+    description: Show value only once
+    required: false
+    default: false
+  - name: --value
+    type: string
+    description: Variable value
+    required: false
+
+Command: coolify tag create
+Description: Create a team tag
+Parameters:
+  - name: --name
+    type: string
+    description: Tag name
+    required: false
+
+Command: coolify tag delete <uuid>
+Description: Delete a team tag
+Parameters: (None)
+
 Command: coolify tag list
 Description: List all team tags
 Parameters: (None)
 
+Command: coolify tag update <uuid>
+Description: Rename a team tag
+Parameters:
+  - name: --name
+    type: string
+    description: New tag name
+    required: false
+
 Command: coolify teams current
-Description: Get details of the team associated with the current authentication token.
+Description: Get details of the team associated with the authentication token (API: GET /team).
 Parameters: (None)
 
 Command: coolify teams get <team_id>
