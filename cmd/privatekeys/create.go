@@ -13,7 +13,7 @@ import (
 
 // NewCreateCommand creates the create command
 func NewCreateCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "add <key_name> <private_key_or_file>",
 		Example: `add mykey ~/.ssh/id_rsa`,
 		Args:    cli.ExactArgs(2, "<key_name> <private_key_or_file>"),
@@ -46,6 +46,11 @@ func NewCreateCommand() *cobra.Command {
 				PrivateKey: privateKey,
 			}
 
+			if cmd.Flags().Changed("description") {
+				desc, _ := cmd.Flags().GetString("description")
+				req.Description = &desc
+			}
+
 			key, err := keySvc.Create(ctx, req)
 			if err != nil {
 				return fmt.Errorf("failed to add private key: %w", err)
@@ -55,4 +60,8 @@ func NewCreateCommand() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().String("description", "", "Private key description")
+
+	return cmd
 }

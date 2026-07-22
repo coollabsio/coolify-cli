@@ -18,6 +18,7 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewGetDomainsCommand())
 	cmd.AddCommand(NewAddCommand())
+	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewRemoveCommand())
 	cmd.AddCommand(NewValidateCommand())
 	cmd.AddCommand(NewDestinationsCommand())

@@ -229,6 +229,24 @@ func NewCloudflareTunnelCommand() *cobra.Command {
 		}
 		return printJSON(cmd, out)
 	}})
+	update := &cobra.Command{Use: "update <server_uuid>", Args: cli.ExactArgs(1, "<server_uuid>"), Short: "Set Cloudflare tunnel enabled state", RunE: func(cmd *cobra.Command, args []string) error {
+		if !cmd.Flags().Changed("enabled") {
+			return fmt.Errorf("--enabled is required (true or false)")
+		}
+		enabled, _ := cmd.Flags().GetBool("enabled")
+		s, err := newSubsystemSvc(cmd)
+		if err != nil {
+			return err
+		}
+		out, err := s.UpdateCloudflareTunnel(cmd.Context(), args[0], enabled)
+		if err != nil {
+			return err
+		}
+		return printJSON(cmd, out)
+	}}
+	update.Flags().Bool("enabled", false, "Enable (true) or disable (false) Cloudflare tunnel")
+	_ = update.MarkFlagRequired("enabled")
+	cmd.AddCommand(update)
 	return cmd
 }
 

@@ -59,26 +59,6 @@ func NewCloneCommand() *cobra.Command {
 	return cmd
 }
 
-// NewExecuteTaskCommand runs a service scheduled task immediately.
-func NewExecuteTaskCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "execute-task <uuid> <task_uuid>",
-		Args:  cli.ExactArgs(2, "<uuid> <task_uuid>"),
-		Short: "Execute a service scheduled task now",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := cli.GetAPIClient(cmd)
-			if err != nil {
-				return err
-			}
-			resp, err := svcservice.NewService(client).ExecuteScheduledTask(cmd.Context(), args[0], args[1])
-			if err != nil {
-				return err
-			}
-			return printAny(cmd, resp)
-		},
-	}
-}
-
 // NewRunStorageBackupCommand runs a service volume backup schedule immediately.
 func NewRunStorageBackupCommand() *cobra.Command {
 	return &cobra.Command{

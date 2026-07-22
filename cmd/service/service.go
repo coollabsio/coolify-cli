@@ -8,6 +8,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/service/env"
 	"github.com/coollabsio/coolify-cli/cmd/service/storage"
 	"github.com/coollabsio/coolify-cli/cmd/service/tag"
+	svctask "github.com/coollabsio/coolify-cli/cmd/service/task"
 )
 
 // NewServiceCommand creates the service parent command with all subcommands
@@ -30,7 +31,8 @@ func NewServiceCommand() *cobra.Command {
 	cmd.AddCommand(NewLogsCommand())
 	cmd.AddCommand(NewMoveCommand())
 	cmd.AddCommand(NewCloneCommand())
-	cmd.AddCommand(NewExecuteTaskCommand())
+	cmd.AddCommand(svctask.NewCommand())
+	cmd.AddCommand(svctask.NewExecuteTaskCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
 	cmd.AddCommand(serviceapplication.NewCommand())

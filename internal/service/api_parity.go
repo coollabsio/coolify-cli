@@ -282,6 +282,15 @@ func (s *ServerSubsystemService) DisableCloudflareTunnel(ctx context.Context, se
 	return out, err
 }
 
+// UpdateCloudflareTunnel PATCHes the is_cloudflare_tunnel setting.
+func (s *ServerSubsystemService) UpdateCloudflareTunnel(ctx context.Context, serverUUID string, enabled bool) (map[string]any, error) {
+	var out map[string]any
+	err := s.client.Patch(ctx, "servers/"+url.PathEscape(serverUUID)+"/cloudflare-tunnel", map[string]any{
+		"is_cloudflare_tunnel": enabled,
+	}, &out)
+	return out, err
+}
+
 func (s *ServerSubsystemService) GetProxy(ctx context.Context, serverUUID string) (*models.ServerProxySettings, error) {
 	var out models.ServerProxySettings
 	err := s.client.Get(ctx, "servers/"+url.PathEscape(serverUUID)+"/proxy", &out)
@@ -332,15 +341,6 @@ func (s *DestinationService) Update(ctx context.Context, uuid string, req models
 	return &dest, err
 }
 
-// --- Project environment update ---
-
-func (s *ProjectService) UpdateEnvironment(ctx context.Context, projectUUID, envNameOrUUID string, req models.EnvironmentUpdateRequest) (map[string]any, error) {
-	var out map[string]any
-	path := fmt.Sprintf("projects/%s/environments/%s", url.PathEscape(projectUUID), url.PathEscape(envNameOrUUID))
-	err := s.client.Patch(ctx, path, req, &out)
-	return out, err
-}
-
 // --- Application lifecycle extensions ---
 
 func (s *ApplicationService) Clone(ctx context.Context, uuid string, req models.ResourceCloneRequest) (*models.ResourceCloneResponse, error) {
@@ -375,13 +375,6 @@ func (s *ApplicationService) AddDestination(ctx context.Context, uuid, destinati
 
 func (s *ApplicationService) RemoveDestination(ctx context.Context, uuid, destinationUUID string) error {
 	return s.client.Delete(ctx, "applications/"+url.PathEscape(uuid)+"/destinations/"+url.PathEscape(destinationUUID))
-}
-
-func (s *ApplicationService) ExecuteScheduledTask(ctx context.Context, appUUID, taskUUID string) (map[string]any, error) {
-	var resp map[string]any
-	path := fmt.Sprintf("applications/%s/scheduled-tasks/%s/execute", url.PathEscape(appUUID), url.PathEscape(taskUUID))
-	err := s.client.Post(ctx, path, map[string]any{}, &resp)
-	return resp, err
 }
 
 func (s *ApplicationService) RunStorageBackup(ctx context.Context, appUUID, storageUUID string) (map[string]any, error) {
@@ -432,13 +425,6 @@ func (s *Service) Clone(ctx context.Context, uuid string, req models.ResourceClo
 	var resp models.ResourceCloneResponse
 	err := s.client.Post(ctx, "services/"+url.PathEscape(uuid)+"/clone", req, &resp)
 	return &resp, err
-}
-
-func (s *Service) ExecuteScheduledTask(ctx context.Context, serviceUUID, taskUUID string) (map[string]any, error) {
-	var resp map[string]any
-	path := fmt.Sprintf("services/%s/scheduled-tasks/%s/execute", url.PathEscape(serviceUUID), url.PathEscape(taskUUID))
-	err := s.client.Post(ctx, path, map[string]any{}, &resp)
-	return resp, err
 }
 
 func (s *Service) RunStorageBackup(ctx context.Context, serviceUUID, storageUUID string) (map[string]any, error) {

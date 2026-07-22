@@ -141,25 +141,6 @@ func NewDestinationsCommand() *cobra.Command {
 	return cmd
 }
 
-func NewExecuteTaskCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "execute-task <uuid> <task_uuid>",
-		Args:  cli.ExactArgs(2, "<uuid> <task_uuid>"),
-		Short: "Execute a scheduled task now",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := cli.GetAPIClient(cmd)
-			if err != nil {
-				return err
-			}
-			resp, err := service.NewApplicationService(client).ExecuteScheduledTask(cmd.Context(), args[0], args[1])
-			if err != nil {
-				return err
-			}
-			return printAny(cmd, resp)
-		},
-	}
-}
-
 func NewRunStorageBackupCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "run-storage-backup <uuid> <storage_uuid>",

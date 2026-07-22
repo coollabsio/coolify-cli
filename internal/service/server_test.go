@@ -121,6 +121,38 @@ func TestServerService_Create(t *testing.T) {
 	assert.Equal(t, "Server created", result.Message)
 }
 
+func TestServerService_Update(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/servers/test-uuid", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+
+		var req models.ServerUpdateRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		require.NotNil(t, req.Name)
+		assert.Equal(t, "renamed", *req.Name)
+		require.NotNil(t, req.IsTerminalEnabled)
+		assert.True(t, *req.IsTerminalEnabled)
+		assert.Nil(t, req.IP)
+
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(models.Response{UUID: "test-uuid"})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewServerService(client)
+
+	name := "renamed"
+	enabled := true
+	result, err := svc.Update(context.Background(), "test-uuid", models.ServerUpdateRequest{
+		Name:              &name,
+		IsTerminalEnabled: &enabled,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "test-uuid", result.UUID)
+}
+
 func TestServerService_Delete(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/servers/test-uuid", r.URL.Path)

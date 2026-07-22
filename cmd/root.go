@@ -22,6 +22,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	"github.com/coollabsio/coolify-cli/cmd/gitlab"
 	initcmd "github.com/coollabsio/coolify-cli/cmd/init"
+	"github.com/coollabsio/coolify-cli/cmd/mcp"
 	"github.com/coollabsio/coolify-cli/cmd/notification"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
 	"github.com/coollabsio/coolify-cli/cmd/project"
@@ -108,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(gitlab.NewGitLabCommand())
 	rootCmd.AddCommand(initcmd.NewInitCommand())
+	rootCmd.AddCommand(mcp.NewMCPCommand())
 	rootCmd.AddCommand(notification.NewNotificationCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())
 	rootCmd.AddCommand(project.NewProjectCommand())

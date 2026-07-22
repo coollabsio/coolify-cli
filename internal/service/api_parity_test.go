@@ -139,4 +139,31 @@ func TestNotificationService_Paths(t *testing.T) {
 	}
 }
 
+func TestServerSubsystemService_UpdateCloudflareTunnel(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/servers/srv-1/cloudflare-tunnel", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Fatalf("expected PATCH, got %s", r.Method)
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if body["is_cloudflare_tunnel"] != true {
+			t.Fatalf("expected is_cloudflare_tunnel true, got %#v", body["is_cloudflare_tunnel"])
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"is_cloudflare_tunnel": true})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	svc := NewServerSubsystemService(api.NewClient(server.URL, "token", api.WithRetries(0)))
+	out, err := svc.UpdateCloudflareTunnel(context.Background(), "srv-1", true)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if out["is_cloudflare_tunnel"] != true {
+		t.Fatalf("unexpected response: %#v", out)
+	}
+}
+
 func strPtr(s string) *string { return &s }

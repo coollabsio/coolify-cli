@@ -30,12 +30,32 @@ func (s *PrivateKeyService) List(ctx context.Context) ([]models.PrivateKey, erro
 	return keys, nil
 }
 
+// Get retrieves a private key by UUID
+func (s *PrivateKeyService) Get(ctx context.Context, uuid string) (*models.PrivateKey, error) {
+	var key models.PrivateKey
+	err := s.client.Get(ctx, fmt.Sprintf("security/keys/%s", uuid), &key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get private key %s: %w", uuid, err)
+	}
+	return &key, nil
+}
+
 // Create creates a new private key
 func (s *PrivateKeyService) Create(ctx context.Context, req models.PrivateKeyCreateRequest) (*models.PrivateKey, error) {
 	var key models.PrivateKey
 	err := s.client.Post(ctx, "security/keys", req, &key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create private key: %w", err)
+	}
+	return &key, nil
+}
+
+// Update updates an existing private key
+func (s *PrivateKeyService) Update(ctx context.Context, uuid string, req models.PrivateKeyUpdateRequest) (*models.PrivateKey, error) {
+	var key models.PrivateKey
+	err := s.client.Patch(ctx, fmt.Sprintf("security/keys/%s", uuid), req, &key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update private key %s: %w", uuid, err)
 	}
 	return &key, nil
 }

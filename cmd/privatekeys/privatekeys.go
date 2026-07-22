@@ -10,12 +10,14 @@ func NewPrivateKeysCommand() *cobra.Command {
 		Use:     "private-key",
 		Aliases: []string{"private-keys", "key", "keys"},
 		Short:   "Private key related commands",
-		Long:    `Manage SSH private keys for server authentication - list, add, and remove keys.`,
+		Long:    `Manage SSH private keys for server authentication - list, get, add, update, and remove keys.`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(NewListCommand())
+	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewCreateCommand())
+	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewDeleteCommand())
 
 	return cmd

@@ -17,25 +17,30 @@ func NewProjectCommand() *cobra.Command {
 		Use:     "project",
 		Aliases: []string{"projects"},
 		Short:   "Project related commands",
-		Long:    `Manage Coolify projects - list all projects or get details about a specific project.`,
+		Long:    `Manage Coolify projects and their environments.`,
 	}
 
-	// Add all project subcommands
 	cmd.AddCommand(NewListCommand())
 	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewCreateCommand())
+	cmd.AddCommand(NewUpdateCommand())
+	cmd.AddCommand(NewDeleteCommand())
+	cmd.AddCommand(NewEnvironmentsCommand())
+	// Keep legacy top-level alias for environment update
 	cmd.AddCommand(NewUpdateEnvironmentCommand())
 
 	return cmd
 }
 
 // NewUpdateEnvironmentCommand patches a project environment name/description.
+// Deprecated in favor of: coolify project environments update
 func NewUpdateEnvironmentCommand() *cobra.Command {
 	var name, description string
 	cmd := &cobra.Command{
 		Use:   "update-environment <project_uuid> <environment>",
 		Args:  cli.ExactArgs(2, "<project_uuid> <environment>"),
 		Short: "Update a project environment name or description",
+		Long:  `Update a project environment. Prefer: coolify project environments update`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {

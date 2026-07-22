@@ -33,3 +33,14 @@ type ProjectCreateRequest struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 }
+
+// ProjectUpdateRequest for patching a project
+type ProjectUpdateRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// EnvironmentCreateRequest for creating an environment in a project
+type EnvironmentCreateRequest struct {
+	Name string `json:"name"`
+}

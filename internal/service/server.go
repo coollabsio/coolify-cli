@@ -52,6 +52,13 @@ func (s *ServerService) Create(ctx context.Context, req models.ServerCreateReque
 	return &response, err
 }
 
+// Update patches a server by UUID. Returns the API response (typically uuid).
+func (s *ServerService) Update(ctx context.Context, uuid string, req models.ServerUpdateRequest) (*models.Response, error) {
+	var response models.Response
+	err := s.client.Patch(ctx, "servers/"+uuid, req, &response)
+	return &response, err
+}
+
 // Delete deletes a server by UUID
 func (s *ServerService) Delete(ctx context.Context, uuid string) error {
 	return s.client.Delete(ctx, "servers/"+uuid)
