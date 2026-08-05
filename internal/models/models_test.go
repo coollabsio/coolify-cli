@@ -465,8 +465,9 @@ func TestEnvironmentVariableCreateRequest_Marshal(t *testing.T) {
 	data, err := json.Marshal(request)
 	require.NoError(t, err)
 
-	// Request models should still use is_build_time (with underscore) per API spec
-	assert.Contains(t, string(data), `"is_build_time":true`)
+	// Coolify uses is_buildtime for environment-variable requests.
+	assert.Contains(t, string(data), `"is_buildtime":true`)
+	assert.NotContains(t, string(data), `"is_build_time"`)
 
 	var unmarshaled EnvironmentVariableCreateRequest
 	err = json.Unmarshal(data, &unmarshaled)
