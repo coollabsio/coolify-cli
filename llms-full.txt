@@ -56,6 +56,7 @@ Aliases are derived from the CLI command tree:
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
 - `coolify app tag` | `coolify app tags`
+- `coolify app task` | `coolify app tasks` | `coolify app scheduled-task` | `coolify app scheduled-tasks`
 - `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
 - `coolify cloud-init` | `coolify cloudinit` | `coolify cloud-init-script`
 - `coolify cloud-token` | `coolify cloud-tokens`
@@ -68,6 +69,7 @@ Aliases are derived from the CLI command tree:
 - `coolify gitlab` | `coolify gl` | `coolify gitlab-app` | `coolify gitlab-apps`
 - `coolify notification` | `coolify notifications`
 - `coolify private-key` | `coolify private-keys` | `coolify key` | `coolify keys`
+- `coolify project environments` | `coolify project environment` | `coolify project env`
 - `coolify project` | `coolify projects`
 - `coolify resource` | `coolify resources`
 - `coolify s3 delete` | `coolify s3 remove`
@@ -80,6 +82,7 @@ Aliases are derived from the CLI command tree:
 - `coolify service database` | `coolify service databases` | `coolify service db` | `coolify service dbs`
 - `coolify service storage` | `coolify service storages`
 - `coolify service tag` | `coolify service tags`
+- `coolify service task` | `coolify service tasks` | `coolify service scheduled-task` | `coolify service scheduled-tasks`
 - `coolify service` | `coolify services` | `coolify svc`
 - `coolify shared-env environment` | `coolify shared-env env`
 - `coolify shared-env` | `coolify shared-envs` | `coolify sharedenv`
@@ -1530,7 +1533,7 @@ Parameters:
     description: New environment variable value (required)
     required: true
 
-Command: coolify app execute-task <uuid> <task_uuid>
+Command: coolify app execute-task <app_uuid> <task_uuid>
 Description: Execute a scheduled task now
 Parameters: (None)
 
@@ -1785,6 +1788,82 @@ Parameters: (None)
 Command: coolify app tag remove <application-uuid> <tag-uuid>
 Description: Remove an application tag
 Parameters: (None)
+
+Command: coolify app task create <app_uuid>
+Description: Create a scheduled task for an application
+Parameters:
+  - name: --command
+    type: string
+    description: Command to run (required)
+    required: true
+  - name: --container
+    type: string
+    description: Container name to run the command in
+    required: false
+  - name: --enabled
+    type: boolean
+    description: Whether the task is enabled
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron expression or frequency (required)
+    required: true
+  - name: --name
+    type: string
+    description: Task name (required)
+    required: true
+  - name: --timeout
+    type: integer
+    description: Timeout in seconds
+    required: false
+    default: 300
+
+Command: coolify app task delete <app_uuid> <task_uuid>
+Description: Delete an application scheduled task
+Parameters: (None)
+
+Command: coolify app task execute <app_uuid> <task_uuid>
+Description: Execute an application scheduled task now
+Parameters: (None)
+
+Command: coolify app task executions <app_uuid> <task_uuid>
+Description: List executions for an application scheduled task
+Parameters: (None)
+
+Command: coolify app task list <app_uuid>
+Description: List scheduled tasks for an application
+Parameters: (None)
+
+Command: coolify app task update <app_uuid> <task_uuid>
+Description: Update an application scheduled task
+Parameters:
+  - name: --command
+    type: string
+    description: Command to run
+    required: false
+  - name: --container
+    type: string
+    description: Container name to run the command in
+    required: false
+  - name: --enabled
+    type: boolean
+    description: Whether the task is enabled
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron expression or frequency
+    required: false
+  - name: --name
+    type: string
+    description: Task name
+    required: false
+  - name: --timeout
+    type: integer
+    description: Timeout in seconds
+    required: false
+    default: 300
 
 Command: coolify app update <uuid>
 Description: Update application configuration
@@ -3199,6 +3278,14 @@ Parameters:
     description: Webhook secret token
     required: false
 
+Command: coolify mcp disable
+Description: Disable the Coolify MCP server (API: POST /mcp/disable). Requires a root team API token.
+Parameters: (None)
+
+Command: coolify mcp enable
+Description: Enable the Coolify MCP server (API: POST /mcp/enable). Requires a root team API token.
+Parameters: (None)
+
 Command: coolify notification get <channel>
 Description: Channels: email, discord, slack, telegram, pushover, webhook
 Parameters: (None)
@@ -3213,6 +3300,14 @@ Parameters:
 
 Command: coolify private-key add <key_name> <private_key_or_file>
 Description: Add a private key
+Parameters:
+  - name: --description
+    type: string
+    description: Private key description
+    required: false
+
+Command: coolify private-key get <uuid>
+Description: Get a private key by UUID
 Parameters: (None)
 
 Command: coolify private-key list
@@ -3222,6 +3317,22 @@ Parameters: (None)
 Command: coolify private-key remove <uuid>
 Description: Remove a private key
 Parameters: (None)
+
+Command: coolify private-key update <uuid>
+Description: Update a private key
+Parameters:
+  - name: --description
+    type: string
+    description: Private key description
+    required: false
+  - name: --name
+    type: string
+    description: Private key name
+    required: false
+  - name: --private-key
+    type: string
+    description: Private key content or path to key file (required)
+    required: true
 
 Command: coolify project create
 Description: Create a new project
@@ -3235,6 +3346,48 @@ Parameters:
     description: Project name (required)
     required: true
 
+Command: coolify project delete <uuid>
+Description: Delete a project
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify project environments create <project_uuid>
+Description: Create an environment in a project
+Parameters:
+  - name: --name
+    type: string
+    description: Environment name (required)
+    required: true
+
+Command: coolify project environments delete <project_uuid> <environment>
+Description: Delete a project environment
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify project environments list <project_uuid>
+Description: List environments in a project
+Parameters: (None)
+
+Command: coolify project environments update <project_uuid> <environment>
+Description: Update a project environment
+Parameters:
+  - name: --description
+    type: string
+    description: Environment description
+    required: false
+  - name: --name
+    type: string
+    description: Environment name
+    required: false
+
 Command: coolify project get <uuid>
 Description: Get a project by uuid
 Parameters: (None)
@@ -3243,8 +3396,20 @@ Command: coolify project list
 Description: List all projects
 Parameters: (None)
 
+Command: coolify project update <uuid>
+Description: Update a project
+Parameters:
+  - name: --description
+    type: string
+    description: Project description
+    required: false
+  - name: --name
+    type: string
+    description: Project name
+    required: false
+
 Command: coolify project update-environment <project_uuid> <environment>
-Description: Update a project environment name or description
+Description: Update a project environment. Prefer: coolify project environments update
 Parameters:
   - name: --description
     type: string
@@ -3379,6 +3544,15 @@ Parameters: (None)
 Command: coolify server cloudflare-tunnel get <server_uuid>
 Description: Get Cloudflare tunnel state
 Parameters: (None)
+
+Command: coolify server cloudflare-tunnel update <server_uuid>
+Description: Set Cloudflare tunnel enabled state
+Parameters:
+  - name: --enabled
+    type: boolean
+    description: Enable (true) or disable (false) Cloudflare tunnel
+    required: true
+    default: false
 
 Command: coolify server destinations create <server_uuid>
 Description: Create a server destination
@@ -3686,6 +3860,83 @@ Parameters:
   - name: --json
     type: string
     description: JSON fields to patch
+    required: false
+
+Command: coolify server update <uuid>
+Description: Update a server
+Parameters:
+  - name: --concurrent-builds
+    type: integer
+    description: Max concurrent builds
+    required: false
+    default: 0
+  - name: --connection-timeout
+    type: integer
+    description: SSH connection timeout in seconds
+    required: false
+    default: 0
+  - name: --deployment-queue-limit
+    type: integer
+    description: Deployment queue limit
+    required: false
+    default: 0
+  - name: --description
+    type: string
+    description: Server description
+    required: false
+  - name: --disk-usage-check-frequency
+    type: string
+    description: Disk usage check frequency (cron)
+    required: false
+  - name: --disk-usage-notification-threshold
+    type: integer
+    description: Disk usage notification threshold percent
+    required: false
+    default: 0
+  - name: --dynamic-timeout
+    type: integer
+    description: Dynamic timeout
+    required: false
+    default: 0
+  - name: --instant-validate
+    type: boolean
+    description: Validate server after update
+    required: false
+    default: false
+  - name: --ip
+    type: string
+    description: Server IP address
+    required: false
+  - name: --is-build-server
+    type: boolean
+    description: Mark as build server
+    required: false
+    default: false
+  - name: --is-terminal-enabled
+    type: boolean
+    description: Enable terminal access
+    required: false
+    default: false
+  - name: --name
+    type: string
+    description: Server name
+    required: false
+  - name: --port
+    type: integer
+    description: SSH port
+    required: false
+    default: 22
+  - name: --private-key-uuid
+    type: string
+    description: Private key UUID
+    required: false
+  - name: --proxy-type
+    type: string
+    description: Proxy type (e.g. TRAEFIK, CADDY, NGINX)
+    required: false
+  - name: --user
+    type: string
+    description: SSH user
     required: false
 
 Command: coolify server validate <uuid>
@@ -4141,7 +4392,7 @@ Parameters:
     description: New environment variable value (required)
     required: true
 
-Command: coolify service execute-task <uuid> <task_uuid>
+Command: coolify service execute-task <service_uuid> <task_uuid>
 Description: Execute a service scheduled task now
 Parameters: (None)
 
@@ -4364,6 +4615,94 @@ Parameters: (None)
 Command: coolify service tag remove <service-uuid> <tag-uuid>
 Description: Remove a service tag
 Parameters: (None)
+
+Command: coolify service task create <service_uuid>
+Description: Create a scheduled task for a service
+Parameters:
+  - name: --command
+    type: string
+    description: Command to run (required)
+    required: true
+  - name: --container
+    type: string
+    description: Container name to run the command in
+    required: false
+  - name: --enabled
+    type: boolean
+    description: Whether the task is enabled
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron expression or frequency (required)
+    required: true
+  - name: --name
+    type: string
+    description: Task name (required)
+    required: true
+  - name: --timeout
+    type: integer
+    description: Timeout in seconds
+    required: false
+    default: 300
+
+Command: coolify service task delete <service_uuid> <task_uuid>
+Description: Delete a service scheduled task
+Parameters: (None)
+
+Command: coolify service task execute <service_uuid> <task_uuid>
+Description: Execute a service scheduled task now
+Parameters: (None)
+
+Command: coolify service task executions <service_uuid> <task_uuid>
+Description: List executions for a service scheduled task
+Parameters: (None)
+
+Command: coolify service task list <service_uuid>
+Description: List scheduled tasks for a service
+Parameters: (None)
+
+Command: coolify service task update <service_uuid> <task_uuid>
+Description: Update a service scheduled task
+Parameters:
+  - name: --command
+    type: string
+    description: Command to run
+    required: false
+  - name: --container
+    type: string
+    description: Container name to run the command in
+    required: false
+  - name: --enabled
+    type: boolean
+    description: Whether the task is enabled
+    required: false
+    default: true
+  - name: --frequency
+    type: string
+    description: Cron expression or frequency
+    required: false
+  - name: --name
+    type: string
+    description: Task name
+    required: false
+  - name: --timeout
+    type: integer
+    description: Timeout in seconds
+    required: false
+    default: 300
+
+Command: coolify settings email get
+Description: Get instance email settings
+Parameters: (None)
+
+Command: coolify settings email update
+Description: Pass settings as JSON via --json. Requires write:sensitive. Example: coolify settings email update --json '{"smtp_ehlo_domain":"coolify.example.com"}'
+Parameters:
+  - name: --json
+    type: string
+    description: JSON object of fields to update
+    required: false
 
 Command: coolify shared-env environment create <project_uuid> <environment>
 Description: Create environment shared env
