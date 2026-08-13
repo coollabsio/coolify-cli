@@ -14,6 +14,8 @@ const alphaBanner = `
 `
 
 // NewInitCommand creates the parent `coolify init` command.
+// The command tree is kept for tests and future v5 work but is not registered
+// on the public root CLI.
 // On bare invocation (no subcommand) it prints the alpha banner and help.
 func NewInitCommand() *cobra.Command {
 	flags := &InitFlags{}

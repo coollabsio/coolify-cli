@@ -18,10 +18,8 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/database"
 	"github.com/coollabsio/coolify-cli/cmd/deployment"
 	"github.com/coollabsio/coolify-cli/cmd/destination"
-	"github.com/coollabsio/coolify-cli/cmd/firewall"
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	"github.com/coollabsio/coolify-cli/cmd/gitlab"
-	initcmd "github.com/coollabsio/coolify-cli/cmd/init"
 	"github.com/coollabsio/coolify-cli/cmd/mcp"
 	"github.com/coollabsio/coolify-cli/cmd/notification"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
@@ -95,7 +93,10 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&ShowSensitive, "show-sensitive", "s", false, "Show sensitive information")
 	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "", false, "Debug mode")
 
-	// Register all subcommands
+	// Register all subcommands.
+	// v5 mesh trees (cmd/init, cmd/firewall + internal/wireguard) stay in the
+	// repo for development but are deliberately not added here, so they cannot
+	// be invoked from the public CLI.
 	rootCmd.AddCommand(application.NewAppCommand())
 	rootCmd.AddCommand(cloudinit.NewCloudInitCommand())
 	rootCmd.AddCommand(cloudtoken.NewCloudTokenCommand())
@@ -105,10 +106,8 @@ func init() {
 	rootCmd.AddCommand(database.NewDatabaseCommand())
 	rootCmd.AddCommand(deployment.NewDeploymentCommand())
 	rootCmd.AddCommand(destination.NewDestinationCommand())
-	rootCmd.AddCommand(firewall.NewFirewallCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(gitlab.NewGitLabCommand())
-	rootCmd.AddCommand(initcmd.NewInitCommand())
 	rootCmd.AddCommand(mcp.NewMCPCommand())
 	rootCmd.AddCommand(notification.NewNotificationCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())

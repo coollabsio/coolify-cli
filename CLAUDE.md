@@ -176,6 +176,8 @@ type Resource struct {
 
 ## `coolify init` — WireGuard mesh + Podman bootstrap (alpha, v5)
 
+**Not registered on the public CLI.** The `cmd/init`, `cmd/firewall`, and mesh packages stay in the repo (tests still run them) but `cmd/root.go` does not add them, so `coolify init` / `coolify firewall` are unknown commands.
+
 **This subcommand is an outlier**: it does NOT talk to the Coolify API. It SSHes into remote hosts and installs/configures WireGuard, Podman, the bridge network, and a firewall scaffold. It's the fleet-provisioning command tree consumed by the v5 control plane (coold), split into three intent-scoped subcommands — `bootstrap`, `extend`, `upgrade` — plus a read-only `plan`. Coolify's backend calls `extend` when the operator adds a server and `upgrade` when agent versions move; direct-CLI operators run `bootstrap` for the initial install.
 
 ### What it does
@@ -359,6 +361,8 @@ go test ./internal/wireguard/... ./cmd/init/... -v
 Use the SSH `Runner` interface for mocking — never open real SSH connections in unit tests. `internal/ssh/fanout.go` is generic; reuse for any per-server fanout.
 
 ## `coolify firewall` — cross-host allow-rule client (alpha, v5)
+
+**Not registered on the public CLI** (same as `coolify init` — see note above).
 
 **This subcommand is the second outlier** (alongside `coolify init`): it does NOT talk to the Coolify API. It is a thin REST client of the **coold** per-host agent installed by `coolify init` (coold install is unconditional as of v1.6.3). `allow` / `revoke` / `list` all go through coold's REST API (`/api/v1/firewall/allow`). `containers` stays SSH+podman because coold has no container surface yet. Transport is **SSH-bounce**: the laptop running the CLI is not a mesh peer, so it SSHes into the target host and the shell there runs `curl "http://$(wg0-mgmt-ip):8443/api/v1/firewall/..."` against coold on localhost.
 

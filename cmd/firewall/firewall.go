@@ -5,6 +5,8 @@ import (
 )
 
 // NewFirewallCommand creates the parent `coolify firewall` command.
+// The command tree is kept for tests and future v5 work but is not registered
+// on the public root CLI.
 // On bare invocation (no subcommand) it prints help.
 func NewFirewallCommand() *cobra.Command {
 	flags := &Flags{}

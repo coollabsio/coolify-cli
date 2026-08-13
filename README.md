@@ -486,21 +486,6 @@ Commands can use `private-key`, `private-keys`, `key`, or `keys` interchangeably
   - Pass the key content directly or a path to a key file: `coolify private-key add mykey ~/.ssh/id_rsa`
 - `coolify private-key remove <uuid>` - Remove a private key
 
-### Coolify v5 Mesh (alpha)
-
-These commands are an early preview of Coolify v5 fleet provisioning. Unlike the rest of the CLI they don't talk to the Coolify API: they connect to your servers over SSH to set up a WireGuard mesh with Podman and to manage cross-host container firewall rules.
-
-- `coolify init plan` - Show WireGuard mesh changes without applying them
-- `coolify init bootstrap` - First-time mesh install across all servers
-- `coolify init extend` - Add new hosts to an existing mesh; existing hosts receive peer-refresh updates
-- `coolify init upgrade` - Bump agent binary versions on every host
-- `coolify firewall containers` - List containers on the Coolify mesh bridge across all servers
-- `coolify firewall list` - List installed allow rules across all servers
-- `coolify firewall allow` - Add an allow rule between containers
-- `coolify firewall revoke` - Remove an allow rule
-
-Both command trees require `--servers` and `--ssh-key` and take many more flags; run `coolify init --help` / `coolify firewall --help` or see [`llms-full.txt`](./llms-full.txt) for the full reference.
-
 ## Global Flags
 
 All commands support these global flags:
