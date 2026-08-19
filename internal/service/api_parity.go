@@ -72,6 +72,26 @@ func (s *NotificationService) Update(ctx context.Context, channel string, body m
 	return out, err
 }
 
+// --- Instance email settings ---
+
+type InstanceEmailSettingsService struct{ client *api.Client }
+
+func NewInstanceEmailSettingsService(client *api.Client) *InstanceEmailSettingsService {
+	return &InstanceEmailSettingsService{client: client}
+}
+
+func (s *InstanceEmailSettingsService) Get(ctx context.Context) (map[string]any, error) {
+	var out map[string]any
+	err := s.client.Get(ctx, "settings/email", &out)
+	return out, err
+}
+
+func (s *InstanceEmailSettingsService) Update(ctx context.Context, body map[string]any) (map[string]any, error) {
+	var out map[string]any
+	err := s.client.Patch(ctx, "settings/email", body, &out)
+	return out, err
+}
+
 // --- Shared envs ---
 
 type SharedEnvService struct{ client *api.Client }

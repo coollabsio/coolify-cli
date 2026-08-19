@@ -87,6 +87,12 @@ You can change the default context with `coolify context use <context_name>` or 
 ### Configuration
 - `coolify config` - Show configuration file location
 
+### Instance Email Settings
+- `coolify settings email get` - Get instance-wide SMTP and Resend settings
+- `coolify settings email update --json '<settings>'` - Update instance email settings using a root-team admin/owner token with `write:sensitive`
+  - Example: `coolify settings email update --json '{"smtp_ehlo_domain":"coolify.example.com"}'`
+  - Set the EHLO domain to `null` to use the system default
+
 ### Shell Completion
 - `coolify completion <shell>` - Generate shell completion script
   - Supported shells: `bash`, `zsh`, `fish`, `powershell`

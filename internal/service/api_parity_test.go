@@ -139,6 +139,40 @@ func TestNotificationService_Paths(t *testing.T) {
 	}
 }
 
+func TestInstanceEmailSettingsService_Paths(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/settings/email", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"smtp_ehlo_domain": "coolify.example.com"})
+		case http.MethodPatch:
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if body["smtp_ehlo_domain"] != "cli.example.com" {
+				t.Fatalf("unexpected body: %#v", body)
+			}
+			_ = json.NewEncoder(w).Encode(body)
+		default:
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	svc := NewInstanceEmailSettingsService(api.NewClient(server.URL, "token", api.WithRetries(0)))
+	ctx := context.Background()
+	settings, err := svc.Get(ctx)
+	if err != nil || settings["smtp_ehlo_domain"] != "coolify.example.com" {
+		t.Fatalf("get: %v %#v", err, settings)
+	}
+	settings, err = svc.Update(ctx, map[string]any{"smtp_ehlo_domain": "cli.example.com"})
+	if err != nil || settings["smtp_ehlo_domain"] != "cli.example.com" {
+		t.Fatalf("update: %v %#v", err, settings)
+	}
+}
+
 func TestServerSubsystemService_UpdateCloudflareTunnel(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/servers/srv-1/cloudflare-tunnel", func(w http.ResponseWriter, r *http.Request) {
