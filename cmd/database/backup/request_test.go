@@ -20,9 +20,9 @@ func TestBuildCreateBackupRequestUsesRegisteredFlags(t *testing.T) {
 	require.NotNil(t, req.DatabasesToBackup)
 	assert.Equal(t, "appdb", *req.DatabasesToBackup)
 	require.NotNil(t, req.DatabaseBackupRetentionMaxStorageLocally)
-	assert.Equal(t, 2.5, *req.DatabaseBackupRetentionMaxStorageLocally)
+	assert.InDelta(t, 2.5, *req.DatabaseBackupRetentionMaxStorageLocally, 0.001)
 	require.NotNil(t, req.DatabaseBackupRetentionMaxStorageS3)
-	assert.Equal(t, 3.5, *req.DatabaseBackupRetentionMaxStorageS3)
+	assert.InDelta(t, 3.5, *req.DatabaseBackupRetentionMaxStorageS3, 0.001)
 	require.NotNil(t, req.DisableLocalBackup)
 	assert.True(t, *req.DisableLocalBackup)
 
@@ -45,9 +45,9 @@ func TestBuildUpdateBackupRequestAcceptsDecimalStorage(t *testing.T) {
 
 	assert.True(t, hasChanges)
 	require.NotNil(t, req.DatabaseBackupRetentionMaxStorageLocally)
-	assert.Equal(t, 4.5, *req.DatabaseBackupRetentionMaxStorageLocally)
+	assert.InDelta(t, 4.5, *req.DatabaseBackupRetentionMaxStorageLocally, 0.001)
 	require.NotNil(t, req.DatabaseBackupRetentionMaxStorageS3)
-	assert.Equal(t, 5.5, *req.DatabaseBackupRetentionMaxStorageS3)
+	assert.InDelta(t, 5.5, *req.DatabaseBackupRetentionMaxStorageS3, 0.001)
 }
 
 func TestBuildUpdateBackupRequestReportsNoChanges(t *testing.T) {

@@ -33,7 +33,8 @@ func NewProjectCommand() *cobra.Command {
 }
 
 // NewUpdateEnvironmentCommand patches a project environment name/description.
-// Deprecated in favor of: coolify project environments update
+//
+// Deprecated: use coolify project environments update instead.
 func NewUpdateEnvironmentCommand() *cobra.Command {
 	var name, description string
 	cmd := &cobra.Command{

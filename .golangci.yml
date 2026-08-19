@@ -51,7 +51,7 @@ linters:
             - - skipPackageNameChecks: true
 
     staticcheck:
-      checks: ["all", "-ST1005", "-S1016"]
+      checks: ["all", "-ST1005", "-S1016", "-QF1012"]
 
     gosec:
       excludes:
@@ -66,6 +66,15 @@ linters:
       - comments
       - common-false-positives
       - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+        text: "G101|G117"
+      - path: _test\.go
+        linters:
+          - testifylint
+        text: go-require
 
 formatters:
   enable:

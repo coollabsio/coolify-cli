@@ -619,8 +619,8 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 			if tt.wantCount > 0 {
 				require.NotNil(t, backups[0].DatabaseBackupRetentionMaxStorageLocally)
 				require.NotNil(t, backups[0].DatabaseBackupRetentionMaxStorageS3)
-				assert.Equal(t, tt.wantLocalMax, *backups[0].DatabaseBackupRetentionMaxStorageLocally)
-				assert.Equal(t, tt.wantS3Max, *backups[0].DatabaseBackupRetentionMaxStorageS3)
+				assert.InDelta(t, tt.wantLocalMax, *backups[0].DatabaseBackupRetentionMaxStorageLocally, 0.001)
+				assert.InDelta(t, tt.wantS3Max, *backups[0].DatabaseBackupRetentionMaxStorageS3, 0.001)
 			}
 		})
 	}

@@ -53,14 +53,13 @@ func formatOne(cmd *cobra.Command, env *models.SharedEnvironmentVariable) error 
 	return formatEnvs(cmd, []models.SharedEnvironmentVariable{*env})
 }
 
-func createFlags(cmd *cobra.Command) (key, value, comment *string, isLiteral, isMultiline, isShownOnce *bool) {
-	key = cmd.Flags().String("key", "", "Variable key")
-	value = cmd.Flags().String("value", "", "Variable value")
-	comment = cmd.Flags().String("comment", "", "Comment")
-	isLiteral = cmd.Flags().Bool("literal", false, "Treat value as literal")
-	isMultiline = cmd.Flags().Bool("multiline", false, "Multiline value")
-	isShownOnce = cmd.Flags().Bool("shown-once", false, "Show value only once")
-	return
+func createFlags(cmd *cobra.Command) {
+	cmd.Flags().String("key", "", "Variable key")
+	cmd.Flags().String("value", "", "Variable value")
+	cmd.Flags().String("comment", "", "Comment")
+	cmd.Flags().Bool("literal", false, "Treat value as literal")
+	cmd.Flags().Bool("multiline", false, "Multiline value")
+	cmd.Flags().Bool("shown-once", false, "Show value only once")
 }
 
 func buildCreate(cmd *cobra.Command, key, value, comment string, isLiteral, isMultiline, isShownOnce bool) (models.SharedEnvCreateRequest, error) {

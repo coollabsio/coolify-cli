@@ -73,23 +73,23 @@ func WriteConfigCommand(iface string, mgmtIP net.IP, listenPort int, peers []Pee
 	b.WriteString(`PRIVKEY=$(cat /etc/wireguard/privatekey) && `)
 	b.WriteString(`mkdir -p /etc/wireguard && `)
 	b.WriteString(`{ echo "[Interface]"; `)
-	b.WriteString(fmt.Sprintf(`echo "Address = %s/32"; `, mgmtIP))
-	b.WriteString(fmt.Sprintf(`echo "ListenPort = %d"; `, listenPort))
+	fmt.Fprintf(&b, `echo "Address = %s/32"; `, mgmtIP)
+	fmt.Fprintf(&b, `echo "ListenPort = %d"; `, listenPort)
 	b.WriteString(`echo "PrivateKey = $PRIVKEY"; `)
 
 	for _, p := range peers {
 		b.WriteString(`echo ""; `)
 		b.WriteString(`echo "[Peer]"; `)
-		b.WriteString(fmt.Sprintf(`echo "# %s"; `, p.Endpoint))
-		b.WriteString(fmt.Sprintf(`echo "PublicKey = %s"; `, p.PublicKey))
-		b.WriteString(fmt.Sprintf(`echo "AllowedIPs = %s"; `, allowedIPsLine(p)))
-		b.WriteString(fmt.Sprintf(`echo "Endpoint = %s:%d"; `, p.Endpoint, listenPort))
+		fmt.Fprintf(&b, `echo "# %s"; `, p.Endpoint)
+		fmt.Fprintf(&b, `echo "PublicKey = %s"; `, p.PublicKey)
+		fmt.Fprintf(&b, `echo "AllowedIPs = %s"; `, allowedIPsLine(p))
+		fmt.Fprintf(&b, `echo "Endpoint = %s:%d"; `, p.Endpoint, listenPort)
 		b.WriteString(`echo "PersistentKeepalive = 25"; `)
 	}
 
-	b.WriteString(fmt.Sprintf(`} > /etc/wireguard/%s.conf.tmp && `, iface))
-	b.WriteString(fmt.Sprintf(`chmod 600 /etc/wireguard/%s.conf.tmp && `, iface))
-	b.WriteString(fmt.Sprintf(`mv /etc/wireguard/%s.conf.tmp /etc/wireguard/%s.conf`, iface, iface))
+	fmt.Fprintf(&b, `} > /etc/wireguard/%s.conf.tmp && `, iface)
+	fmt.Fprintf(&b, `chmod 600 /etc/wireguard/%s.conf.tmp && `, iface)
+	fmt.Fprintf(&b, `mv /etc/wireguard/%s.conf.tmp /etc/wireguard/%s.conf`, iface, iface)
 
 	return b.String()
 }

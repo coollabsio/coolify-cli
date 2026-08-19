@@ -1160,10 +1160,13 @@ func TestApplicationService_CreatePublic_SendsDockerComposeDomains(t *testing.T)
 		assert.Equal(t, http.MethodPost, r.Method)
 
 		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			return
+		}
 		items, ok := body["docker_compose_domains"].([]any)
-		require.True(t, ok)
-		require.Len(t, items, 2)
+		if !assert.True(t, ok) || !assert.Len(t, items, 2) {
+			return
+		}
 		assert.Equal(t, "litellm", items[0].(map[string]any)["name"])
 
 		w.Header().Set("Content-Type", "application/json")
@@ -1197,11 +1200,14 @@ func TestApplicationService_Update_SendsDockerComposeDomains(t *testing.T) {
 		assert.Equal(t, http.MethodPatch, r.Method)
 
 		var body map[string]any
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if !assert.NoError(t, json.NewDecoder(r.Body).Decode(&body)) {
+			return
+		}
 		assert.NotContains(t, body, "domains")
 		items, ok := body["docker_compose_domains"].([]any)
-		require.True(t, ok)
-		require.Len(t, items, 1)
+		if !assert.True(t, ok) || !assert.Len(t, items, 1) {
+			return
+		}
 		assert.Equal(t, "https://litellm.example.com", items[0].(map[string]any)["domain"])
 
 		w.Header().Set("Content-Type", "application/json")
