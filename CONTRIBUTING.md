@@ -575,10 +575,10 @@ feat: add server domains list command
 ### Pull Requests
 
 1. **Fork** the repository
-2. **Create a branch** from `v4.x`: `git checkout -b feature/my-feature v4.x`
+2. **Create a branch** from `main`: `git checkout -b feature/my-feature main`
 3. **Make your changes** with tests
 4. **Push** to your fork: `git push origin feature/my-feature`
-5. **Open a pull request** against the `v4.x` branch
+5. **Open a pull request** against the `main` branch
 6. **Describe your changes** clearly in the PR description
 7. **Link related issues** using "Fixes #123" or "Closes #123"
 

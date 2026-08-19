@@ -2,7 +2,7 @@ name: Testing CLI
 
 on:
   push:
-    branches: ["v4.x"]
+    branches: ["main"]
   pull_request:
 
 jobs:
