@@ -554,6 +554,8 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 		statusCode     int
 		wantErr        bool
 		wantCount      int
+		wantLocalMax   float64
+		wantS3Max      float64
 	}{
 		{
 			name:   "successful list",
@@ -563,13 +565,17 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 					"uuid": "backup-uuid-1",
 					"enabled": true,
 					"frequency": "0 2 * * *",
+					"database_backup_retention_max_storage_locally": 10,
+					"database_backup_retention_max_storage_s3": 2.5,
 					"created_at": "2024-01-01T00:00:00Z",
 					"updated_at": "2024-01-01T00:00:00Z"
 				}
 			]`,
-			statusCode: http.StatusOK,
-			wantErr:    false,
-			wantCount:  1,
+			statusCode:   http.StatusOK,
+			wantErr:      false,
+			wantCount:    1,
+			wantLocalMax: 10,
+			wantS3Max:    2.5,
 		},
 		{
 			name:           "empty list",
@@ -610,6 +616,12 @@ func TestDatabaseService_ListBackups(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Len(t, backups, tt.wantCount)
+			if tt.wantCount > 0 {
+				require.NotNil(t, backups[0].DatabaseBackupRetentionMaxStorageLocally)
+				require.NotNil(t, backups[0].DatabaseBackupRetentionMaxStorageS3)
+				assert.Equal(t, tt.wantLocalMax, *backups[0].DatabaseBackupRetentionMaxStorageLocally)
+				assert.Equal(t, tt.wantS3Max, *backups[0].DatabaseBackupRetentionMaxStorageS3)
+			}
 		})
 	}
 }

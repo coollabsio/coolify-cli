@@ -226,63 +226,63 @@ type DatabaseEnvBulkUpdateResponse []DatabaseEnvironmentVariable
 
 // DatabaseBackup represents a scheduled database backup configuration
 type DatabaseBackup struct {
-	ID                                       int     `json:"-" table:"-"`
-	UUID                                     string  `json:"uuid"`
-	Description                              *string `json:"description,omitempty"`
-	Enabled                                  *bool   `json:"enabled,omitempty"`
-	Frequency                                *string `json:"frequency,omitempty"`
-	SaveS3                                   *bool   `json:"save_s3,omitempty"`
-	S3StorageID                              *int    `json:"-" table:"-"`
-	DatabasesToBackup                        *string `json:"databases_to_backup,omitempty"`
-	DumpAll                                  *bool   `json:"dump_all,omitempty"`
-	DatabaseBackupRetentionAmountLocally     *int    `json:"database_backup_retention_amount_locally,omitempty"`
-	DatabaseBackupRetentionDaysLocally       *int    `json:"database_backup_retention_days_locally,omitempty"`
-	DatabaseBackupRetentionMaxStorageLocally *string `json:"database_backup_retention_max_storage_locally,omitempty"`
-	DatabaseBackupRetentionAmountS3          *int    `json:"database_backup_retention_amount_s3,omitempty"`
-	DatabaseBackupRetentionDaysS3            *int    `json:"database_backup_retention_days_s3,omitempty"`
-	DatabaseBackupRetentionMaxStorageS3      *string `json:"database_backup_retention_max_storage_s3,omitempty"`
-	DatabaseType                             *string `json:"database_type,omitempty" table:"-"`
-	DatabaseID                               *int    `json:"-" table:"-"`
-	TeamID                                   *int    `json:"-" table:"-"`
-	Timeout                                  *int    `json:"timeout,omitempty"`
-	DisableLocalBackup                       *bool   `json:"disable_local_backup,omitempty"`
-	CreatedAt                                string  `json:"-" table:"-"`
-	UpdatedAt                                string  `json:"-" table:"-"`
+	ID                                       int      `json:"-" table:"-"`
+	UUID                                     string   `json:"uuid"`
+	Description                              *string  `json:"description,omitempty"`
+	Enabled                                  *bool    `json:"enabled,omitempty"`
+	Frequency                                *string  `json:"frequency,omitempty"`
+	SaveS3                                   *bool    `json:"save_s3,omitempty"`
+	S3StorageID                              *int     `json:"-" table:"-"`
+	DatabasesToBackup                        *string  `json:"databases_to_backup,omitempty"`
+	DumpAll                                  *bool    `json:"dump_all,omitempty"`
+	DatabaseBackupRetentionAmountLocally     *int     `json:"database_backup_retention_amount_locally,omitempty"`
+	DatabaseBackupRetentionDaysLocally       *int     `json:"database_backup_retention_days_locally,omitempty"`
+	DatabaseBackupRetentionMaxStorageLocally *float64 `json:"database_backup_retention_max_storage_locally,omitempty"`
+	DatabaseBackupRetentionAmountS3          *int     `json:"database_backup_retention_amount_s3,omitempty"`
+	DatabaseBackupRetentionDaysS3            *int     `json:"database_backup_retention_days_s3,omitempty"`
+	DatabaseBackupRetentionMaxStorageS3      *float64 `json:"database_backup_retention_max_storage_s3,omitempty"`
+	DatabaseType                             *string  `json:"database_type,omitempty" table:"-"`
+	DatabaseID                               *int     `json:"-" table:"-"`
+	TeamID                                   *int     `json:"-" table:"-"`
+	Timeout                                  *int     `json:"timeout,omitempty"`
+	DisableLocalBackup                       *bool    `json:"disable_local_backup,omitempty"`
+	CreatedAt                                string   `json:"-" table:"-"`
+	UpdatedAt                                string   `json:"-" table:"-"`
 }
 
 // DatabaseBackupCreateRequest represents the request to create a backup configuration
 type DatabaseBackupCreateRequest struct {
-	Frequency                                *string `json:"frequency,omitempty"`
-	Enabled                                  *bool   `json:"enabled,omitempty"`
-	SaveS3                                   *bool   `json:"save_s3,omitempty"`
-	S3StorageUUID                            *string `json:"s3_storage_uuid,omitempty"`
-	DatabasesToBackup                        *string `json:"databases_to_backup,omitempty"`
-	DumpAll                                  *bool   `json:"dump_all,omitempty"`
-	DatabaseBackupRetentionAmountLocally     *int    `json:"database_backup_retention_amount_locally,omitempty"`
-	DatabaseBackupRetentionDaysLocally       *int    `json:"database_backup_retention_days_locally,omitempty"`
-	DatabaseBackupRetentionMaxStorageLocally *string `json:"database_backup_retention_max_storage_locally,omitempty"`
-	DatabaseBackupRetentionAmountS3          *int    `json:"database_backup_retention_amount_s3,omitempty"`
-	DatabaseBackupRetentionDaysS3            *int    `json:"database_backup_retention_days_s3,omitempty"`
-	DatabaseBackupRetentionMaxStorageS3      *string `json:"database_backup_retention_max_storage_s3,omitempty"`
-	Timeout                                  *int    `json:"timeout,omitempty"`
-	DisableLocalBackup                       *bool   `json:"disable_local_backup,omitempty"`
+	Frequency                                *string  `json:"frequency,omitempty"`
+	Enabled                                  *bool    `json:"enabled,omitempty"`
+	SaveS3                                   *bool    `json:"save_s3,omitempty"`
+	S3StorageUUID                            *string  `json:"s3_storage_uuid,omitempty"`
+	DatabasesToBackup                        *string  `json:"databases_to_backup,omitempty"`
+	DumpAll                                  *bool    `json:"dump_all,omitempty"`
+	DatabaseBackupRetentionAmountLocally     *int     `json:"database_backup_retention_amount_locally,omitempty"`
+	DatabaseBackupRetentionDaysLocally       *int     `json:"database_backup_retention_days_locally,omitempty"`
+	DatabaseBackupRetentionMaxStorageLocally *float64 `json:"database_backup_retention_max_storage_locally,omitempty"`
+	DatabaseBackupRetentionAmountS3          *int     `json:"database_backup_retention_amount_s3,omitempty"`
+	DatabaseBackupRetentionDaysS3            *int     `json:"database_backup_retention_days_s3,omitempty"`
+	DatabaseBackupRetentionMaxStorageS3      *float64 `json:"database_backup_retention_max_storage_s3,omitempty"`
+	Timeout                                  *int     `json:"timeout,omitempty"`
+	DisableLocalBackup                       *bool    `json:"disable_local_backup,omitempty"`
 }
 
 // DatabaseBackupUpdateRequest represents the request to update a backup configuration
 type DatabaseBackupUpdateRequest struct {
-	SaveS3                                   *bool   `json:"save_s3,omitempty"`
-	S3StorageUUID                            *string `json:"s3_storage_uuid,omitempty"`
-	BackupNow                                *bool   `json:"backup_now,omitempty"`
-	Enabled                                  *bool   `json:"enabled,omitempty"`
-	DatabasesToBackup                        *string `json:"databases_to_backup,omitempty"`
-	DumpAll                                  *bool   `json:"dump_all,omitempty"`
-	Frequency                                *string `json:"frequency,omitempty"`
-	DatabaseBackupRetentionAmountLocally     *int    `json:"database_backup_retention_amount_locally,omitempty"`
-	DatabaseBackupRetentionDaysLocally       *int    `json:"database_backup_retention_days_locally,omitempty"`
-	DatabaseBackupRetentionMaxStorageLocally *int    `json:"database_backup_retention_max_storage_locally,omitempty"`
-	DatabaseBackupRetentionAmountS3          *int    `json:"database_backup_retention_amount_s3,omitempty"`
-	DatabaseBackupRetentionDaysS3            *int    `json:"database_backup_retention_days_s3,omitempty"`
-	DatabaseBackupRetentionMaxStorageS3      *int    `json:"database_backup_retention_max_storage_s3,omitempty"`
+	SaveS3                                   *bool    `json:"save_s3,omitempty"`
+	S3StorageUUID                            *string  `json:"s3_storage_uuid,omitempty"`
+	BackupNow                                *bool    `json:"backup_now,omitempty"`
+	Enabled                                  *bool    `json:"enabled,omitempty"`
+	DatabasesToBackup                        *string  `json:"databases_to_backup,omitempty"`
+	DumpAll                                  *bool    `json:"dump_all,omitempty"`
+	Frequency                                *string  `json:"frequency,omitempty"`
+	DatabaseBackupRetentionAmountLocally     *int     `json:"database_backup_retention_amount_locally,omitempty"`
+	DatabaseBackupRetentionDaysLocally       *int     `json:"database_backup_retention_days_locally,omitempty"`
+	DatabaseBackupRetentionMaxStorageLocally *float64 `json:"database_backup_retention_max_storage_locally,omitempty"`
+	DatabaseBackupRetentionAmountS3          *int     `json:"database_backup_retention_amount_s3,omitempty"`
+	DatabaseBackupRetentionDaysS3            *int     `json:"database_backup_retention_days_s3,omitempty"`
+	DatabaseBackupRetentionMaxStorageS3      *float64 `json:"database_backup_retention_max_storage_s3,omitempty"`
 }
 
 // DatabaseBackupExecution represents a single backup execution
