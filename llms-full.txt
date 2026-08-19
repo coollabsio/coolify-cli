@@ -2266,13 +2266,15 @@ Parameters:
     required: false
     default: 0
   - name: --retention-max-storage-locally
-    type: string
-    description: Max storage for local backups (e.g., '1GB', '500MB')
+    type: float64
+    description: Max storage for local backups (GB)
     required: false
+    default: 0
   - name: --retention-max-storage-s3
-    type: string
-    description: Max storage for S3 backups (e.g., '1GB', '500MB')
+    type: float64
+    description: Max storage for S3 backups (GB)
     required: false
+    default: 0
   - name: --s3-storage-uuid
     type: string
     description: S3 storage UUID
@@ -2360,13 +2362,13 @@ Parameters:
     required: false
     default: 0
   - name: --retention-max-storage-locally
-    type: integer
-    description: Max storage for local backups (MB)
+    type: float64
+    description: Max storage for local backups (GB)
     required: false
     default: 0
   - name: --retention-max-storage-s3
-    type: integer
-    description: Max storage for S3 backups (MB)
+    type: float64
+    description: Max storage for S3 backups (GB)
     required: false
     default: 0
   - name: --s3-storage-uuid

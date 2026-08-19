@@ -119,12 +119,12 @@ type DockerCleanupUpdateRequest struct {
 }
 
 type ServerProxySettings struct {
-	ProxyType            string  `json:"proxy_type"`
-	Status               string  `json:"status"`
-	RedirectEnabled      bool    `json:"redirect_enabled"`
-	RedirectURL          *string `json:"redirect_url,omitempty"`
-	GenerateExactLabels  bool    `json:"generate_exact_labels"`
-	Configuration        *string `json:"configuration,omitempty" table:"-"`
+	ProxyType           string  `json:"proxy_type"`
+	Status              string  `json:"status"`
+	RedirectEnabled     bool    `json:"redirect_enabled"`
+	RedirectURL         *string `json:"redirect_url,omitempty"`
+	GenerateExactLabels bool    `json:"generate_exact_labels"`
+	Configuration       *string `json:"configuration,omitempty" table:"-"`
 }
 
 type ServerProxyUpdateRequest struct {
@@ -175,17 +175,17 @@ type AppDestinationAttachRequest struct {
 
 // VolumeBackupScheduleRequest is the body for PUT .../storages/{uuid}/backups.
 type VolumeBackupScheduleRequest struct {
-	Frequency                 string  `json:"frequency"`
-	Enabled                   *bool   `json:"enabled,omitempty"`
-	SaveS3                    *bool   `json:"save_s3,omitempty"`
-	DisableLocalBackup        *bool   `json:"disable_local_backup,omitempty"`
-	StopDuringBackup          *bool   `json:"stop_during_backup,omitempty"`
-	S3StorageUUID             *string `json:"s3_storage_uuid,omitempty"`
-	RetentionAmountLocally    *int    `json:"retention_amount_locally,omitempty"`
-	RetentionDaysLocally      *int    `json:"retention_days_locally,omitempty"`
+	Frequency                  string   `json:"frequency"`
+	Enabled                    *bool    `json:"enabled,omitempty"`
+	SaveS3                     *bool    `json:"save_s3,omitempty"`
+	DisableLocalBackup         *bool    `json:"disable_local_backup,omitempty"`
+	StopDuringBackup           *bool    `json:"stop_during_backup,omitempty"`
+	S3StorageUUID              *string  `json:"s3_storage_uuid,omitempty"`
+	RetentionAmountLocally     *int     `json:"retention_amount_locally,omitempty"`
+	RetentionDaysLocally       *int     `json:"retention_days_locally,omitempty"`
 	RetentionMaxStorageLocally *float64 `json:"retention_max_storage_locally,omitempty"`
-	RetentionAmountS3         *int    `json:"retention_amount_s3,omitempty"`
-	RetentionDaysS3           *int    `json:"retention_days_s3,omitempty"`
-	RetentionMaxStorageS3     *float64 `json:"retention_max_storage_s3,omitempty"`
-	Timeout                   *int    `json:"timeout,omitempty"`
+	RetentionAmountS3          *int     `json:"retention_amount_s3,omitempty"`
+	RetentionDaysS3            *int     `json:"retention_days_s3,omitempty"`
+	RetentionMaxStorageS3      *float64 `json:"retention_max_storage_s3,omitempty"`
+	Timeout                    *int     `json:"timeout,omitempty"`
 }

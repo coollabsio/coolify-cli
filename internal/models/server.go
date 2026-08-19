@@ -29,22 +29,22 @@ type ServerCreateRequest struct {
 
 // ServerUpdateRequest for patching servers. Only non-nil fields are sent.
 type ServerUpdateRequest struct {
-	Name                                   *string `json:"name,omitempty"`
-	Description                            *string `json:"description,omitempty"`
-	IP                                     *string `json:"ip,omitempty"`
-	Port                                   *int    `json:"port,omitempty"`
-	User                                   *string `json:"user,omitempty"`
-	PrivateKeyUUID                         *string `json:"private_key_uuid,omitempty"`
-	IsBuildServer                          *bool   `json:"is_build_server,omitempty"`
-	InstantValidate                        *bool   `json:"instant_validate,omitempty"`
-	ProxyType                              *string `json:"proxy_type,omitempty"`
-	ConcurrentBuilds                       *int    `json:"concurrent_builds,omitempty"`
-	DynamicTimeout                         *int    `json:"dynamic_timeout,omitempty"`
-	DeploymentQueueLimit                   *int    `json:"deployment_queue_limit,omitempty"`
-	ServerDiskUsageNotificationThreshold   *int    `json:"server_disk_usage_notification_threshold,omitempty"`
-	ServerDiskUsageCheckFrequency          *string `json:"server_disk_usage_check_frequency,omitempty"`
-	ConnectionTimeout                      *int    `json:"connection_timeout,omitempty"`
-	IsTerminalEnabled                      *bool   `json:"is_terminal_enabled,omitempty"`
+	Name                                 *string `json:"name,omitempty"`
+	Description                          *string `json:"description,omitempty"`
+	IP                                   *string `json:"ip,omitempty"`
+	Port                                 *int    `json:"port,omitempty"`
+	User                                 *string `json:"user,omitempty"`
+	PrivateKeyUUID                       *string `json:"private_key_uuid,omitempty"`
+	IsBuildServer                        *bool   `json:"is_build_server,omitempty"`
+	InstantValidate                      *bool   `json:"instant_validate,omitempty"`
+	ProxyType                            *string `json:"proxy_type,omitempty"`
+	ConcurrentBuilds                     *int    `json:"concurrent_builds,omitempty"`
+	DynamicTimeout                       *int    `json:"dynamic_timeout,omitempty"`
+	DeploymentQueueLimit                 *int    `json:"deployment_queue_limit,omitempty"`
+	ServerDiskUsageNotificationThreshold *int    `json:"server_disk_usage_notification_threshold,omitempty"`
+	ServerDiskUsageCheckFrequency        *string `json:"server_disk_usage_check_frequency,omitempty"`
+	ConnectionTimeout                    *int    `json:"connection_timeout,omitempty"`
+	IsTerminalEnabled                    *bool   `json:"is_terminal_enabled,omitempty"`
 }
 
 // ServerValidationRequest configures server validation behavior.
