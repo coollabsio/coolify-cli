@@ -122,3 +122,71 @@ func TestDockerComposeDomains_OmittedWhenUnset(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "docker_compose_domains")
 }
+
+func TestEnvironmentVariableRequests_MarshalBuildtimeField(t *testing.T) {
+	buildTime := false
+	runtime := true
+	literal := true
+	key := "EXAMPLE_FLAG"
+	value := "disabled"
+
+	tests := []struct {
+		name string
+		req  any
+	}{
+		{
+			name: "create request",
+			req: EnvironmentVariableCreateRequest{
+				Key:         key,
+				Value:       value,
+				IsBuildTime: &buildTime,
+				IsRuntime:   &runtime,
+				IsLiteral:   &literal,
+			},
+		},
+		{
+			name: "update request",
+			req: EnvironmentVariableUpdateRequest{
+				Key:         &key,
+				Value:       &value,
+				IsBuildTime: &buildTime,
+				IsRuntime:   &runtime,
+				IsLiteral:   &literal,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.req)
+			require.NoError(t, err)
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(data, &body))
+
+			// The application environment API expects is_buildtime as the
+			// build-time field name; is_build_time is rejected as unknown.
+			assert.Equal(t, false, body["is_buildtime"])
+			assert.NotContains(t, body, "is_build_time")
+
+			// Explicitly supplied boolean flags must be preserved.
+			assert.Equal(t, true, body["is_runtime"])
+			assert.Equal(t, true, body["is_literal"])
+		})
+	}
+}
+
+func TestEnvironmentVariableCreateRequest_OmitsUnsetBuildtimeField(t *testing.T) {
+	// An unset pointer means --build-time was not provided. The field should be
+	// omitted rather than sent as either spelling of the API field.
+	req := EnvironmentVariableCreateRequest{
+		Key:   "EXAMPLE_FLAG",
+		Value: "disabled",
+	}
+
+	data, err := json.Marshal(req)
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(data), `"is_buildtime"`)
+	assert.NotContains(t, string(data), `"is_build_time"`)
+}

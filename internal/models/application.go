@@ -295,7 +295,7 @@ type EnvironmentVariable struct {
 type EnvironmentVariableCreateRequest struct {
 	Key         string  `json:"key"`
 	Value       string  `json:"value"`
-	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsBuildTime *bool   `json:"is_buildtime,omitempty"`
 	IsPreview   *bool   `json:"is_preview,omitempty"`
 	IsLiteral   *bool   `json:"is_literal,omitempty"`
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
@@ -307,7 +307,7 @@ type EnvironmentVariableCreateRequest struct {
 type EnvironmentVariableUpdateRequest struct {
 	Key         *string `json:"key,omitempty"`
 	Value       *string `json:"value,omitempty"`
-	IsBuildTime *bool   `json:"is_build_time,omitempty"`
+	IsBuildTime *bool   `json:"is_buildtime,omitempty"`
 	IsPreview   *bool   `json:"is_preview,omitempty"`
 	IsLiteral   *bool   `json:"is_literal,omitempty"`
 	IsMultiline *bool   `json:"is_multiline,omitempty"`
