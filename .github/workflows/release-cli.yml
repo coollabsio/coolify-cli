@@ -37,7 +37,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: v4.x
+          ref: main
           fetch-depth: 0
 
       - name: Update version file
@@ -49,7 +49,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add internal/version/checker.go
           git commit -m "chore: bump version to $TAG"
-          git push origin v4.x
+          git push origin main
 
           # Move the tag to point to the new commit with updated version
           git tag -d "$TAG" || true
