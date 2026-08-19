@@ -4,9 +4,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/coollabsio/coolify-cli/internal/output"
 )
+
+type contextSummary struct {
+	Name    string `json:"name"`
+	FQDN    string `json:"fqdn"`
+	Default bool   `json:"default"`
+}
 
 // NewListCommand creates the list command
 func NewListCommand() *cobra.Command {
@@ -22,25 +27,21 @@ func NewListCommand() *cobra.Command {
 			instancesInterface := instancesRaw.([]interface{})
 
 			format, _ := cmd.Flags().GetString("format")
-			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
 
-			// Convert interface{} to config.Instance structs
-			var instances []config.Instance
+			// Use a credential-free view model so list output can never expose tokens.
+			var instances []contextSummary
 			for _, item := range instancesInterface {
 				itemMap := item.(map[string]any)
 
-				instance := config.Instance{
+				instance := contextSummary{
 					Name:    getString(itemMap, "name"),
 					FQDN:    getString(itemMap, "fqdn"),
-					Token:   getString(itemMap, "token"),
 					Default: getBool(itemMap, "default"),
 				}
 				instances = append(instances, instance)
 			}
 
-			formatter, err := output.NewFormatter(format, output.Options{
-				ShowSensitive: showSensitive,
-			})
+			formatter, err := output.NewFormatter(format, output.Options{})
 			if err != nil {
 				return err
 			}
