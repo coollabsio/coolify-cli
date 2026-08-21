@@ -76,6 +76,25 @@ go run ./coolify docs llms
 
 ## Change default context
 You can change the default context with `coolify context use <context_name>` or `coolify context set-default <context_name>`
+
+## Repo-local context
+
+Drop a `.coolify.json` (or `.coolifyrc`) at the root of a repo to pin every command run inside it to one context:
+
+```json
+{
+  "context": "production"
+}
+```
+
+The CLI walks up from the working directory to find the nearest one. Resolution order:
+
+1. `--context` flag
+2. repo-local `.coolify.json` / `.coolifyrc`
+3. global default context
+
+The file only names a context that already exists in your global config — tokens stay in `~/.config/coolify/config.json` and never belong in the repo. Run with `--debug` to see which file the context came from.
+
 ## Currently Supported Commands
 
 ### Update
@@ -496,7 +515,7 @@ Commands can use `private-key`, `private-keys`, `key`, or `keys` interchangeably
 
 All commands support these global flags:
 
-- `--context <name>` - Use a specific context instead of default
+- `--context <name>` - Use a specific context instead of the repo-local or default one (see [Repo-local context](#repo-local-context))
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
 - `-s, --show-sensitive` - Show sensitive information (tokens, IPs, etc.)
