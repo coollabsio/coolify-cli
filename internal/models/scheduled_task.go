@@ -16,15 +16,15 @@ type ScheduledTask struct {
 
 // ScheduledTaskExecution represents a single run of a scheduled task.
 type ScheduledTaskExecution struct {
-	UUID       string   `json:"uuid"`
-	Status     string   `json:"status"`
-	Message    *string  `json:"message,omitempty"`
-	RetryCount int      `json:"retry_count"`
-	Duration   *float64 `json:"duration,omitempty"`
-	StartedAt  *string  `json:"started_at,omitempty"`
-	FinishedAt *string  `json:"finished_at,omitempty"`
-	CreatedAt  string   `json:"created_at" table:"-"`
-	UpdatedAt  string   `json:"updated_at" table:"-"`
+	UUID       string           `json:"uuid"`
+	Status     string           `json:"status"`
+	Message    *string          `json:"message,omitempty"`
+	RetryCount int              `json:"retry_count"`
+	Duration   *FlexibleFloat64 `json:"duration,omitempty"`
+	StartedAt  *string          `json:"started_at,omitempty"`
+	FinishedAt *string          `json:"finished_at,omitempty"`
+	CreatedAt  string           `json:"created_at" table:"-"`
+	UpdatedAt  string           `json:"updated_at" table:"-"`
 }
 
 // ScheduledTaskCreateRequest is the body for creating a scheduled task.
