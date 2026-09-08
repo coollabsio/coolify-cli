@@ -39,6 +39,7 @@ The codebase follows Cobra's command pattern with a root command and subcommands
 - Uses Viper for configuration management
 - Config file location: `~/.config/coolify/config.json` (via xdg package)
 - Config stores multiple instances with tokens, default instance selection
+- Repo-local override: `.coolify.json` / `.coolifyrc` (see `internal/config/local.go`), discovered by walking up from the working directory. Holds only `{"context": "<name>"}` - never credentials. Context resolution in `cli.GetAPIClient` is `--context` flag > repo-local file > global default
 - Global flags available: `--token`, `--host`, `--format`, `--show-sensitive`, `--force`, `--debug`
 
 ### API Communication

@@ -202,6 +202,20 @@ func (c *Client) Get(ctx context.Context, path string, result interface{}) error
 - `config.go` - Configuration structure and methods
 - `instance.go` - Instance definition
 - `loader.go` - File I/O operations
+- `local.go` - Repo-local config discovery (`.coolify.json` / `.coolifyrc`)
+
+**Context Resolution** (in `cli.GetAPIClient`):
+1. `--context` flag
+2. Nearest repo-local `.coolify.json` / `.coolifyrc`, found by walking up from the working directory
+3. Global default instance
+
+The repo-local file only names a context that exists in the global config, so
+tokens stay out of the repository:
+```json
+{
+  "context": "production"
+}
+```
 
 **Configuration File** (`~/.config/coolify/config.json`):
 ```json
