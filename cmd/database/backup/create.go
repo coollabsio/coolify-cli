@@ -13,6 +13,8 @@ import (
 
 // NewCreateCommand creates a new database
 func NewCreateCommand() *cobra.Command {
+	// TODO: Add a --missing-backup-notification-days flag after Coolify issue #11425 is released.
+	// https://github.com/coollabsio/coolify/issues/11425
 	createBackupCmd := &cobra.Command{
 		Use:   "create <database_uuid>",
 		Short: "Create a new scheduled backup configuration",
