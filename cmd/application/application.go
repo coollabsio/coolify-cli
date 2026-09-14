@@ -79,6 +79,7 @@ func NewAppCommand() *cobra.Command {
 		Long:    `Manage preview deployments created from pull requests. Requires the application UUID.`,
 	}
 	previewsCmd.AddCommand(previews.NewDeletePreviewCommand())
+	previewsCmd.AddCommand(previews.NewUpdatePreviewCommand())
 	cmd.AddCommand(previewsCmd)
 
 	return cmd

@@ -420,6 +420,35 @@ func TestApplicationService_DeletePreview_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestApplicationService_UpdatePreview_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/previews/42", r.URL.Path)
+		assert.Equal(t, "PATCH", r.Method)
+
+		var body models.ApplicationPreviewUpdateRequest
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.NotNil(t, body.Domains)
+		assert.Equal(t, "https://preview.example.com:3000", *body.Domains)
+		assert.True(t, body.ForceDomainOverride)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"uuid":"preview-uuid","pull_request_id":42,"domains":"https://preview.example.com","docker_compose_domains":null,"domain_port_overrides":{"https://preview.example.com":3000}}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	svc := NewApplicationService(client)
+	domains := "https://preview.example.com:3000"
+	result, err := svc.UpdatePreview(context.Background(), "app-uuid-123", "42", models.ApplicationPreviewUpdateRequest{
+		Domains:             &domains,
+		ForceDomainOverride: true,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "preview-uuid", result.UUID)
+	assert.Equal(t, 3000, result.DomainPortOverrides["https://preview.example.com"])
+}
+
 func TestApplicationService_DeletePreview_NotFound(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
