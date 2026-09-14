@@ -12,6 +12,8 @@ import (
 
 // NewUpdateCommand updates a database
 func NewUpdateCommand() *cobra.Command {
+	// TODO: Add a --missing-backup-notification-days flag after Coolify issue #11425 is released.
+	// https://github.com/coollabsio/coolify/issues/11425
 	updateBackupCmd := &cobra.Command{
 		Use:   "update <database_uuid> <backup_uuid>",
 		Short: "Update backup configuration",
