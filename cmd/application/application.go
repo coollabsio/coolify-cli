@@ -39,6 +39,7 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(apptask.NewExecuteTaskCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
+	cmd.AddCommand(NewSecretManagerCommand())
 
 	// Add env subcommand with its children
 	envCmd := &cobra.Command{
