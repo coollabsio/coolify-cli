@@ -31,6 +31,24 @@ func TestNewApplicationCommands_ExposeParityFlags(t *testing.T) {
 	assert.NotNil(t, NewLogsCommand().Flags().Lookup("service"))
 	assert.NotNil(t, NewMoveCommand().Flags().Lookup("environment-uuid"))
 	assert.NotNil(t, NewUpdateCommand().Flags().Lookup("compose-domain"))
+	previews := NewAppCommand().Commands()
+	var previewsCommand *cobra.Command
+	for _, command := range previews {
+		if command.Name() == "previews" {
+			previewsCommand = command
+		}
+	}
+	require.NotNil(t, previewsCommand)
+	var updatePreviewCommand *cobra.Command
+	for _, command := range previewsCommand.Commands() {
+		if command.Name() == "update" {
+			updatePreviewCommand = command
+		}
+	}
+	require.NotNil(t, updatePreviewCommand)
+	assert.NotNil(t, updatePreviewCommand.Flags().Lookup("domains"))
+	assert.NotNil(t, updatePreviewCommand.Flags().Lookup("compose-domain"))
+	assert.NotNil(t, updatePreviewCommand.Flags().Lookup("force-domain-override"))
 
 	for _, flag := range []string{
 		"disable-build-cache", "docker-images-to-keep", "include-source-commit-in-build",

@@ -123,6 +123,33 @@ func TestDockerComposeDomains_OmittedWhenUnset(t *testing.T) {
 	assert.NotContains(t, string(data), "docker_compose_domains")
 }
 
+func TestApplicationPreviewUpdateRequest_MarshalComposeDomains(t *testing.T) {
+	req := ApplicationPreviewUpdateRequest{
+		DockerComposeDomains: []DockerComposeDomain{{Name: "web", Domain: "https://web.example.com:8080"}},
+	}
+
+	data, err := json.Marshal(req)
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(data, &body))
+	assert.NotContains(t, body, "domains")
+	assert.Equal(t, []any{map[string]any{
+		"name": "web", "domain": "https://web.example.com:8080",
+	}}, body["docker_compose_domains"])
+}
+
+func TestApplicationUpdateRequest_MarshalsExplicitlyEmptyPortsExposes(t *testing.T) {
+	empty := ""
+	data, err := json.Marshal(ApplicationUpdateRequest{PortsExposes: &empty})
+	require.NoError(t, err)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(data, &body))
+	assert.Contains(t, body, "ports_exposes")
+	assert.Equal(t, "", body["ports_exposes"])
+}
+
 func TestEnvironmentVariableRequests_MarshalBuildtimeField(t *testing.T) {
 	buildTime := false
 	runtime := true

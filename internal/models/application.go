@@ -248,6 +248,20 @@ type DockerComposeDomain struct {
 	Domain string `json:"domain"`
 }
 
+type ApplicationPreviewUpdateRequest struct {
+	Domains              *string               `json:"domains,omitempty"`
+	DockerComposeDomains []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	ForceDomainOverride  bool                  `json:"force_domain_override,omitempty"`
+}
+
+type ApplicationPreviewUpdateResponse struct {
+	UUID                 string                `json:"uuid"`
+	PullRequestID        int                   `json:"pull_request_id"`
+	Domains              *string               `json:"domains"`
+	DockerComposeDomains []DockerComposeDomain `json:"docker_compose_domains"`
+	DomainPortOverrides  map[string]int        `json:"domain_port_overrides"`
+}
+
 // ApplicationLifecycleResponse represents the response from lifecycle operations
 type ApplicationLifecycleResponse struct {
 	Message        string  `json:"message"`

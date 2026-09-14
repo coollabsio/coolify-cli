@@ -1585,6 +1585,23 @@ Parameters:
     required: false
     default: false
 
+Command: coolify app previews update <app_uuid> <pr_id>
+Description: Replace regular or Docker Compose preview domains, optionally assigning an internal port in each URL.
+Parameters:
+  - name: --domains
+    type: string
+    description: Comma-separated domains for a regular application preview
+    required: false
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose domain in service=url format (repeatable)
+    required: false
+  - name: --force-domain-override
+    type: boolean
+    description: Allow domains already used by another resource
+    required: false
+    default: false
+
 Command: coolify app restart <uuid>
 Description: Restart a running application.
 Parameters: (None)
@@ -5033,4 +5050,3 @@ Parameters: (None)
 Command: coolify version
 Description: Current Coolify CLI version
 Parameters: (None)
-

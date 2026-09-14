@@ -211,6 +211,8 @@ Commands can use `server` or `servers` interchangeably.
   - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
 
 #### Application Previews
+- `coolify app previews update <app_uuid> <pr_id> --domains <urls>` - Update regular preview domains
+- `coolify app previews update <app_uuid> <pr_id> --compose-domain <service=urls>` - Update Docker Compose preview domains
 - `coolify app previews delete <app_uuid> <pr_id>` - Delete a preview deployment
   - `--force` - Skip confirmation prompt
 
