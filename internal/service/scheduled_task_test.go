@@ -67,9 +67,7 @@ func TestApplicationService_ScheduledTasks_CRUDPaths(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Fatalf("expected GET, got %s", r.Method)
 		}
-		_ = json.NewEncoder(w).Encode([]models.ScheduledTaskExecution{
-			{UUID: "exec-1", Status: "success", RetryCount: 0},
-		})
+		_, _ = w.Write([]byte(`[{"uuid":"exec-1","status":"success","message":"OK","retry_count":0,"duration":"12.34","started_at":"2026-09-03T16:00:00Z","finished_at":"2026-09-03T16:00:12Z"}]`))
 	})
 
 	mux.HandleFunc("/api/v1/applications/app-1/scheduled-tasks/task-1/execute", func(w http.ResponseWriter, r *http.Request) {
@@ -110,6 +108,12 @@ func TestApplicationService_ScheduledTasks_CRUDPaths(t *testing.T) {
 	execs, err := svc.ListScheduledTaskExecutions(ctx, "app-1", "task-1")
 	if err != nil || len(execs) != 1 || execs[0].UUID != "exec-1" {
 		t.Fatalf("executions: %v %#v", err, execs)
+	}
+	if execs[0].Duration == nil || float64(*execs[0].Duration) != 12.34 {
+		t.Fatalf("execution duration: %#v", execs[0].Duration)
+	}
+	if execs[0].Message == nil || *execs[0].Message != "OK" || execs[0].StartedAt == nil || execs[0].FinishedAt == nil {
+		t.Fatalf("execution details: %#v", execs[0])
 	}
 
 	resp, err := svc.ExecuteScheduledTask(ctx, "app-1", "task-1")
@@ -178,9 +182,7 @@ func TestService_ScheduledTasks_CRUDPaths(t *testing.T) {
 		if r.Method != http.MethodGet {
 			t.Fatalf("expected GET, got %s", r.Method)
 		}
-		_ = json.NewEncoder(w).Encode([]models.ScheduledTaskExecution{
-			{UUID: "exec-9", Status: "failed", RetryCount: 1},
-		})
+		_, _ = w.Write([]byte(`[{"uuid":"exec-9","status":"failed","retry_count":1,"duration":4.5}]`))
 	})
 
 	mux.HandleFunc("/api/v1/services/svc-1/scheduled-tasks/task-1/execute", func(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +224,9 @@ func TestService_ScheduledTasks_CRUDPaths(t *testing.T) {
 	execs, err := svc.ListScheduledTaskExecutions(ctx, "svc-1", "task-1")
 	if err != nil || len(execs) != 1 || execs[0].Status != "failed" {
 		t.Fatalf("executions: %v %#v", err, execs)
+	}
+	if execs[0].Duration == nil || float64(*execs[0].Duration) != 4.5 {
+		t.Fatalf("execution duration: %#v", execs[0].Duration)
 	}
 
 	resp, err := svc.ExecuteScheduledTask(ctx, "svc-1", "task-1")
