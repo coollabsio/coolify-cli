@@ -26,6 +26,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/project"
 	"github.com/coollabsio/coolify-cli/cmd/resources"
 	"github.com/coollabsio/coolify-cli/cmd/s3"
+	"github.com/coollabsio/coolify-cli/cmd/secretmanager"
 	"github.com/coollabsio/coolify-cli/cmd/server"
 	"github.com/coollabsio/coolify-cli/cmd/service"
 	settingscmd "github.com/coollabsio/coolify-cli/cmd/settings"
@@ -119,6 +120,7 @@ func init() {
 	rootCmd.AddCommand(service.NewServiceCommand())
 	rootCmd.AddCommand(settingscmd.NewSettingsCommand())
 	rootCmd.AddCommand(sharedenv.NewSharedEnvCommand())
+	rootCmd.AddCommand(secretmanager.NewCommand())
 	rootCmd.AddCommand(teams.NewTeamsCommand())
 	rootCmd.AddCommand(tag.NewTagCommand())
 	rootCmd.AddCommand(update.NewUpdateCommand())

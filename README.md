@@ -477,6 +477,15 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify cloud-token list|get|create|update|delete|validate` - Manage Hetzner, DigitalOcean, and Vultr API tokens
 - Token values are redacted by default. `--show-sensitive` can reveal them only when the Coolify API token has sensitive-data permission.
 
+### Secret Managers
+- `coolify secret-manager create-token --provider <doppler|infisical|vault> --name <name> --provider-token <token>` - Add a secret manager integration token
+  - Infisical also requires `--base-url` and `--client-id`
+  - Vault also requires `--base-url` and optionally accepts `--namespace`
+- `coolify app secret-manager set <application_uuid> --integration-token-uuid <token_uuid>` - Configure an application to use the integration token
+  - Doppler service account tokens use `--project` and `--config`
+  - Infisical uses `--project-id`, `--environment`, and optionally `--secret-path`
+  - Vault uses `--mount` and `--path`
+
 ### Teams
 - `coolify team list` - List all teams
 - `coolify team get <team_id>` - Get team details
@@ -559,6 +568,11 @@ coolify app env create <uuid> --key API_KEY --value secret123
 # Sync from .env file (updates existing, creates new, keeps others unchanged)
 coolify app env sync <uuid> --file .env
 coolify app env sync <uuid> --file .env.production --build-time --preview
+
+# Create a Doppler integration token and configure an application
+coolify secret-manager create-token --provider doppler --name production --provider-token dp.sa.example
+coolify app secret-manager set <application_uuid> --integration-token-uuid <token_uuid> \
+  --project website --config production
 ```
 
 ### Database Management
