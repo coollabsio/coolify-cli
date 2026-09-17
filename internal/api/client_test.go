@@ -52,6 +52,48 @@ func TestClient_DebugRedactsSensitiveResponseFields(t *testing.T) {
 	assert.Contains(t, logs.String(), `"token":"********"`)
 }
 
+func TestClient_DebugRedactsPrivateKeyMaterial(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"key-1","public_key":"ssh-ed25519 dummy-public","private_key":"-----BEGIN OPENSSH PRIVATE KEY-----\ndummy-private-material"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Get(context.Background(), "security/keys/key-1", &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "dummy-public")
+	assert.NotContains(t, logs.String(), "dummy-private-material")
+	assert.Contains(t, logs.String(), `"private_key":"********"`)
+	assert.Contains(t, logs.String(), `"public_key":"********"`)
+}
+
+func TestClient_DebugRedactsWebhookSecret(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"app-1"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Post(context.Background(), "github-apps", map[string]string{"client_secret": "dummy-client-secret", "webhook_secret": "dummy-webhook-secret"}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "dummy-client-secret")
+	assert.NotContains(t, logs.String(), "dummy-webhook-secret")
+	assert.Contains(t, logs.String(), `"client_secret":"********"`)
+	assert.Contains(t, logs.String(), `"webhook_secret":"********"`)
+}
+
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with defaults", func(t *testing.T) {
 		client := NewClient("https://app.coolify.io", "test-token")
