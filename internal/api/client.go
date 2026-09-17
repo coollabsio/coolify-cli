@@ -220,8 +220,10 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 // Debug logging works on decoded, untyped JSON (request/response bodies can
 // be arbitrary maps, not just tagged structs), so it can't walk Go struct
 // tags directly like internal/output's formatters do; this set is the
-// closest equivalent for that generic shape. Keep in sync with the
-// `sensitive:"true"` tags in those packages.
+// closest equivalent for that generic shape.
+//
+// TestSensitiveDebugLogKeys_CoversEveryTaggedField fails if a new
+// `sensitive:"true"` tag lands without its JSON name being added here.
 var sensitiveDebugLogKeys = map[string]struct{}{
 	"token":                           {},
 	"value":                           {},
@@ -242,6 +244,16 @@ var sensitiveDebugLogKeys = map[string]struct{}{
 	"ip":                              {},
 	"user":                            {},
 	"port":                            {},
+	"postgres_password":               {},
+	"mysql_root_password":             {},
+	"mysql_password":                  {},
+	"mariadb_root_password":           {},
+	"mariadb_password":                {},
+	"mongo_initdb_root_password":      {},
+	"redis_password":                  {},
+	"keydb_password":                  {},
+	"clickhouse_admin_password":       {},
+	"dragonfly_password":              {},
 }
 
 func redactJSONForLog(jsonBody []byte) string {
