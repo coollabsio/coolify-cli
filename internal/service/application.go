@@ -70,6 +70,17 @@ func (s *ApplicationService) DeletePreview(ctx context.Context, appUUID, prID st
 	return nil
 }
 
+// UpdatePreview replaces the domains for an application preview deployment.
+func (s *ApplicationService) UpdatePreview(ctx context.Context, appUUID, prID string, req models.ApplicationPreviewUpdateRequest) (*models.ApplicationPreviewUpdateResponse, error) {
+	var preview models.ApplicationPreviewUpdateResponse
+	err := s.client.Patch(ctx, fmt.Sprintf("applications/%s/previews/%s", appUUID, prID), req, &preview)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update preview %s for application %s: %w", prID, appUUID, err)
+	}
+
+	return &preview, nil
+}
+
 // Start starts an application (initiates deployment)
 func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool, instantDeploy bool) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse
