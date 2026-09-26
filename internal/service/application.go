@@ -119,8 +119,12 @@ func (s *ApplicationService) Restart(ctx context.Context, uuid string) (*models.
 // Logs retrieves logs for an application.
 // serviceName selects a docker-compose service container (API query service_name).
 // Empty serviceName keeps legacy behavior (first/only container).
-func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool, serviceName string) (*models.ApplicationLogsResponse, error) {
+// pullRequestID > 0 reads the preview deployment of that pull request instead.
+func (s *ApplicationService) Logs(ctx context.Context, uuid string, lines int, showTimestamps bool, serviceName string, pullRequestID int) (*models.ApplicationLogsResponse, error) {
 	endpoint := fmt.Sprintf("applications/%s/logs", uuid)
+	if pullRequestID > 0 {
+		endpoint = fmt.Sprintf("applications/%s/previews/%d/logs", uuid, pullRequestID)
+	}
 	query := url.Values{}
 	if lines > 0 {
 		query.Set("lines", strconv.Itoa(lines))
