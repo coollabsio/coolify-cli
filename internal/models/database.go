@@ -25,46 +25,46 @@ type Database struct {
 
 	// PostgreSQL specific
 	PostgresUser           *string `json:"postgres_user,omitempty" table:"-"`
-	PostgresPassword       *string `json:"postgres_password,omitempty" table:"-"`
+	PostgresPassword       *string `json:"postgres_password,omitempty" table:"-" sensitive:"true"`
 	PostgresDB             *string `json:"postgres_db,omitempty" table:"-"`
 	PostgresInitdbArgs     *string `json:"postgres_initdb_args,omitempty" table:"-"`
 	PostgresHostAuthMethod *string `json:"postgres_host_auth_method,omitempty" table:"-"`
 	PostgresConf           *string `json:"postgres_conf,omitempty" table:"-"`
 
 	// MySQL specific
-	MysqlRootPassword *string `json:"mysql_root_password,omitempty" table:"-"`
-	MysqlPassword     *string `json:"mysql_password,omitempty" table:"-"`
+	MysqlRootPassword *string `json:"mysql_root_password,omitempty" table:"-" sensitive:"true"`
+	MysqlPassword     *string `json:"mysql_password,omitempty" table:"-" sensitive:"true"`
 	MysqlUser         *string `json:"mysql_user,omitempty" table:"-"`
 	MysqlDatabase     *string `json:"mysql_database,omitempty" table:"-"`
 	MysqlConf         *string `json:"mysql_conf,omitempty" table:"-"`
 
 	// MariaDB specific
-	MariadbRootPassword *string `json:"mariadb_root_password,omitempty" table:"-"`
-	MariadbPassword     *string `json:"mariadb_password,omitempty" table:"-"`
+	MariadbRootPassword *string `json:"mariadb_root_password,omitempty" table:"-" sensitive:"true"`
+	MariadbPassword     *string `json:"mariadb_password,omitempty" table:"-" sensitive:"true"`
 	MariadbUser         *string `json:"mariadb_user,omitempty" table:"-"`
 	MariadbDatabase     *string `json:"mariadb_database,omitempty" table:"-"`
 	MariadbConf         *string `json:"mariadb_conf,omitempty" table:"-"`
 
 	// MongoDB specific
 	MongoInitdbRootUsername *string `json:"mongo_initdb_root_username,omitempty" table:"-"`
-	MongoInitdbRootPassword *string `json:"mongo_initdb_root_password,omitempty" table:"-"`
+	MongoInitdbRootPassword *string `json:"mongo_initdb_root_password,omitempty" table:"-" sensitive:"true"`
 	MongoInitdbDatabase     *string `json:"mongo_initdb_database,omitempty" table:"-"`
 	MongoConf               *string `json:"mongo_conf,omitempty" table:"-"`
 
 	// Redis specific
-	RedisPassword *string `json:"redis_password,omitempty" table:"-"`
+	RedisPassword *string `json:"redis_password,omitempty" table:"-" sensitive:"true"`
 	RedisConf     *string `json:"redis_conf,omitempty" table:"-"`
 
 	// KeyDB specific
-	KeydbPassword *string `json:"keydb_password,omitempty" table:"-"`
+	KeydbPassword *string `json:"keydb_password,omitempty" table:"-" sensitive:"true"`
 	KeydbConf     *string `json:"keydb_conf,omitempty" table:"-"`
 
 	// Clickhouse specific
 	ClickhouseAdminUser     *string `json:"clickhouse_admin_user,omitempty" table:"-"`
-	ClickhouseAdminPassword *string `json:"clickhouse_admin_password,omitempty" table:"-"`
+	ClickhouseAdminPassword *string `json:"clickhouse_admin_password,omitempty" table:"-" sensitive:"true"`
 
 	// Dragonfly specific
-	DragonflyPassword *string `json:"dragonfly_password,omitempty" table:"-"`
+	DragonflyPassword *string `json:"dragonfly_password,omitempty" table:"-" sensitive:"true"`
 
 	// Relationship IDs - internal database IDs (hidden from output)
 	ServerID      *int `json:"-" table:"-"`

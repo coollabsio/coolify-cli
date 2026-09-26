@@ -193,8 +193,7 @@ func (f *TableFormatter) formatStructRow(val reflect.Value) []string {
 		value := val.Field(i)
 
 		// Check if field is marked as sensitive
-		isSensitive := field.Tag.Get("sensitive") == "true"
-		if isSensitive && !f.opts.ShowSensitive {
+		if isSensitiveField(field) && !f.opts.ShowSensitive {
 			row = append(row, SensitiveOverlay)
 		} else {
 			row = append(row, f.formatValue(value))

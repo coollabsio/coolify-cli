@@ -18,5 +18,5 @@ func NewPrettyFormatter(opts Options) *PrettyFormatter {
 func (f *PrettyFormatter) Format(data interface{}) error {
 	encoder := json.NewEncoder(f.opts.Writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(data)
+	return encoder.Encode(redactSensitive(data, f.opts.ShowSensitive))
 }

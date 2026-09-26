@@ -215,6 +215,47 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 	return nil
 }
 
+// sensitiveDebugLogKeys are the JSON field names of every struct field
+// tagged `sensitive:"true"` across internal/models and internal/config.
+// Debug logging works on decoded, untyped JSON (request/response bodies can
+// be arbitrary maps, not just tagged structs), so it can't walk Go struct
+// tags directly like internal/output's formatters do; this set is the
+// closest equivalent for that generic shape.
+//
+// TestSensitiveDebugLogKeys_CoversEveryTaggedField fails if a new
+// `sensitive:"true"` tag lands without its JSON name being added here.
+var sensitiveDebugLogKeys = map[string]struct{}{
+	"token":                           {},
+	"value":                           {},
+	"real_value":                      {},
+	"key":                             {},
+	"secret":                          {},
+	"script":                          {},
+	"client_secret":                   {},
+	"webhook_secret":                  {},
+	"webhook_token":                   {},
+	"manual_webhook_secret_github":    {},
+	"manual_webhook_secret_gitlab":    {},
+	"manual_webhook_secret_bitbucket": {},
+	"manual_webhook_secret_gitea":     {},
+	"public_key":                      {},
+	"private_key":                     {},
+	"email":                           {},
+	"ip":                              {},
+	"user":                            {},
+	"port":                            {},
+	"postgres_password":               {},
+	"mysql_root_password":             {},
+	"mysql_password":                  {},
+	"mariadb_root_password":           {},
+	"mariadb_password":                {},
+	"mongo_initdb_root_password":      {},
+	"redis_password":                  {},
+	"keydb_password":                  {},
+	"clickhouse_admin_password":       {},
+	"dragonfly_password":              {},
+}
+
 func redactJSONForLog(jsonBody []byte) string {
 	var value any
 	if err := json.Unmarshal(jsonBody, &value); err != nil {
@@ -232,7 +273,7 @@ func redactSensitiveFields(value any) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for key, child := range typed {
-			if key == "token" {
+			if _, sensitive := sensitiveDebugLogKeys[key]; sensitive {
 				typed[key] = "********"
 				continue
 			}
