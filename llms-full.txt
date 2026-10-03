@@ -77,6 +77,7 @@ Aliases are derived from the CLI command tree:
 - `coolify server cloudflare-tunnel` | `coolify server cf-tunnel`
 - `coolify server digitalocean` | `coolify server digital-ocean` | `coolify server do`
 - `coolify server domains` | `coolify server domain`
+- `coolify server hostinger catalog` | `coolify server hostinger plans`
 - `coolify server` | `coolify servers`
 - `coolify service application` | `coolify service applications` | `coolify service app` | `coolify service apps`
 - `coolify service database` | `coolify service databases` | `coolify service db` | `coolify service dbs`
@@ -2118,7 +2119,7 @@ Parameters:
     required: false
   - name: --provider
     type: string
-    description: Cloud provider: hetzner, digitalocean, or vultr
+    description: Cloud provider: hetzner, digitalocean, vultr, or hostinger
     required: false
   - name: --provider-token
     type: string
@@ -3792,6 +3793,80 @@ Parameters: (None)
 
 Command: coolify server hetzner ssh-keys <cloud_token_uuid>
 Description: List Hetzner SSH keys
+Parameters: (None)
+
+Command: coolify server hostinger catalog <cloud_token_uuid>
+Description: List Hostinger VPS plans and prices (item IDs for create)
+Parameters: (None)
+
+Command: coolify server hostinger create
+Description: Purchase a Hostinger VPS and add it as a server (paid)
+Parameters:
+  - name: --cloud-token
+    type: string
+    description: Cloud provider token UUID
+    required: false
+  - name: --data-center-id
+    type: integer
+    description: Hostinger data center ID
+    required: false
+    default: 0
+  - name: --enable-backups
+    type: boolean
+    description: Enable weekly Hostinger backups (extra cost; off by default)
+    required: false
+    default: false
+  - name: --force (-f)
+    type: boolean
+    description: Skip the purchase confirmation prompt
+    required: false
+    default: false
+  - name: --item-id
+    type: string
+    description: Hostinger catalog price ID (plan + billing period, e.g. hostingercom-vps-kvm1-usd-1m)
+    required: false
+  - name: --name
+    type: string
+    description: Server name (auto-generated if omitted)
+    required: false
+  - name: --post-install-script-id
+    type: integer
+    description: Hostinger post-install script ID
+    required: false
+    default: 0
+  - name: --private-key
+    type: string
+    description: Coolify private key UUID
+    required: false
+  - name: --ssh-key-ids
+    type: intSlice
+    description: Additional Hostinger SSH key IDs
+    required: false
+  - name: --template-id
+    type: integer
+    description: Hostinger OS template ID
+    required: false
+    default: 0
+  - name: --validate
+    type: boolean
+    description: Validate after creation
+    required: false
+    default: false
+
+Command: coolify server hostinger data-centers <cloud_token_uuid>
+Description: List Hostinger data centers
+Parameters: (None)
+
+Command: coolify server hostinger post-install-scripts <cloud_token_uuid>
+Description: List Hostinger post-install scripts
+Parameters: (None)
+
+Command: coolify server hostinger ssh-keys <cloud_token_uuid>
+Description: List Hostinger SSH keys
+Parameters: (None)
+
+Command: coolify server hostinger templates <cloud_token_uuid>
+Description: List Hostinger OS templates
 Parameters: (None)
 
 Command: coolify server list

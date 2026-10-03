@@ -135,7 +135,12 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify server domains <uuid>` - Get server domains by UUID
 - `coolify server destinations list <server_uuid>` - List a server's destinations
 - `coolify server destinations create <server_uuid>` - Create a server destination
-- `coolify server hetzner|digitalocean|vultr` - List provider options and provision a server
+- `coolify server hetzner|digitalocean|vultr|hostinger` - List provider options and provision a server
+- `coolify server hostinger data-centers|catalog|templates|ssh-keys|post-install-scripts <cloud_token_uuid>` - List Hostinger options (`catalog` shows one row per plan and billing period; its `item_id` is used for `--item-id`)
+- `coolify server hostinger create` - Purchase a Hostinger VPS and add it as a server. This is a paid, recurring (monthly/yearly) purchase and asks for confirmation.
+  - `--cloud-token <uuid>`, `--item-id <price_id>`, `--data-center-id <id>`, `--template-id <id>`, `--private-key <uuid>` - Required
+  - `--name`, `--enable-backups` (default: false; backups cost extra), `--ssh-key-ids`, `--post-install-script-id`, `--validate` - Optional
+  - `-f, --force` - Skip the purchase confirmation prompt
 
 ### Projects
 - `coolify projects list` - List all projects
@@ -479,7 +484,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify destination delete <uuid>` - Delete an unused destination
 
 ### Cloud Provider Tokens
-- `coolify cloud-token list|get|create|update|delete|validate` - Manage Hetzner, DigitalOcean, and Vultr API tokens
+- `coolify cloud-token list|get|create|update|delete|validate` - Manage Hetzner, DigitalOcean, Vultr, and Hostinger API tokens
 - Token values are redacted by default. `--show-sensitive` can reveal them only when the Coolify API token has sensitive-data permission.
 
 ### Teams
