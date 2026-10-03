@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -59,9 +60,10 @@ func (s *ServerService) Update(ctx context.Context, uuid string, req models.Serv
 	return &response, err
 }
 
-// Delete deletes a server by UUID
-func (s *ServerService) Delete(ctx context.Context, uuid string) error {
-	return s.client.Delete(ctx, "servers/"+uuid)
+// Delete deletes a server by UUID. force also deletes all resources on the server,
+// deleteFromProvider also deletes the server from its cloud provider.
+func (s *ServerService) Delete(ctx context.Context, uuid string, force, deleteFromProvider bool) error {
+	return s.client.Delete(ctx, fmt.Sprintf("servers/%s?force=%t&delete_from_provider=%t", uuid, force, deleteFromProvider))
 }
 
 // Validate validates a server by UUID

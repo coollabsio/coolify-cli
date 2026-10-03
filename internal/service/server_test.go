@@ -154,21 +154,38 @@ func TestServerService_Update(t *testing.T) {
 }
 
 func TestServerService_Delete(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/servers/test-uuid", r.URL.Path)
-		assert.Equal(t, "DELETE", r.Method)
+	tests := []struct {
+		name               string
+		force              bool
+		deleteFromProvider bool
+		wantQuery          string
+	}{
+		{"defaults", false, false, "force=false&delete_from_provider=false"},
+		{"force", true, false, "force=true&delete_from_provider=false"},
+		{"delete from provider", false, true, "force=false&delete_from_provider=true"},
+		{"both", true, true, "force=true&delete_from_provider=true"},
+	}
 
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(models.Response{Message: "Server deleted"})
-	}))
-	defer server.Close()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/servers/test-uuid", r.URL.Path)
+				assert.Equal(t, "DELETE", r.Method)
+				assert.Equal(t, tt.wantQuery, r.URL.RawQuery)
 
-	client := api.NewClient(server.URL, "test-token")
-	svc := NewServerService(client)
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(models.Response{Message: "Server deleted"})
+			}))
+			defer server.Close()
 
-	err := svc.Delete(context.Background(), "test-uuid")
+			client := api.NewClient(server.URL, "test-token")
+			svc := NewServerService(client)
 
-	require.NoError(t, err)
+			err := svc.Delete(context.Background(), "test-uuid", tt.force, tt.deleteFromProvider)
+
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestServerService_Validate(t *testing.T) {
