@@ -77,6 +77,7 @@ Aliases are derived from the CLI command tree:
 - `coolify server cloudflare-tunnel` | `coolify server cf-tunnel`
 - `coolify server digitalocean` | `coolify server digital-ocean` | `coolify server do`
 - `coolify server domains` | `coolify server domain`
+- `coolify server registry` | `coolify server registries`
 - `coolify server` | `coolify servers`
 - `coolify service application` | `coolify service applications` | `coolify service app` | `coolify service apps`
 - `coolify service database` | `coolify service databases` | `coolify service db` | `coolify service dbs`
@@ -3851,6 +3852,40 @@ Parameters:
     type: string
     description: Redirect URL
     required: false
+
+Command: coolify server registry check <server_uuid> <registry>
+Description: Check that the saved registry login of a server still works
+Parameters: (None)
+
+Command: coolify server registry list <server_uuid>
+Description: List registry logins of a server
+Parameters: (None)
+
+Command: coolify server registry login <server_uuid> [<server_uuid>...]
+Description: Log in to a Docker registry on one or more servers
+Parameters:
+  - name: --password-stdin
+    type: boolean
+    description: Read the password or access token from stdin
+    required: false
+    default: false
+  - name: --registry
+    type: string
+    description: Registry host, optionally with a port (e.g. ghcr.io, registry.example.com:5000, docker.io for Docker Hub) (required)
+    required: true
+  - name: --username (-u)
+    type: string
+    description: Registry username (required)
+    required: true
+
+Command: coolify server registry logout <server_uuid> <registry>
+Description: Log out from a Docker registry on a server
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
 
 Command: coolify server remove <uuid>
 Description: Remove a server

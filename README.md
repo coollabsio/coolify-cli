@@ -136,6 +136,15 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify server destinations list <server_uuid>` - List a server's destinations
 - `coolify server destinations create <server_uuid>` - Create a server destination
 - `coolify server hetzner|digitalocean|vultr` - List provider options and provision a server
+- `coolify server registry list <server_uuid>` - List the Docker registries a server is logged in to and which resources use them (requires a token with `read:sensitive`; usernames are hidden in table output unless `-s` is given)
+- `coolify server registry login <server_uuid> [<server_uuid>...]` - Run `docker login` on one or more servers
+  - `--registry <host>` - Registry host, optionally with a port, e.g. `ghcr.io`, `registry.example.com:5000`, `docker.io` (required)
+  - `-u, --username <username>` - Registry username (required)
+  - `--password-stdin` - Read the password or access token from stdin. Without it, the password is prompted without echo in a terminal. There is no flag for the password itself
+  - Example: `echo "$GHCR_TOKEN" | coolify server registry login <server_uuid> --registry ghcr.io -u octocat --password-stdin`
+- `coolify server registry check <server_uuid> <registry>` - Check that the saved login still works
+- `coolify server registry logout <server_uuid> <registry>` - Run `docker logout` on the server
+  - `-f, --force` - Skip confirmation prompt
 
 ### Projects
 - `coolify projects list` - List all projects

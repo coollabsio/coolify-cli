@@ -33,6 +33,25 @@ func TestClient_DebugRedactsSensitiveJSONFields(t *testing.T) {
 	assert.Contains(t, logs.String(), `"token":"********"`)
 }
 
+func TestClient_DebugRedactsPasswordInRequestBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"message":"Logged in to ghcr.io."}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Post(context.Background(), "servers/srv-1/registries", map[string]string{"registry": "ghcr.io", "username": "octocat", "password": "ghp_secret"}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "ghp_secret")
+	assert.Contains(t, logs.String(), `"password":"********"`)
+}
+
 func TestClient_DebugRedactsSensitiveResponseFields(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"uuid":"token-1","token":"provider-secret"}`))
