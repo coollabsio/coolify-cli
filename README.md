@@ -216,6 +216,19 @@ Commands can use `server` or `servers` interchangeably.
   - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
 
 #### Application Previews
+- `coolify app previews list <app_uuid>` - List preview deployments
+- `coolify app previews get <app_uuid> <pr_id>` - Get a preview deployment
+- `coolify app previews create <app_uuid> <pr_id>` - Open a preview deployment and queue its deployment (redeploys an existing preview)
+  - `--git-type <type>` - Git provider of the pull request: `github`, `gitlab`, `gitea`, or `bitbucket` (required unless the application uses a GitHub App or GitLab App source)
+  - `--commit <sha>` - Commit SHA to deploy (required for Bitbucket)
+  - `--docker-tag <tag>` - Docker image tag (Docker Image applications; required for a new preview)
+  - `--url <url>` - Pull request URL
+  - `--force` - Rebuild without cache
+  - `--no-deploy` - Only create the preview, do not queue a deployment
+- `coolify app previews update <app_uuid> <pr_id>` - Replace the domains of a preview deployment
+  - `--domains <domains>` - Domains (comma-separated)
+  - `--compose-domain <service>=<url>` - Docker Compose service domain (repeatable)
+  - `--force-domain-override` - Save the domains even when another resource uses them
 - `coolify app previews delete <app_uuid> <pr_id>` - Delete a preview deployment
   - `--force` - Skip confirmation prompt
 

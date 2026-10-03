@@ -52,6 +52,7 @@ All commands support `--format` flag:
 Aliases are derived from the CLI command tree:
 - `coolify app destinations` | `coolify app destination`
 - `coolify app env` | `coolify app envs` | `coolify app environment`
+- `coolify app previews create` | `coolify app previews open` | `coolify app previews deploy`
 - `coolify app previews` | `coolify app preview`
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
@@ -1576,12 +1577,67 @@ Parameters:
     description: Target environment UUID (required)
     required: true
 
+Command: coolify app previews create <app_uuid> <pr_id>
+Description: Open or redeploy a preview deployment
+Parameters:
+  - name: --commit
+    type: string
+    description: Commit SHA to deploy (required for Bitbucket)
+    required: false
+  - name: --docker-tag
+    type: string
+    description: Docker image tag (Docker Image applications only)
+    required: false
+  - name: --force
+    type: boolean
+    description: Rebuild without cache
+    required: false
+    default: false
+  - name: --git-type
+    type: string
+    description: Git provider of the pull request: github, gitlab, gitea, or bitbucket
+    required: false
+  - name: --no-deploy
+    type: boolean
+    description: Only create the preview, do not queue a deployment
+    required: false
+    default: false
+  - name: --url
+    type: string
+    description: Pull request URL
+    required: false
+
 Command: coolify app previews delete <app_uuid> <pr_id>
 Description: Delete a preview deployment for an application. First argument is the application UUID, second is the pull request ID.
 Parameters:
   - name: --force
     type: boolean
     description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify app previews get <app_uuid> <pr_id>
+Description: Get a preview deployment of an application by pull request ID.
+Parameters: (None)
+
+Command: coolify app previews list <app_uuid>
+Description: List the preview deployments of an application, newest pull request first.
+Parameters: (None)
+
+Command: coolify app previews update <app_uuid> <pr_id>
+Description: Update the domains of a preview deployment
+Parameters:
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
+  - name: --domains
+    type: string
+    description: Domains (comma-separated)
+    required: false
+  - name: --force-domain-override
+    type: boolean
+    description: Save the domains even when another resource uses them
     required: false
     default: false
 

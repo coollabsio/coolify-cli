@@ -70,6 +70,46 @@ func (s *ApplicationService) DeletePreview(ctx context.Context, appUUID, prID st
 	return nil
 }
 
+// ListPreviews retrieves the preview deployments of an application
+func (s *ApplicationService) ListPreviews(ctx context.Context, appUUID string) ([]models.ApplicationPreview, error) {
+	var previews []models.ApplicationPreview
+	err := s.client.Get(ctx, fmt.Sprintf("applications/%s/previews", url.PathEscape(appUUID)), &previews)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list previews for application %s: %w", appUUID, err)
+	}
+	return previews, nil
+}
+
+// GetPreview retrieves a preview deployment by pull request ID
+func (s *ApplicationService) GetPreview(ctx context.Context, appUUID string, prID int) (*models.ApplicationPreview, error) {
+	var preview models.ApplicationPreview
+	err := s.client.Get(ctx, fmt.Sprintf("applications/%s/previews/%d", url.PathEscape(appUUID), prID), &preview)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get preview %d for application %s: %w", prID, appUUID, err)
+	}
+	return &preview, nil
+}
+
+// CreatePreview opens a preview deployment, or redeploys it when it already exists
+func (s *ApplicationService) CreatePreview(ctx context.Context, appUUID string, req models.ApplicationPreviewCreateRequest) (*models.ApplicationPreviewDeploymentResponse, error) {
+	var resp models.ApplicationPreviewDeploymentResponse
+	err := s.client.Post(ctx, fmt.Sprintf("applications/%s/previews", url.PathEscape(appUUID)), req, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create preview %d for application %s: %w", req.PullRequestID, appUUID, err)
+	}
+	return &resp, nil
+}
+
+// UpdatePreviewDomains replaces the domains of a preview deployment
+func (s *ApplicationService) UpdatePreviewDomains(ctx context.Context, appUUID string, prID int, req models.ApplicationPreviewDomainsUpdateRequest) (*models.ApplicationPreviewDomainsUpdateResponse, error) {
+	var resp models.ApplicationPreviewDomainsUpdateResponse
+	err := s.client.Patch(ctx, fmt.Sprintf("applications/%s/previews/%d", url.PathEscape(appUUID), prID), req, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update preview %d for application %s: %w", prID, appUUID, err)
+	}
+	return &resp, nil
+}
+
 // Start starts an application (initiates deployment)
 func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool, instantDeploy bool) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse
