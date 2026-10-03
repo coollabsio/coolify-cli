@@ -310,6 +310,31 @@ func TestClient_Retry_NoRetryOn4xx(t *testing.T) {
 	assert.True(t, IsBadRequest(err))
 }
 
+func TestClient_PostOnce_DoesNotRetryServerErrors(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		assert.Equal(t, http.MethodPost, r.Method)
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"message":"boom","vm_id":7}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token", WithRetries(3))
+	var result map[string]any
+
+	err := client.PostOnce(context.Background(), "test", map[string]string{"a": "b"}, &result)
+
+	require.Error(t, err)
+	assert.Equal(t, 1, attempts)
+	var apiErr *Error
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, "boom", apiErr.Message)
+	assert.JSONEq(t, `{"message":"boom","vm_id":7}`, string(apiErr.Body))
+	assert.Equal(t, "30", apiErr.RetryAfter)
+}
+
 func TestClient_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)

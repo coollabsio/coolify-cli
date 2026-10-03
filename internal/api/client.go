@@ -61,6 +61,13 @@ func (c *Client) Post(ctx context.Context, path string, body, result interface{}
 	return c.doRequest(ctx, "POST", path, body, result)
 }
 
+// PostOnce makes a single POST request without retries. Use it for
+// non-idempotent requests where a retry could repeat a side effect, such as
+// purchasing a cloud server.
+func (c *Client) PostOnce(ctx context.Context, path string, body, result interface{}) error {
+	return c.doRequestOnce(ctx, "POST", path, body, result)
+}
+
 // Delete makes a DELETE request to the API
 func (c *Client) Delete(ctx context.Context, path string) error {
 	return c.doRequest(ctx, "DELETE", path, nil, nil)
@@ -196,7 +203,10 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 			}
 		}
 
-		return NewError(resp.StatusCode, path, message)
+		apiErr := NewError(resp.StatusCode, path, message)
+		apiErr.Body = respBody
+		apiErr.RetryAfter = resp.Header.Get("Retry-After")
+		return apiErr
 	}
 
 	// Unmarshal response into result

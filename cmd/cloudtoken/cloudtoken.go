@@ -102,7 +102,7 @@ func newCreate() *cobra.Command {
 	cmd := &cobra.Command{Use: "create", Short: "Create a cloud provider token", RunE: func(cmd *cobra.Command, _ []string) error {
 		cloudProvider := models.CloudProvider(provider)
 		if !cloudProvider.Valid() {
-			return fmt.Errorf("--provider must be hetzner, digitalocean, or vultr")
+			return fmt.Errorf("--provider must be hetzner, digitalocean, vultr, or hostinger")
 		}
 		if token == "" || name == "" {
 			return fmt.Errorf("--name and --provider-token are required")
@@ -117,7 +117,7 @@ func newCreate() *cobra.Command {
 		}
 		return format(cmd, response)
 	}}
-	cmd.Flags().StringVar(&provider, "provider", "", "Cloud provider: hetzner, digitalocean, or vultr")
+	cmd.Flags().StringVar(&provider, "provider", "", "Cloud provider: hetzner, digitalocean, vultr, or hostinger")
 	cmd.Flags().StringVar(&name, "name", "", "Friendly token name")
 	cmd.Flags().StringVar(&token, "provider-token", "", "Provider API token (sensitive; never included in output)")
 	return cmd
