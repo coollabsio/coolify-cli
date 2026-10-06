@@ -3945,7 +3945,17 @@ Parameters:
 
 Command: coolify server remove <uuid>
 Description: Remove a server
-Parameters: (None)
+Parameters:
+  - name: --delete-from-provider
+    type: boolean
+    description: Also delete the server from its cloud provider (Hetzner, Vultr or DigitalOcean). This cannot be undone
+    required: false
+    default: false
+  - name: --force
+    type: boolean
+    description: Also delete all resources on the server
+    required: false
+    default: false
 
 Command: coolify server sentinel get <server_uuid>
 Description: Get Sentinel settings
