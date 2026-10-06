@@ -248,6 +248,63 @@ type DockerComposeDomain struct {
 	Domain string `json:"domain"`
 }
 
+// ApplicationPreview represents a preview deployment of an application.
+type ApplicationPreview struct {
+	UUID                   string                 `json:"uuid"`
+	PullRequestID          int                    `json:"pull_request_id"`
+	Status                 string                 `json:"status"`
+	Domains                *string                `json:"domains"`
+	GitType                *string                `json:"git_type"`
+	DockerRegistryImageTag *string                `json:"docker_registry_image_tag"`
+	PullRequestHTMLURL     *string                `json:"pull_request_html_url"`
+	DockerComposeDomains   []PreviewComposeDomain `json:"docker_compose_domains" table:"-"`
+	DomainPortOverrides    map[string]int         `json:"domain_port_overrides" table:"-"`
+	LastOnlineAt           *string                `json:"last_online_at" table:"-"`
+	CreatedAt              string                 `json:"created_at" table:"-"`
+	UpdatedAt              string                 `json:"updated_at" table:"-"`
+}
+
+// PreviewComposeDomain is the domain of one Docker Compose service in a preview deployment.
+type PreviewComposeDomain struct {
+	Name     string  `json:"name"`
+	Domain   *string `json:"domain"`
+	Redirect *string `json:"redirect,omitempty"`
+}
+
+// ApplicationPreviewCreateRequest opens (or redeploys) a preview deployment.
+type ApplicationPreviewCreateRequest struct {
+	PullRequestID      int     `json:"pull_request_id"`
+	PullRequestHTMLURL *string `json:"pull_request_html_url,omitempty"`
+	GitType            *string `json:"git_type,omitempty"`
+	Commit             *string `json:"commit,omitempty"`
+	DockerTag          *string `json:"docker_tag,omitempty"`
+	Force              *bool   `json:"force,omitempty"`
+	InstantDeploy      *bool   `json:"instant_deploy,omitempty"`
+}
+
+// ApplicationPreviewDeploymentResponse is returned when a preview deployment is opened.
+type ApplicationPreviewDeploymentResponse struct {
+	Message        string             `json:"message"`
+	DeploymentUUID *string            `json:"deployment_uuid"`
+	Preview        ApplicationPreview `json:"preview"`
+}
+
+// ApplicationPreviewDomainsUpdateRequest replaces the domains of a preview deployment.
+type ApplicationPreviewDomainsUpdateRequest struct {
+	Domains              *string               `json:"domains,omitempty"`
+	DockerComposeDomains []DockerComposeDomain `json:"docker_compose_domains,omitempty"`
+	ForceDomainOverride  *bool                 `json:"force_domain_override,omitempty"`
+}
+
+// ApplicationPreviewDomainsUpdateResponse is returned after preview domains are replaced.
+type ApplicationPreviewDomainsUpdateResponse struct {
+	UUID                 string                 `json:"uuid"`
+	PullRequestID        int                    `json:"pull_request_id"`
+	Domains              *string                `json:"domains"`
+	DockerComposeDomains []PreviewComposeDomain `json:"docker_compose_domains" table:"-"`
+	DomainPortOverrides  map[string]int         `json:"domain_port_overrides" table:"-"`
+}
+
 // ApplicationLifecycleResponse represents the response from lifecycle operations
 type ApplicationLifecycleResponse struct {
 	Message        string  `json:"message"`
