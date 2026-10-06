@@ -10,7 +10,7 @@ func NewServerCommand() *cobra.Command {
 		Use:     "server",
 		Aliases: []string{"servers"},
 		Short:   "Server related commands",
-		Long:    `Manage Coolify servers - list, get details, add new servers, validate connections, and remove servers.`,
+		Long:    `Manage Coolify servers - list, get details, add new servers, validate connections, manage Docker registry logins, and remove servers.`,
 	}
 
 	// Add subcommands
@@ -30,6 +30,7 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewSentinelCommand())
 	cmd.AddCommand(NewCloudflareTunnelCommand())
 	cmd.AddCommand(NewProxyCommand())
+	cmd.AddCommand(NewRegistryCommand())
 
 	return cmd
 }

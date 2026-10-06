@@ -232,7 +232,7 @@ func redactSensitiveFields(value any) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for key, child := range typed {
-			if key == "token" {
+			if key == "token" || key == "password" {
 				typed[key] = "********"
 				continue
 			}
