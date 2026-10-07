@@ -10,3 +10,5 @@ dist/
 
 # Test coverage
 coverage.out
+# AI task tracking
+.ai/todo.md
