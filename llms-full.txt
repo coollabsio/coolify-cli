@@ -1560,6 +1560,11 @@ Parameters:
     description: Number of log lines to retrieve
     required: false
     default: 100
+  - name: --pull-request-id
+    type: integer
+    description: Pull request ID to read the logs of its preview deployment
+    required: false
+    default: 0
   - name: --service
     type: string
     description: Docker Compose service name (selects one container in multi-service apps)

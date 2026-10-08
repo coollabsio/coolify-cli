@@ -22,7 +22,10 @@ func NewLogsCommand() *cobra.Command {
 
 For Docker Compose applications with multiple services, pass --service <name>
 (the compose service key, e.g. web or db) to select which container's logs to return.
-Without --service, the API returns logs from the first running container.`,
+Without --service, the API returns logs from the first running container.
+
+Pass --pull-request-id <id> to read the logs of that pull request's preview
+deployment instead of the main deployment.`,
 		Args: cli.ExactArgs(1, "<uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -37,10 +40,14 @@ Without --service, the API returns logs from the first running container.`,
 			follow, _ := cmd.Flags().GetBool("follow")
 			showTimestamps, _ := cmd.Flags().GetBool("show-timestamps")
 			serviceName, _ := cmd.Flags().GetString("service")
+			pullRequestID, _ := cmd.Flags().GetInt("pull-request-id")
+			if pullRequestID < 0 {
+				return fmt.Errorf("--pull-request-id cannot be negative")
+			}
 			appSvc := service.NewApplicationService(client)
 
 			if !follow {
-				resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
+				resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName, pullRequestID)
 				if err != nil {
 					return fmt.Errorf("failed to get logs: %w", err)
 				}
@@ -56,7 +63,7 @@ Without --service, the API returns logs from the first running container.`,
 
 			lastLogs := ""
 
-			resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
+			resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName, pullRequestID)
 			if err != nil {
 				return fmt.Errorf("failed to get logs: %w", err)
 			}
@@ -69,7 +76,7 @@ Without --service, the API returns logs from the first running container.`,
 					fmt.Println("\nStopping log follow...")
 					return nil
 				case <-ticker.C:
-					resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName)
+					resp, err := appSvc.Logs(ctx, uuid, lines, showTimestamps, serviceName, pullRequestID)
 					if err != nil {
 						continue
 					}
@@ -90,5 +97,6 @@ Without --service, the API returns logs from the first running container.`,
 	cmd.Flags().BoolP("follow", "f", false, "Follow log output (like tail -f)")
 	cmd.Flags().Bool("show-timestamps", false, "Show timestamps in log output")
 	cmd.Flags().String("service", "", "Docker Compose service name (selects one container in multi-service apps)")
+	cmd.Flags().Int("pull-request-id", 0, "Pull request ID to read the logs of its preview deployment")
 	return cmd
 }

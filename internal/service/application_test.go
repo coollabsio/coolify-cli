@@ -742,7 +742,7 @@ func TestApplicationService_Logs(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "")
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "", 0)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Contains(t, result.Logs, "Application started")
@@ -765,7 +765,7 @@ func TestApplicationService_Logs_WithLines(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 50, false, "")
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 50, false, "", 0)
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
@@ -780,7 +780,7 @@ func TestApplicationService_Logs_WithLinesAndTimestamps(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 25, true, "")
+	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 25, true, "", 0)
 
 	require.NoError(t, err)
 	assert.Equal(t, "timestamped", result.Logs)
@@ -797,10 +797,27 @@ func TestApplicationService_Logs_WithServiceName(t *testing.T) {
 	defer server.Close()
 
 	client := api.NewClient(server.URL, "test-token")
-	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 50, true, "web")
+	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 50, true, "web", 0)
 
 	require.NoError(t, err)
 	assert.Equal(t, "web service logs", result.Logs)
+}
+
+func TestApplicationService_Logs_WithPullRequestID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/applications/app-uuid-123/previews/42/logs", r.URL.Path)
+		assert.Equal(t, "web", r.URL.Query().Get("service_name"))
+		assert.Equal(t, "50", r.URL.Query().Get("lines"))
+		assert.Empty(t, r.URL.Query().Get("pull_request_id"))
+		_ = json.NewEncoder(w).Encode(models.ApplicationLogsResponse{Logs: "preview logs"})
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	result, err := NewApplicationService(client).Logs(context.Background(), "app-uuid-123", 50, false, "web", 42)
+
+	require.NoError(t, err)
+	assert.Equal(t, "preview logs", result.Logs)
 }
 
 func TestApplicationService_Move(t *testing.T) {
@@ -839,7 +856,7 @@ func TestApplicationService_Logs_Error(t *testing.T) {
 	client := api.NewClient(server.URL, "test-token")
 	svc := NewApplicationService(client)
 
-	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "")
+	result, err := svc.Logs(context.Background(), "app-uuid-123", 0, false, "", 0)
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get logs for application")
