@@ -77,6 +77,7 @@ func TestDatabaseImportService_Upload_Chunked(t *testing.T) {
 				assert.Equal(t, http.MethodPost, r.Method)
 				assert.Equal(t, tt.wantPath, r.URL.Path)
 				assert.True(t, strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data"))
+				r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 				require.NoError(t, r.ParseMultipartForm(1<<20))
 				file, header, err := r.FormFile("file")
 				require.NoError(t, err)

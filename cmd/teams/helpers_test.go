@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 
@@ -60,7 +59,7 @@ func newFakeAPI(t *testing.T, handler http.HandlerFunc) *fakeAPI {
 }
 
 // runCmd executes the command tree under a minimal root carrying the global flags.
-func runCmd(t *testing.T, stdin string, args ...string) (string, string, error) {
+func runCmd(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	root := &cobra.Command{Use: "coolify", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().String("token", "", "")
@@ -70,11 +69,10 @@ func runCmd(t *testing.T, stdin string, args ...string) (string, string, error) 
 	root.PersistentFlags().Bool("debug", false, "")
 	root.AddCommand(NewTeamsCommand())
 
-	var stdout, stderr bytes.Buffer
-	root.SetIn(strings.NewReader(stdin))
+	var stdout bytes.Buffer
 	root.SetOut(&stdout)
-	root.SetErr(&stderr)
+	root.SetErr(&bytes.Buffer{})
 	root.SetArgs(args)
 	err := root.ExecuteContext(context.Background())
-	return stdout.String(), stderr.String(), err
+	return stdout.String(), err
 }

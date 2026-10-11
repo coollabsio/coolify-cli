@@ -16,7 +16,7 @@ func TestSecretManagerSet_SendsRequest(t *testing.T) {
 		_, _ = w.Write([]byte(secretManagerResponse))
 	})
 
-	stdout, _, err := runCmd(t, "", "app", "secret-manager", "set", "app-uuid",
+	stdout, err := runCmd(t, "app", "secret-manager", "set", "app-uuid",
 		"--integration-token", "tok-uuid", "--settings", `{"mount":"secret","path":"apps/web"}`)
 	require.NoError(t, err)
 
@@ -36,7 +36,7 @@ func TestSecretManagerSet_WithoutSettingsAndJSON(t *testing.T) {
 		_, _ = w.Write([]byte(`{"integration_token_uuid":"tok-uuid","provider":"doppler","settings":null}`))
 	})
 
-	stdout, _, err := runCmd(t, "", "app", "secret-manager", "set", "app-uuid", "--integration-token", "tok-uuid", "--format", "json")
+	stdout, err := runCmd(t, "app", "secret-manager", "set", "app-uuid", "--integration-token", "tok-uuid", "--format", "json")
 	require.NoError(t, err)
 	require.Len(t, fake.recorded(), 1)
 	assert.JSONEq(t, `{"integration_token_uuid":"tok-uuid"}`, fake.recorded()[0].Body)
@@ -59,7 +59,7 @@ func TestSecretManagerSet_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := newFakeAPI(t, func(http.ResponseWriter, *http.Request) {})
-			_, _, err := runCmd(t, "", append([]string{"app", "secret-manager", "set"}, tt.args...)...)
+			_, err := runCmd(t, append([]string{"app", "secret-manager", "set"}, tt.args...)...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 			assert.Empty(t, fake.recorded())

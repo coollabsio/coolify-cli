@@ -262,7 +262,7 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 	req.Header.Set("Accept", "application/json")
 
 	// Execute request
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) //nolint:gosec // G704: URL is the user-configured Coolify instance
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -275,8 +275,9 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 	}
 
 	if c.debug {
+		//nolint:gosec // G706: debug-only output; the response body is redacted
 		log.Printf("Response status: %d", resp.StatusCode)
-		log.Printf("Response body: %s", redactJSONForLog(respBody))
+		log.Printf("Response body: %s", redactJSONForLog(respBody)) //nolint:gosec // G706: see above
 	}
 
 	// Check status code

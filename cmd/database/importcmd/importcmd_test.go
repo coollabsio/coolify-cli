@@ -46,6 +46,7 @@ func newFakeAPI(t *testing.T, statuses ...string) *fakeAPI {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := recordedRequest{Method: r.Method, Path: r.URL.Path}
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 			require.NoError(t, r.ParseMultipartForm(1<<20))
 			rec.Fields = map[string]string{}
 			for key, values := range r.MultipartForm.Value {
@@ -98,7 +99,7 @@ func newFakeAPI(t *testing.T, statuses ...string) *fakeAPI {
 
 // run executes `coolify <parent> import <args>` where parent is either the
 // standalone or service database command.
-func run(t *testing.T, importCmd *cobra.Command, args ...string) (string, string, error) {
+func run(t *testing.T, importCmd *cobra.Command, args ...string) (string, error) {
 	t.Helper()
 	root := &cobra.Command{Use: "coolify", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().String("token", "", "")
@@ -107,12 +108,12 @@ func run(t *testing.T, importCmd *cobra.Command, args ...string) (string, string
 	root.PersistentFlags().Bool("debug", false, "")
 	root.AddCommand(importCmd)
 
-	var stdout, stderr bytes.Buffer
+	var stdout bytes.Buffer
 	root.SetOut(&stdout)
-	root.SetErr(&stderr)
+	root.SetErr(&bytes.Buffer{})
 	root.SetArgs(append([]string{"import"}, args...))
 	err := root.ExecuteContext(context.Background())
-	return stdout.String(), stderr.String(), err
+	return stdout.String(), err
 }
 
 func writeDump(t *testing.T) string {
@@ -127,7 +128,7 @@ const finishedStatus = `{"id":42,"status":"finished","exit_code":0,"output":"res
 func TestStart_FileUploadsThenStartsAndWaits_Standalone(t *testing.T) {
 	fake := newFakeAPI(t, `{"id":42,"status":"in_progress"}`, finishedStatus)
 
-	stdout, _, err := run(t, NewStandaloneCommand(), "start", "db-1", "--file", writeDump(t), "--replace-existing", "--wait", "--poll-interval", "1ms")
+	stdout, err := run(t, NewStandaloneCommand(), "start", "db-1", "--file", writeDump(t), "--replace-existing", "--wait", "--poll-interval", "1ms")
 	require.NoError(t, err)
 
 	reqs := fake.recorded()
@@ -150,7 +151,7 @@ func TestStart_FileUploadsThenStartsAndWaits_Standalone(t *testing.T) {
 func TestStart_ServiceDatabaseS3_NoWait(t *testing.T) {
 	fake := newFakeAPI(t, finishedStatus)
 
-	stdout, _, err := run(t, NewServiceDatabaseCommand(), "start", "svc-1", "db-1", "--s3-storage-uuid", "s3-1", "--s3-path", "/b/db.dump", "--dump-all")
+	stdout, err := run(t, NewServiceDatabaseCommand(), "start", "svc-1", "db-1", "--s3-storage-uuid", "s3-1", "--s3-path", "/b/db.dump", "--dump-all")
 	require.NoError(t, err)
 
 	reqs := fake.recorded()
@@ -164,7 +165,7 @@ func TestStart_ServiceDatabaseS3_NoWait(t *testing.T) {
 func TestStart_WaitFailsWhenImportFails(t *testing.T) {
 	newFakeAPI(t, `{"id":42,"status":"error","exit_code":1,"output":"boom"}`)
 
-	stdout, _, err := run(t, NewStandaloneCommand(), "start", "db-1", "--server-path", "/var/backups/db.sql.gz", "--wait", "--poll-interval", "1ms")
+	stdout, err := run(t, NewStandaloneCommand(), "start", "db-1", "--server-path", "/var/backups/db.sql.gz", "--wait", "--poll-interval", "1ms")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `status "error"`)
 	assert.Contains(t, stdout, "boom")
@@ -173,7 +174,7 @@ func TestStart_WaitFailsWhenImportFails(t *testing.T) {
 func TestStart_JSONOutput(t *testing.T) {
 	newFakeAPI(t, finishedStatus)
 
-	stdout, _, err := run(t, NewStandaloneCommand(), "start", "db-1", "--upload-id", "11111111-2222-4333-8444-555555555555", "--format", "json")
+	stdout, err := run(t, NewStandaloneCommand(), "start", "db-1", "--upload-id", "11111111-2222-4333-8444-555555555555", "--format", "json")
 	require.NoError(t, err)
 	var started map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &started))
@@ -184,7 +185,7 @@ func TestStart_JSONOutput(t *testing.T) {
 func TestUpload_PrintsUploadID(t *testing.T) {
 	fake := newFakeAPI(t, finishedStatus)
 
-	stdout, _, err := run(t, NewServiceDatabaseCommand(), "upload", "svc-1", "db-1", writeDump(t), "--format", "json")
+	stdout, err := run(t, NewServiceDatabaseCommand(), "upload", "svc-1", "db-1", writeDump(t), "--format", "json")
 	require.NoError(t, err)
 	reqs := fake.recorded()
 	require.Len(t, reqs, 1)
@@ -195,7 +196,7 @@ func TestUpload_PrintsUploadID(t *testing.T) {
 func TestStatus_PrintsStatus(t *testing.T) {
 	fake := newFakeAPI(t, finishedStatus)
 
-	stdout, _, err := run(t, NewStandaloneCommand(), "status", "db-1", "42")
+	stdout, err := run(t, NewStandaloneCommand(), "status", "db-1", "42")
 	require.NoError(t, err)
 	require.Len(t, fake.recorded(), 1)
 	assert.Equal(t, "/api/v1/databases/db-1/imports/42", fake.recorded()[0].Path)
@@ -204,7 +205,7 @@ func TestStatus_PrintsStatus(t *testing.T) {
 }
 
 func TestStatus_InvalidActivityID(t *testing.T) {
-	_, _, err := run(t, NewStandaloneCommand(), "status", "db-1", "abc")
+	_, err := run(t, NewStandaloneCommand(), "status", "db-1", "abc")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid activity ID")
 }

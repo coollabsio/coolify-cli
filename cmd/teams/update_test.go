@@ -25,7 +25,7 @@ func TestUpdateCommand_SendsFallbackSetting(t *testing.T) {
 				_, _ = w.Write([]byte(`{"id":0,"name":"Root Team","personal_team":true,"is_build_server_fallback_enabled":` + strconv.FormatBool(tt.want) + `}`))
 			})
 
-			stdout, _, err := runCmd(t, "", append([]string{"teams", "update", "--format", "json"}, tt.args...)...)
+			stdout, err := runCmd(t, append([]string{"teams", "update", "--format", "json"}, tt.args...)...)
 			require.NoError(t, err)
 
 			reqs := fake.recorded()
@@ -45,7 +45,7 @@ func TestUpdateCommand_TableOutput(t *testing.T) {
 	newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"id":0,"name":"Root Team","is_build_server_fallback_enabled":false}`))
 	})
-	stdout, _, err := runCmd(t, "", "teams", "update", "--build-server-fallback=false")
+	stdout, err := runCmd(t, "teams", "update", "--build-server-fallback=false")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "is_build_server_fallback_enabled")
 	assert.Contains(t, stdout, "Root Team")
@@ -53,7 +53,7 @@ func TestUpdateCommand_TableOutput(t *testing.T) {
 
 func TestUpdateCommand_RequiresFlag(t *testing.T) {
 	fake := newFakeAPI(t, func(http.ResponseWriter, *http.Request) {})
-	_, _, err := runCmd(t, "", "teams", "update")
+	_, err := runCmd(t, "teams", "update")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--build-server-fallback is required")
 	assert.Empty(t, fake.recorded())
@@ -64,7 +64,7 @@ func TestUpdateCommand_APIError(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message":"This action is unauthorized."}`))
 	})
-	_, _, err := runCmd(t, "", "teams", "update", "--build-server-fallback=true")
+	_, err := runCmd(t, "teams", "update", "--build-server-fallback=true")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unauthorized")
 }

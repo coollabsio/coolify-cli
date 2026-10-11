@@ -28,7 +28,7 @@ func TestListCommand_TableOutput(t *testing.T) {
 		_, _ = w.Write([]byte(pageFixture))
 	})
 
-	stdout, _, err := runCmd(t, "", "audit", "list", "--per-page", "2", "--source", "api", "--action", "deleted", "--search", "web app")
+	stdout, err := runCmd(t, "audit", "list", "--per-page", "2", "--source", "api", "--action", "deleted", "--search", "web app")
 	require.NoError(t, err)
 
 	reqs := fake.recorded()
@@ -55,7 +55,7 @@ func TestListCommand_JSONOutputIsFullPage(t *testing.T) {
 		_, _ = w.Write([]byte(pageFixture))
 	})
 
-	stdout, _, err := runCmd(t, "", "audit-events", "list", "--format", "json")
+	stdout, err := runCmd(t, "audit-events", "list", "--format", "json")
 	require.NoError(t, err)
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &out))
@@ -70,7 +70,7 @@ func TestListCommand_EmptyPage(t *testing.T) {
 	newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"current_page":1,"data":[],"per_page":25,"last_page":1,"total":0}`))
 	})
-	stdout, _, err := runCmd(t, "", "audit", "list")
+	stdout, err := runCmd(t, "audit", "list")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "No data")
 	assert.NotContains(t, stdout, "Page ")
@@ -90,7 +90,7 @@ func TestListCommand_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := newFakeAPI(t, func(http.ResponseWriter, *http.Request) {})
-			_, _, err := runCmd(t, "", append([]string{"audit", "list"}, tt.args...)...)
+			_, err := runCmd(t, append([]string{"audit", "list"}, tt.args...)...)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 			assert.Empty(t, fake.recorded())
@@ -103,7 +103,7 @@ func TestListCommand_Forbidden(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 		_, _ = w.Write([]byte(`{"message":"Only team admins and owners can view audit logs."}`))
 	})
-	_, _, err := runCmd(t, "", "audit", "list")
+	_, err := runCmd(t, "audit", "list")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Only team admins and owners")
 }

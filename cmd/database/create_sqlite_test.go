@@ -32,9 +32,10 @@ func runDatabaseCommand(t *testing.T, args ...string) (path, body string, err er
 	t.Setenv("HOME", home)
 	configDir := filepath.Join(home, ".config", "coolify")
 	require.NoError(t, os.MkdirAll(configDir, 0o750))
-	cfg, _ := json.Marshal(map[string]any{
+	cfg, err := json.Marshal(map[string]any{
 		"instances": []map[string]any{{"name": "test", "fqdn": server.URL, "token": "test-token", "default": true}},
 	})
+	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), cfg, 0o600))
 
 	root := &cobra.Command{Use: "coolify", SilenceUsage: true, SilenceErrors: true}

@@ -22,7 +22,7 @@ func TestEnvironmentsGet_TableOutput(t *testing.T) {
 		_, _ = w.Write([]byte(environmentFixture))
 	})
 
-	stdout, _, err := runCmd(t, "", "project", "env", "get", "proj-uuid", "production")
+	stdout, err := runCmd(t, "project", "env", "get", "proj-uuid", "production")
 	require.NoError(t, err)
 
 	reqs := fake.recorded()
@@ -40,7 +40,7 @@ func TestEnvironmentsGet_NoResources(t *testing.T) {
 	newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"id": 3, "uuid": "env-uuid", "name": "empty", "project_id": 1}`))
 	})
-	stdout, _, err := runCmd(t, "", "project", "environments", "get", "proj-uuid", "empty")
+	stdout, err := runCmd(t, "project", "environments", "get", "proj-uuid", "empty")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "env-uuid")
 	assert.Contains(t, stdout, "No resources in this environment.")
@@ -50,7 +50,7 @@ func TestEnvironmentsGet_JSONOutput(t *testing.T) {
 	newFakeAPI(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(environmentFixture))
 	})
-	stdout, _, err := runCmd(t, "", "project", "env", "get", "proj-uuid", "env-uuid", "--format", "json")
+	stdout, err := runCmd(t, "project", "env", "get", "proj-uuid", "env-uuid", "--format", "json")
 	require.NoError(t, err)
 	var out map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &out))
@@ -62,7 +62,7 @@ func TestEnvironmentsGet_JSONOutput(t *testing.T) {
 
 func TestEnvironmentsGet_RequiresTwoArgs(t *testing.T) {
 	fake := newFakeAPI(t, func(http.ResponseWriter, *http.Request) {})
-	_, _, err := runCmd(t, "", "project", "env", "get", "proj-uuid")
+	_, err := runCmd(t, "project", "env", "get", "proj-uuid")
 	require.Error(t, err)
 	assert.Empty(t, fake.recorded())
 }

@@ -419,6 +419,7 @@ func TestClient_PostMultipart_StreamsFieldsAndFile(t *testing.T) {
 		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
 		assert.NotEqual(t, int64(-1), r.ContentLength, "content length should be known")
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		require.NoError(t, r.ParseMultipartForm(1<<20))
 		assert.Equal(t, "upload-1", r.FormValue("upload_id"))
 		assert.Equal(t, "0", r.FormValue("dzchunkindex"))
