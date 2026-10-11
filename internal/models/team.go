@@ -2,14 +2,20 @@ package models
 
 // Team represents a Coolify team
 type Team struct {
-	ID                int     `json:"id"`
-	Name              string  `json:"name"`
-	Description       *string `json:"description,omitempty"`
-	PersonalTeam      bool    `json:"personal_team"`
-	CreatedAt         string  `json:"created_at" table:"-"`
-	UpdatedAt         string  `json:"updated_at" table:"-"`
-	ShowBoarding      bool    `json:"show_boarding" `
-	CustomServerLimit *string `json:"custom_server_limit,omitempty" table:"-"`
+	ID                           int     `json:"id"`
+	Name                         string  `json:"name"`
+	Description                  *string `json:"description,omitempty"`
+	PersonalTeam                 bool    `json:"personal_team"`
+	CreatedAt                    string  `json:"created_at" table:"-"`
+	UpdatedAt                    string  `json:"updated_at" table:"-"`
+	ShowBoarding                 bool    `json:"show_boarding" `
+	CustomServerLimit            *string `json:"custom_server_limit,omitempty" table:"-"`
+	IsBuildServerFallbackEnabled *bool   `json:"is_build_server_fallback_enabled,omitempty"`
+}
+
+// TeamUpdateRequest is the body for PATCH /team (the team bound to the API token).
+type TeamUpdateRequest struct {
+	IsBuildServerFallbackEnabled bool `json:"is_build_server_fallback_enabled"`
 }
 
 // TeamMember represents a member of a team

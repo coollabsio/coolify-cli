@@ -110,6 +110,33 @@ func (s *ApplicationService) UpdatePreviewDomains(ctx context.Context, appUUID s
 	return &resp, nil
 }
 
+// PreviewLogs retrieves runtime container logs for a preview deployment.
+// lines is sent when non-zero (-1 returns all logs); zero keeps the server default.
+// serviceName selects a docker-compose service container (API query service_name).
+func (s *ApplicationService) PreviewLogs(ctx context.Context, appUUID string, prID, lines int, showTimestamps bool, serviceName string) (*models.ApplicationLogsResponse, error) {
+	endpoint := fmt.Sprintf("applications/%s/previews/%d/logs", url.PathEscape(appUUID), prID)
+	query := url.Values{}
+	if lines != 0 {
+		query.Set("lines", strconv.Itoa(lines))
+	}
+	if showTimestamps {
+		query.Set("show_timestamps", strconv.FormatBool(showTimestamps))
+	}
+	if serviceName != "" {
+		query.Set("service_name", serviceName)
+	}
+	if encodedQuery := query.Encode(); encodedQuery != "" {
+		endpoint += "?" + encodedQuery
+	}
+
+	var resp models.ApplicationLogsResponse
+	err := s.client.Get(ctx, endpoint, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get logs for preview %d of application %s: %w", prID, appUUID, err)
+	}
+	return &resp, nil
+}
+
 // Start starts an application (initiates deployment)
 func (s *ApplicationService) Start(ctx context.Context, uuid string, force bool, instantDeploy bool) (*models.ApplicationLifecycleResponse, error) {
 	var resp models.ApplicationLifecycleResponse

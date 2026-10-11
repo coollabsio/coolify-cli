@@ -14,7 +14,7 @@ func NewListRepositoriesCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "repos <app_uuid>",
 		Short: "List repositories accessible by a GitHub App",
-		Long:  `List all repositories that are accessible by the specified GitHub App.`,
+		Long:  `List all repositories that are accessible by the specified GitHub App. Accepts the app UUID (numeric ID also accepted).`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

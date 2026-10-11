@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -32,11 +33,11 @@ func (s *ServerService) Get(ctx context.Context, uuid string) (*models.Server, e
 	return &server, err
 }
 
-// GetResources returns resources for a server
-func (s *ServerService) GetResources(ctx context.Context, uuid string) (*models.Resources, error) {
-	var resources models.Resources
-	err := s.client.Get(ctx, "servers/"+uuid+"?resources=true", &resources)
-	return &resources, err
+// GetResources returns the resources deployed on a server (GET /servers/{uuid}/resources)
+func (s *ServerService) GetResources(ctx context.Context, uuid string) ([]models.ServerResource, error) {
+	var resources []models.ServerResource
+	err := s.client.Get(ctx, "servers/"+url.PathEscape(uuid)+"/resources", &resources)
+	return resources, err
 }
 
 // GetDomains returns domains for a server

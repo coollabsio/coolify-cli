@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -801,6 +802,58 @@ func TestApplicationService_Logs_WithServiceName(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "web service logs", result.Logs)
+}
+
+func TestApplicationService_PreviewLogs(t *testing.T) {
+	tests := []struct {
+		name           string
+		lines          int
+		showTimestamps bool
+		serviceName    string
+		wantQuery      url.Values
+	}{
+		{name: "default lines", lines: 100, wantQuery: url.Values{"lines": {"100"}}},
+		{name: "all lines", lines: -1, wantQuery: url.Values{"lines": {"-1"}}},
+		{name: "zero lines omits query", lines: 0, wantQuery: url.Values{}},
+		{
+			name: "timestamps and compose service", lines: 25, showTimestamps: true, serviceName: "web",
+			wantQuery: url.Values{"lines": {"25"}, "show_timestamps": {"true"}, "service_name": {"web"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "/api/v1/applications/app-uuid-123/previews/42/logs", r.URL.Path)
+				assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+				assert.Equal(t, tt.wantQuery, r.URL.Query())
+				_ = json.NewEncoder(w).Encode(models.ApplicationLogsResponse{Logs: "preview output\n"})
+			}))
+			defer server.Close()
+
+			client := api.NewClient(server.URL, "test-token")
+			result, err := NewApplicationService(client).PreviewLogs(context.Background(), "app-uuid-123", 42, tt.lines, tt.showTimestamps, tt.serviceName)
+
+			require.NoError(t, err)
+			assert.Equal(t, "preview output\n", result.Logs)
+		})
+	}
+}
+
+func TestApplicationService_PreviewLogs_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"Preview not found."}`))
+	}))
+	defer server.Close()
+
+	client := api.NewClient(server.URL, "test-token")
+	result, err := NewApplicationService(client).PreviewLogs(context.Background(), "app-uuid-123", 7, 100, false, "")
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to get logs for preview 7 of application app-uuid-123")
 }
 
 func TestApplicationService_Move(t *testing.T) {

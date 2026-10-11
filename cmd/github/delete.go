@@ -13,7 +13,7 @@ func NewDeleteCommand() *cobra.Command {
 	deleteCmd := &cobra.Command{
 		Use:   "delete <app_uuid>",
 		Short: "Delete a GitHub App integration",
-		Long:  `Delete a GitHub App integration. The app must not be used by any applications.`,
+		Long:  `Delete a GitHub App integration. Accepts the app UUID (numeric ID also accepted). The app must not be used by any applications.`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

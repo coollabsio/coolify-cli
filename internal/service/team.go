@@ -48,6 +48,16 @@ func (s *TeamService) Current(ctx context.Context) (*models.Team, error) {
 	return &team, nil
 }
 
+// UpdateCurrent updates settings of the team bound to the API token (PATCH /team)
+func (s *TeamService) UpdateCurrent(ctx context.Context, req models.TeamUpdateRequest) (*models.Team, error) {
+	var team models.Team
+	err := s.client.Patch(ctx, "team", req, &team)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update token team: %w", err)
+	}
+	return &team, nil
+}
+
 // ListMembers retrieves members of a specific team
 func (s *TeamService) ListMembers(ctx context.Context, teamID string) ([]models.TeamMember, error) {
 	var members []models.TeamMember

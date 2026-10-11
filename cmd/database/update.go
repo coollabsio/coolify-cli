@@ -61,6 +61,11 @@ func NewUpdateCommand() *cobra.Command {
 				req.LimitsCpus = &cpus
 				hasChanges = true
 			}
+			if cmd.Flags().Changed("sqlite-databases") {
+				files, _ := cmd.Flags().GetString("sqlite-databases")
+				req.SqliteDatabases = &files
+				hasChanges = true
+			}
 
 			if !hasChanges {
 				return fmt.Errorf("no fields to update")
@@ -111,6 +116,7 @@ func NewUpdateCommand() *cobra.Command {
 	updateDatabaseCmd.Flags().Int("public-port", 0, "Public port")
 	updateDatabaseCmd.Flags().String("limits-memory", "", "Memory limit")
 	updateDatabaseCmd.Flags().String("limits-cpus", "", "CPU limit")
+	updateDatabaseCmd.Flags().String("sqlite-databases", "", "Comma-separated SQLite database file names (SQLite only)")
 
 	return updateDatabaseCmd
 }

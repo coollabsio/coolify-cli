@@ -9,7 +9,9 @@ import (
 	"io"
 	"log"
 	"math"
+	"mime/multipart"
 	"net/http"
+	"sort"
 	"time"
 )
 
@@ -17,6 +19,10 @@ const (
 	defaultTimeout = 30 * time.Second
 	defaultRetries = 3
 	apiV1Path      = "/api/v1/"
+
+	// minUploadTimeout is the minimum per-request timeout for multipart
+	// uploads, which carry far more data than regular JSON calls.
+	minUploadTimeout = 10 * time.Minute
 )
 
 // Client is the HTTP client for Coolify API
@@ -76,6 +82,88 @@ func (c *Client) Put(ctx context.Context, path string, body, result interface{})
 	return c.doRequest(ctx, "PUT", path, body, result)
 }
 
+// MultipartFile is the file part of a multipart/form-data request.
+type MultipartFile struct {
+	// FieldName is the form field name of the file part (e.g. "file").
+	FieldName string
+	// FileName is the client file name sent with the part.
+	FileName string
+	// Content is streamed into the request body. When it implements
+	// io.Seeker, failed requests are retried from the start of Content.
+	Content io.Reader
+	// Size is the number of bytes Content yields. When >= 0 the request
+	// carries an exact Content-Length; when < 0 it is sent chunked.
+	Size int64
+}
+
+// PostMultipart makes a multipart/form-data POST request to the API. Fields
+// are written as plain form fields before the file part. The file content is
+// streamed, never buffered in memory.
+func (c *Client) PostMultipart(ctx context.Context, path string, fields map[string]string, file MultipartFile, result interface{}) error {
+	attempt := func() error {
+		if seeker, ok := file.Content.(io.Seeker); ok {
+			if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to rewind upload content: %w", err)
+			}
+		}
+		return c.doMultipartOnce(ctx, path, fields, file, result)
+	}
+	if _, ok := file.Content.(io.Seeker); !ok {
+		return attempt()
+	}
+	return c.withRetry(ctx, attempt)
+}
+
+func (c *Client) doMultipartOnce(ctx context.Context, path string, fields map[string]string, file MultipartFile, result interface{}) error {
+	url := c.baseURL + apiV1Path + path
+
+	// Render everything except the file content up front so the body can be
+	// streamed as prefix + content + suffix with a known length.
+	var head bytes.Buffer
+	writer := multipart.NewWriter(&head)
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if err := writer.WriteField(key, fields[key]); err != nil {
+			return fmt.Errorf("failed to write form field %q: %w", key, err)
+		}
+	}
+	if _, err := writer.CreateFormFile(file.FieldName, file.FileName); err != nil {
+		return fmt.Errorf("failed to write file part: %w", err)
+	}
+	prefix := append([]byte(nil), head.Bytes()...)
+	head.Reset()
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to finish multipart body: %w", err)
+	}
+	suffix := append([]byte(nil), head.Bytes()...)
+
+	if c.debug {
+		log.Printf("POST %s", url)
+		log.Printf("Request body: multipart/form-data fields=%v file=%s:%q (%d bytes)", keys, file.FieldName, file.FileName, file.Size)
+	}
+
+	body := io.MultiReader(bytes.NewReader(prefix), file.Content, bytes.NewReader(suffix))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if file.Size >= 0 {
+		req.ContentLength = int64(len(prefix)) + file.Size + int64(len(suffix))
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	uploadClient := *c.httpClient
+	if uploadClient.Timeout > 0 && uploadClient.Timeout < minUploadTimeout {
+		uploadClient.Timeout = minUploadTimeout
+	}
+
+	return c.execute(&uploadClient, req, path, result)
+}
+
 // GetVersion fetches the API version
 func (c *Client) GetVersion(ctx context.Context) (string, error) {
 	var version string
@@ -85,6 +173,13 @@ func (c *Client) GetVersion(ctx context.Context) (string, error) {
 
 // doRequest executes an HTTP request with retry logic
 func (c *Client) doRequest(ctx context.Context, method, path string, body, result interface{}) error {
+	return c.withRetry(ctx, func() error {
+		return c.doRequestOnce(ctx, method, path, body, result)
+	})
+}
+
+// withRetry runs attempt up to c.retries+1 times with exponential backoff.
+func (c *Client) withRetry(ctx context.Context, attemptFn func() error) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= c.retries; attempt++ {
@@ -100,7 +195,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body, resul
 			}
 		}
 
-		err := c.doRequestOnce(ctx, method, path, body, result)
+		err := attemptFn()
 		if err == nil {
 			return nil
 		}
@@ -152,14 +247,22 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	return c.execute(c.httpClient, req, path, result)
+}
+
+// execute sends a prepared request with authentication, then handles debug
+// logging, error mapping and response decoding.
+func (c *Client) execute(httpClient *http.Client, req *http.Request, path string, result interface{}) error {
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	// Without this, Laravel answers validation errors with a 302 redirect to an HTML page.
+	req.Header.Set("Accept", "application/json")
+
 	// Execute request
-	resp, err := c.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}

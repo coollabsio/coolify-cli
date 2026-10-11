@@ -66,6 +66,9 @@ type Database struct {
 	// Dragonfly specific
 	DragonflyPassword *string `json:"dragonfly_password,omitempty" table:"-"`
 
+	// SQLite specific
+	SqliteDatabases *string `json:"sqlite_databases,omitempty" table:"-"`
+
 	// Relationship IDs - internal database IDs (hidden from output)
 	ServerID      *int `json:"-" table:"-"`
 	EnvironmentID *int `json:"-" table:"-"`
@@ -144,6 +147,9 @@ type DatabaseCreateRequest struct {
 
 	// Dragonfly specific
 	DragonflyPassword *string `json:"dragonfly_password,omitempty"`
+
+	// SQLite specific: comma-separated database file names
+	SqliteDatabases *string `json:"sqlite_databases,omitempty"`
 }
 
 // MoveResourceRequest identifies the target environment for a resource move.
@@ -171,6 +177,9 @@ type DatabaseUpdateRequest struct {
 	// Resource limits
 	LimitsMemory *string `json:"limits_memory,omitempty"`
 	LimitsCpus   *string `json:"limits_cpus,omitempty"`
+
+	// SQLite specific
+	SqliteDatabases *string `json:"sqlite_databases,omitempty"`
 }
 
 // DatabaseLifecycleResponse represents the response from lifecycle operations

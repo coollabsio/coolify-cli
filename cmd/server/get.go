@@ -40,7 +40,7 @@ func NewGetCommand() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to get server resources: %w", err)
 				}
-				data = resources.Resources
+				data = resources
 			} else {
 				server, err := serverSvc.Get(ctx, uuid)
 				if err != nil {
@@ -51,6 +51,7 @@ func NewGetCommand() *cobra.Command {
 
 			// Use output formatter
 			formatter, err := output.NewFormatter(format, output.Options{
+				Writer:        cmd.OutOrStdout(),
 				ShowSensitive: showSensitive,
 			})
 			if err != nil {
@@ -62,14 +63,14 @@ func NewGetCommand() *cobra.Command {
 			}
 
 			if !showSensitive && format == output.FormatTable && !withResources {
-				fmt.Println("\nNote: Use -s to show sensitive information.")
+				fmt.Fprintln(cmd.OutOrStdout(), "\nNote: Use -s to show sensitive information.")
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().Bool("resources", false, "With resources")
+	cmd.Flags().Bool("resources", false, "Show the resources deployed on the server instead of the server details")
 
 	return cmd
 }

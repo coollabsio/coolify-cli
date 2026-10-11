@@ -333,3 +333,49 @@ func TestProjectService_DeleteEnvironment_ByUUID(t *testing.T) {
 	err := svc.DeleteEnvironment(context.Background(), "proj-1", "env-uuid-1")
 	require.NoError(t, err)
 }
+
+func TestProjectService_GetEnvironment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		// Environment names may contain spaces; they must be path-escaped.
+		assert.Equal(t, "/api/v1/projects/proj-uuid/my%20env", r.URL.EscapedPath())
+		_, _ = w.Write([]byte(`{
+			"id": 3, "uuid": "env-uuid", "name": "my env", "project_id": 1, "description": "Staging",
+			"applications": [{"id": 10, "uuid": "app-1", "name": "web", "status": "running:healthy", "fqdn": "https://x"}],
+			"postgresqls": [{"id": 11, "uuid": "pg-1", "name": "db", "status": "exited"}],
+			"redis": [], "mongodbs": [], "mysqls": [], "mariadbs": [],
+			"services": [{"id": 12, "uuid": "svc-1", "name": "plausible"}]
+		}`))
+	}))
+	defer server.Close()
+
+	svc := NewProjectService(api.NewClient(server.URL, "test-token"))
+	env, err := svc.GetEnvironment(context.Background(), "proj-uuid", "my env")
+	require.NoError(t, err)
+	assert.Equal(t, "env-uuid", env.UUID)
+	assert.Equal(t, "my env", env.Name)
+	require.NotNil(t, env.Description)
+	assert.Equal(t, "Staging", *env.Description)
+	require.Len(t, env.Applications, 1)
+	assert.Equal(t, 10, env.Applications[0].ID)
+
+	rows := env.ResourceRows()
+	assert.Equal(t, []models.EnvironmentResourceRow{
+		{Type: "application", UUID: "app-1", Name: "web", Status: "running:healthy"},
+		{Type: "postgresql", UUID: "pg-1", Name: "db", Status: "exited"},
+		{Type: "service", UUID: "svc-1", Name: "plausible"},
+	}, rows)
+}
+
+func TestProjectService_GetEnvironment_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"Environment not found."}`))
+	}))
+	defer server.Close()
+
+	svc := NewProjectService(api.NewClient(server.URL, "test-token"))
+	_, err := svc.GetEnvironment(context.Background(), "proj-uuid", "nope")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Environment not found.")
+}

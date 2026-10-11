@@ -65,16 +65,14 @@ func TestServerService_Get(t *testing.T) {
 
 func TestServerService_GetResources(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/servers/test-uuid", r.URL.Path)
-		assert.Equal(t, "resources=true", r.URL.RawQuery)
+		assert.Equal(t, "/api/v1/servers/test-uuid/resources", r.URL.Path)
+		assert.Empty(t, r.URL.RawQuery)
 		assert.Equal(t, "GET", r.Method)
 
-		resources := models.Resources{
-			Resources: []models.Resource{
-				{UUID: "res-1", Name: "resource-1", Type: "application"},
-			},
-		}
-		_ = json.NewEncoder(w).Encode(resources)
+		_, _ = w.Write([]byte(`[
+			{"id": 7, "uuid": "res-1", "name": "resource-1", "type": "application", "status": "running:healthy", "created_at": "2026-01-01T00:00:00.000000Z", "updated_at": "2026-01-02T00:00:00.000000Z"},
+			{"id": 8, "uuid": "res-2", "name": "pg", "type": "standalone-postgresql", "status": "exited"}
+		]`))
 	}))
 	defer server.Close()
 
@@ -84,8 +82,26 @@ func TestServerService_GetResources(t *testing.T) {
 	result, err := svc.GetResources(context.Background(), "test-uuid")
 
 	require.NoError(t, err)
-	assert.Len(t, result.Resources, 1)
-	assert.Equal(t, "res-1", result.Resources[0].UUID)
+	require.Len(t, result, 2)
+	assert.Equal(t, 7, result[0].ID)
+	assert.Equal(t, "res-1", result[0].UUID)
+	assert.Equal(t, "application", result[0].Type)
+	assert.Equal(t, "running:healthy", result[0].Status)
+	assert.Equal(t, "2026-01-01T00:00:00.000000Z", result[0].CreatedAt)
+	assert.Equal(t, "standalone-postgresql", result[1].Type)
+}
+
+func TestServerService_GetResources_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"Server not found."}`))
+	}))
+	defer server.Close()
+
+	svc := NewServerService(api.NewClient(server.URL, "test-token"))
+	_, err := svc.GetResources(context.Background(), "missing")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Server not found.")
 }
 
 func TestServerService_Create(t *testing.T) {

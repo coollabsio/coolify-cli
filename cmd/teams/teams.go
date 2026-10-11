@@ -12,13 +12,14 @@ func NewTeamsCommand() *cobra.Command {
 		Use:     "teams",
 		Aliases: []string{"team"},
 		Short:   "Team related commands",
-		Long:    `Manage Coolify teams - list all teams, get team details, view current team, and manage team members.`,
+		Long:    `Manage Coolify teams - list all teams, get team details, view and update the current team, and manage team members.`,
 	}
 
 	// Add subcommands
 	cmd.AddCommand(NewCurrentCommand())
 	cmd.AddCommand(NewGetCommand())
 	cmd.AddCommand(NewListCommand())
+	cmd.AddCommand(NewUpdateCommand())
 
 	membersCmd := &cobra.Command{
 		Use:     "members",

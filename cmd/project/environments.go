@@ -17,10 +17,11 @@ func NewEnvironmentsCommand() *cobra.Command {
 		Use:     "environments",
 		Aliases: []string{"environment", "env"},
 		Short:   "Manage project environments",
-		Long:    `List, create, update, and delete environments within a project.`,
+		Long:    `List, get, create, update, and delete environments within a project.`,
 	}
 
 	cmd.AddCommand(NewEnvironmentsListCommand())
+	cmd.AddCommand(NewEnvironmentsGetCommand())
 	cmd.AddCommand(NewEnvironmentsCreateCommand())
 	cmd.AddCommand(NewEnvironmentsUpdateCommand())
 	cmd.AddCommand(NewEnvironmentsDeleteCommand())
@@ -54,6 +55,59 @@ func NewEnvironmentsListCommand() *cobra.Command {
 				return err
 			}
 			return formatter.Format(environments)
+		},
+	}
+}
+
+// NewEnvironmentsGetCommand shows an environment and its resources
+func NewEnvironmentsGetCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <project_uuid> <environment>",
+		Short: "Get an environment and its resources",
+		Long: `Get an environment by name or UUID, including its applications, databases and services.
+
+Table output shows the environment followed by one row per resource.
+Use --format json or pretty for the full structure.
+
+Examples:
+  coolify project environments get <project_uuid> production
+  coolify project env get <project_uuid> <env_uuid> --format pretty`,
+		Args: cli.ExactArgs(2, "<project_uuid> <environment>"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := cli.GetAPIClient(cmd)
+			if err != nil {
+				return fmt.Errorf("failed to get API client: %w", err)
+			}
+
+			environment, err := service.NewProjectService(client).GetEnvironment(cmd.Context(), args[0], args[1])
+			if err != nil {
+				return err
+			}
+
+			format, _ := cmd.Flags().GetString("format")
+			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
+			formatter, err := output.NewFormatter(format, output.Options{
+				Writer:        cmd.OutOrStdout(),
+				ShowSensitive: showSensitive,
+			})
+			if err != nil {
+				return err
+			}
+
+			if format != output.FormatTable {
+				return formatter.Format(environment)
+			}
+
+			if err := formatter.Format(environment); err != nil {
+				return err
+			}
+			rows := environment.ResourceRows()
+			if len(rows) == 0 {
+				fmt.Fprintln(cmd.OutOrStdout(), "\nNo resources in this environment.")
+				return nil
+			}
+			fmt.Fprintln(cmd.OutOrStdout())
+			return formatter.Format(rows)
 		},
 	}
 }

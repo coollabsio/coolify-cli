@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/coollabsio/coolify-cli/cmd/application"
+	"github.com/coollabsio/coolify-cli/cmd/audit"
 	"github.com/coollabsio/coolify-cli/cmd/cloudinit"
 	"github.com/coollabsio/coolify-cli/cmd/cloudtoken"
 	"github.com/coollabsio/coolify-cli/cmd/completion"
@@ -20,6 +21,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/destination"
 	"github.com/coollabsio/coolify-cli/cmd/github"
 	"github.com/coollabsio/coolify-cli/cmd/gitlab"
+	"github.com/coollabsio/coolify-cli/cmd/integrationtoken"
 	"github.com/coollabsio/coolify-cli/cmd/mcp"
 	"github.com/coollabsio/coolify-cli/cmd/notification"
 	"github.com/coollabsio/coolify-cli/cmd/privatekeys"
@@ -99,6 +101,7 @@ func init() {
 	// repo for development but are deliberately not added here, so they cannot
 	// be invoked from the public CLI.
 	rootCmd.AddCommand(application.NewAppCommand())
+	rootCmd.AddCommand(audit.NewAuditCommand())
 	rootCmd.AddCommand(cloudinit.NewCloudInitCommand())
 	rootCmd.AddCommand(cloudtoken.NewCloudTokenCommand())
 	rootCmd.AddCommand(completion.NewCompletionsCommand())
@@ -109,6 +112,7 @@ func init() {
 	rootCmd.AddCommand(destination.NewDestinationCommand())
 	rootCmd.AddCommand(github.NewGitHubCommand())
 	rootCmd.AddCommand(gitlab.NewGitLabCommand())
+	rootCmd.AddCommand(integrationtoken.NewIntegrationTokenCommand())
 	rootCmd.AddCommand(mcp.NewMCPCommand())
 	rootCmd.AddCommand(notification.NewNotificationCommand())
 	rootCmd.AddCommand(privatekeys.NewPrivateKeysCommand())

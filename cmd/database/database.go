@@ -5,6 +5,7 @@ import (
 
 	"github.com/coollabsio/coolify-cli/cmd/database/backup"
 	"github.com/coollabsio/coolify-cli/cmd/database/env"
+	"github.com/coollabsio/coolify-cli/cmd/database/importcmd"
 	"github.com/coollabsio/coolify-cli/cmd/database/storage"
 	"github.com/coollabsio/coolify-cli/cmd/database/tag"
 )
@@ -15,7 +16,7 @@ func NewDatabaseCommand() *cobra.Command {
 		Use:     "database",
 		Aliases: []string{"databases", "db", "dbs"},
 		Short:   "Manage Coolify databases",
-		Long:    `Manage Coolify databases (PostgreSQL, MySQL, MongoDB, Redis, MariaDB, KeyDB, Clickhouse, Dragonfly).`,
+		Long:    `Manage Coolify databases (PostgreSQL, MySQL, MongoDB, Redis, MariaDB, KeyDB, Clickhouse, Dragonfly, SQLite).`,
 	}
 
 	// Add main database commands
@@ -59,6 +60,9 @@ func NewDatabaseCommand() *cobra.Command {
 	backupCmd.AddCommand(backup.NewExecutionCommand())
 	backupCmd.AddCommand(backup.NewDeleteExecutionCommand())
 	cmd.AddCommand(backupCmd)
+
+	// Add import subcommand
+	cmd.AddCommand(importcmd.NewStandaloneCommand())
 
 	// Add storage subcommand
 	storageCmd := &cobra.Command{

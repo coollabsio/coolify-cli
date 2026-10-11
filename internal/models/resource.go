@@ -16,7 +16,13 @@ const (
 	ResourceStatusError   = "error"
 )
 
-// Resources wraps a list of resources
-type Resources struct {
-	Resources []Resource `json:"resources"`
+// ServerResource is a resource deployed on a server (GET /servers/{uuid}/resources)
+type ServerResource struct {
+	ID        int    `json:"id" table:"-"`
+	UUID      string `json:"uuid"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at" table:"-"`
+	UpdatedAt string `json:"updated_at" table:"-"`
 }
