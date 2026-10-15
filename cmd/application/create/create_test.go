@@ -38,3 +38,17 @@ func TestGitCreateCommands_ExposeComposeDomainFlag(t *testing.T) {
 	assert.Nil(t, NewDockerfileCommand().Flags().Lookup("compose-domain"))
 	assert.Nil(t, NewDockerImageCommand().Flags().Lookup("compose-domain"))
 }
+
+func TestGitCreateCommands_ExposeDockerfileLocationFlag(t *testing.T) {
+	commands := []*cobra.Command{
+		NewPublicCommand(), NewGitHubCommand(), NewDeployKeyCommand(),
+	}
+
+	for _, command := range commands {
+		assert.NotNil(t, command.Flags().Lookup("dockerfile-location"), "%s missing --dockerfile-location", command.Name())
+	}
+
+	// the inline Dockerfile and the pre-built image have no repository to point into
+	assert.Nil(t, NewDockerfileCommand().Flags().Lookup("dockerfile-location"))
+	assert.Nil(t, NewDockerImageCommand().Flags().Lookup("dockerfile-location"))
+}

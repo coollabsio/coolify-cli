@@ -202,6 +202,7 @@ type ApplicationUpdateRequest struct {
 	// Docker configuration
 	Dockerfile              *string `json:"dockerfile,omitempty"`
 	DockerfileTargetBuild   *string `json:"dockerfile_target_build,omitempty"`
+	DockerfileLocation      *string `json:"dockerfile_location,omitempty"`
 	DockerRegistryImageName *string `json:"docker_registry_image_name,omitempty"`
 	DockerRegistryImageTag  *string `json:"docker_registry_image_tag,omitempty"`
 	CustomDockerRunOptions  *string `json:"custom_docker_run_options,omitempty"`
@@ -530,6 +531,7 @@ type ApplicationCreatePublicRequest struct {
 	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string               `json:"custom_labels,omitempty"`
 	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
+	DockerfileLocation     *string               `json:"dockerfile_location,omitempty"`
 
 	// Health checks
 	HealthCheckEnabled *bool   `json:"health_check_enabled,omitempty"`
@@ -578,6 +580,7 @@ type ApplicationCreateGitHubAppRequest struct {
 	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string               `json:"custom_labels,omitempty"`
 	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
+	DockerfileLocation     *string               `json:"dockerfile_location,omitempty"`
 	HealthCheckEnabled     *bool                 `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string               `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string               `json:"health_check_port,omitempty"`
@@ -622,6 +625,7 @@ type ApplicationCreateDeployKeyRequest struct {
 	CustomDockerRunOptions *string               `json:"custom_docker_run_options,omitempty"`
 	CustomLabels           *string               `json:"custom_labels,omitempty"`
 	DockerfileTargetBuild  *string               `json:"dockerfile_target_build,omitempty"`
+	DockerfileLocation     *string               `json:"dockerfile_location,omitempty"`
 	HealthCheckEnabled     *bool                 `json:"health_check_enabled,omitempty"`
 	HealthCheckPath        *string               `json:"health_check_path,omitempty"`
 	HealthCheckPort        *string               `json:"health_check_port,omitempty"`

@@ -271,6 +271,10 @@ Parameters:
     description: Number of Docker images to retain
     required: false
     default: 0
+  - name: --dockerfile-location
+    type: string
+    description: Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile
+    required: false
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -918,6 +922,10 @@ Parameters:
     description: Number of Docker images to retain
     required: false
     default: 0
+  - name: --dockerfile-location
+    type: string
+    description: Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile
+    required: false
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -1159,6 +1167,10 @@ Parameters:
     description: Number of Docker images to retain
     required: false
     default: 0
+  - name: --dockerfile-location
+    type: string
+    description: Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile
+    required: false
   - name: --dockerfile-target-build
     type: string
     description: Dockerfile target build stage
@@ -2006,6 +2018,10 @@ Parameters:
   - name: --dockerfile
     type: string
     description: Dockerfile content
+    required: false
+  - name: --dockerfile-location
+    type: string
+    description: Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile
     required: false
   - name: --dockerfile-target-build
     type: string
