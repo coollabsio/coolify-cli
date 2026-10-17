@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -69,7 +68,7 @@ func TestGetCommand_ShowSensitiveRevealsToken(t *testing.T) {
 	for _, format := range []string{"table", "json", "pretty"} {
 		t.Run(format, func(t *testing.T) {
 			rendered := executeGetCommand(t, format, true)
-			assert.True(t, strings.Contains(rendered, getSentinelToken), "expected token to be revealed with --show-sensitive")
+			assert.Contains(t, rendered, getSentinelToken, "expected token to be revealed with --show-sensitive")
 		})
 	}
 }

@@ -254,7 +254,9 @@ func TestRedactSensitive_PromotesEmbeddedFields(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotContains(t, string(rendered), dummySecret)
-	assert.Equal(t, `{"shared":"visible","base_token":"********","name":"outer"}`, string(rendered))
+	// Key order is part of the contract (promoted fields appear where encoding/json
+	// would put them), which assert.JSONEq would not check.
+	assert.Equal(t, `{"shared":"visible","base_token":"********","name":"outer"}`, string(rendered)) //nolint:testifylint
 }
 
 type marshalerCarrier struct {

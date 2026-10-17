@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -37,47 +38,50 @@ func sensitiveJSONNamesInPackages(t *testing.T, dirs ...string) map[string]strin
 	found := make(map[string]string)
 
 	for _, dir := range dirs {
-		packages, err := parser.ParseDir(token.NewFileSet(), dir, func(info os.FileInfo) bool {
-			return !strings.HasSuffix(info.Name(), "_test.go")
-		}, 0)
-		require.NoError(t, err, "parsing %s", dir)
+		entries, err := os.ReadDir(dir)
+		require.NoError(t, err, "reading %s", dir)
 
-		for _, pkg := range packages {
-			for _, file := range pkg.Files {
-				ast.Inspect(file, func(node ast.Node) bool {
-					typeSpec, ok := node.(*ast.TypeSpec)
-					if !ok {
-						return true
-					}
-					structType, ok := typeSpec.Type.(*ast.StructType)
-					if !ok {
-						return true
-					}
-					for _, field := range structType.Fields.List {
-						if field.Tag == nil {
-							continue
-						}
-						tag, err := strconv.Unquote(field.Tag.Value)
-						if err != nil {
-							continue
-						}
-						structTag := reflect.StructTag(tag)
-						if structTag.Get("sensitive") != "true" {
-							continue
-						}
-						name := strings.Split(structTag.Get("json"), ",")[0]
-						if name == "" || name == "-" {
-							continue
-						}
-						fieldName := name
-						if len(field.Names) > 0 {
-							fieldName = field.Names[0].Name
-						}
-						found[name] = typeSpec.Name.Name + "." + fieldName
-					}
-					return true
-				})
+		fileSet := token.NewFileSet()
+		for _, entry := range entries {
+			fileName := entry.Name()
+			if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
+				continue
 			}
+			file, err := parser.ParseFile(fileSet, filepath.Join(dir, fileName), nil, 0)
+			require.NoError(t, err, "parsing %s/%s", dir, fileName)
+			ast.Inspect(file, func(node ast.Node) bool {
+				typeSpec, ok := node.(*ast.TypeSpec)
+				if !ok {
+					return true
+				}
+				structType, ok := typeSpec.Type.(*ast.StructType)
+				if !ok {
+					return true
+				}
+				for _, field := range structType.Fields.List {
+					if field.Tag == nil {
+						continue
+					}
+					tag, err := strconv.Unquote(field.Tag.Value)
+					if err != nil {
+						continue
+					}
+					structTag := reflect.StructTag(tag)
+					if structTag.Get("sensitive") != "true" {
+						continue
+					}
+					name := strings.Split(structTag.Get("json"), ",")[0]
+					if name == "" || name == "-" {
+						continue
+					}
+					fieldName := name
+					if len(field.Names) > 0 {
+						fieldName = field.Names[0].Name
+					}
+					found[name] = typeSpec.Name.Name + "." + fieldName
+				}
+				return true
+			})
 		}
 	}
 
