@@ -331,6 +331,7 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 var sensitiveDebugLogKeys = map[string]struct{}{
 	"token":                           {},
 	"password":                        {},
+	"username":                        {},
 	"value":                           {},
 	"real_value":                      {},
 	"key":                             {},

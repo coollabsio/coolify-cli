@@ -26,7 +26,7 @@ type ServerRegistry struct {
 	Registry string               `json:"registry"`
 	LoggedIn bool                 `json:"logged_in"`
 	Source   *string              `json:"source"`
-	Username *string              `json:"username"`
+	Username *string              `json:"username" sensitive:"true"`
 	UsedBy   []ServerRegistryUser `json:"used_by"`
 }
 
