@@ -136,7 +136,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify server destinations list <server_uuid>` - List a server's destinations
 - `coolify server destinations create <server_uuid>` - Create a server destination
 - `coolify server hetzner|digitalocean|vultr` - List provider options and provision a server
-- `coolify server registry list <server_uuid>` - List the Docker registries a server is logged in to and which resources use them (requires a token with `read:sensitive`; usernames are hidden in table output unless `-s` is given)
+- `coolify server registry list <server_uuid>` - List the Docker registries a server is logged in to and which resources use them (requires a token with `read:sensitive`; usernames are hidden unless `-s` is given)
 - `coolify server registry login <server_uuid> [<server_uuid>...]` - Run `docker login` on one or more servers
   - `--registry <host>` - Registry host, optionally with a port, e.g. `ghcr.io`, `registry.example.com:5000`, `docker.io` (required)
   - `-u, --username <username>` - Registry username (required)
@@ -565,7 +565,7 @@ Commands can use `audit`, `audit-events`, or `audit-log` interchangeably. Only t
   - `--search <text>` - Search text
   - `--action <action>` - Filter by action, e.g. `created`, `updated`, `deleted`
   - `--source <all|ui|api|mcp|webhook|system|scheduler>` - Filter by source
-  - Actor e-mail, token, metadata, changes, IP address and user agent are only returned for API tokens with `read:sensitive`; use `--format json` to see them
+  - Actor e-mail, token, metadata, changes, IP address and user agent are only returned for API tokens with `read:sensitive`; use `--format json` to see them (actor e-mail and IP address stay masked unless `-s` is given)
 
 ### Private Keys
 
@@ -583,7 +583,7 @@ All commands support these global flags:
 - `--context <name>` - Use a specific context instead of default
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
-- `-s, --show-sensitive` - Show sensitive information (tokens, IPs, etc.)
+- `-s, --show-sensitive` - Show sensitive information (tokens, IPs, etc.) in table, `json` and `pretty` output. `--debug` request/response logs always mask credentials, with or without this flag
 - `--debug` - Enable debug mode
 
 ## Examples

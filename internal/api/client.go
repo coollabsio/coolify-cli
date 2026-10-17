@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/coollabsio/coolify-cli/internal/redact"
 )
 
 const (
@@ -360,6 +362,8 @@ var sensitiveDebugLogKeys = map[string]struct{}{
 	"keydb_password":                  {},
 	"clickhouse_admin_password":       {},
 	"dragonfly_password":              {},
+	"actor_email":                     {},
+	"ip_address":                      {},
 }
 
 func redactJSONForLog(jsonBody []byte) string {
@@ -380,6 +384,12 @@ func redactSensitiveFields(value any) {
 	case map[string]any:
 		for key, child := range typed {
 			if _, sensitive := sensitiveDebugLogKeys[key]; sensitive {
+				typed[key] = "********"
+				continue
+			}
+			// Keys with no struct tag behind them (notification and settings
+			// payloads are untyped maps) are caught by name.
+			if text, isString := child.(string); isString && text != "" && redact.IsCredentialKey(key) {
 				typed[key] = "********"
 				continue
 			}

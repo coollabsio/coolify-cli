@@ -567,3 +567,24 @@ func TestClient_PostMultipart_DebugLogsFieldNamesOnly(t *testing.T) {
 	assert.Contains(t, logs.String(), "upload_id")
 	assert.NotContains(t, logs.String(), "secret-data")
 }
+
+func TestClient_DebugRedactsCredentialNamedKeysOutsideTheTaggedSet(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"smtp_password":"resp-secret","smtp_host":"mail.example.com","telegram_enabled":true}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Patch(context.Background(), "notifications/telegram", map[string]any{"telegram_token": "req-secret", "telegram_enabled": true}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "req-secret")
+	assert.NotContains(t, logs.String(), "resp-secret")
+	assert.Contains(t, logs.String(), "mail.example.com")
+	assert.Contains(t, logs.String(), `"telegram_enabled":true`)
+}

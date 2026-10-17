@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/coollabsio/coolify-cli/internal/redact"
 )
 
 // redactSensitive returns a copy of data safe to serialize, with any field
@@ -86,7 +88,12 @@ func redactValue(v reflect.Value, visited map[uintptr]bool) any {
 		m := make(map[string]any, v.Len())
 		iter := v.MapRange()
 		for iter.Next() {
-			m[fmt.Sprint(iter.Key().Interface())] = redactValue(iter.Value(), visited)
+			name := fmt.Sprint(iter.Key().Interface())
+			if redact.IsCredentialKey(name) && isNonEmptyString(iter.Value()) {
+				m[name] = SensitiveOverlay
+				continue
+			}
+			m[name] = redactValue(iter.Value(), visited)
 		}
 		return m
 	default:
@@ -141,12 +148,26 @@ func appendStructFields(v reflect.Value, result *orderedMap, visited map[uintptr
 		}
 
 		if isSensitiveField(field) {
+			// An absent credential stays null: masking it would claim one exists.
+			if (fv.Kind() == reflect.Pointer || fv.Kind() == reflect.Interface) && fv.IsNil() {
+				result.set(name, nil)
+				continue
+			}
 			result.set(name, SensitiveOverlay)
 			continue
 		}
 
 		result.set(name, redactValue(fv, visited))
 	}
+}
+
+// isNonEmptyString reports whether v is, or is an interface holding, a
+// non-empty string.
+func isNonEmptyString(v reflect.Value) bool {
+	if v.Kind() == reflect.Interface && !v.IsNil() {
+		v = v.Elem()
+	}
+	return v.Kind() == reflect.String && v.Len() > 0
 }
 
 // embeddedName returns the explicit JSON name on an embedded field's tag, which
