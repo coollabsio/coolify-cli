@@ -17,5 +17,5 @@ func NewJSONFormatter(opts Options) *JSONFormatter {
 // Format formats the data as compact JSON
 func (f *JSONFormatter) Format(data interface{}) error {
 	encoder := json.NewEncoder(f.opts.Writer)
-	return encoder.Encode(data)
+	return encoder.Encode(redactSensitive(data, f.opts.ShowSensitive))
 }

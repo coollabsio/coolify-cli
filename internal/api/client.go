@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/coollabsio/coolify-cli/internal/redact"
 )
 
 const (
@@ -319,6 +321,59 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 	return nil
 }
 
+// sensitiveDebugLogKeys are the JSON names of credentials (tokens, passwords,
+// secrets, private keys, env var values) tagged `sensitive:"true"` across
+// internal/models and internal/config. --debug masks them in request and
+// response bodies. Debug logging works on decoded, untyped JSON, so it cannot
+// read struct tags the way internal/output does; names are the equivalent.
+// Credential-looking names outside this set are still caught by
+// redact.IsCredentialKey.
+//
+// TestSensitiveDebugLogKeys_CoversEveryTaggedField fails if a new
+// `sensitive:"true"` tag has its JSON name in neither this set nor
+// debugVisibleSensitiveKeys.
+var sensitiveDebugLogKeys = map[string]struct{}{
+	"token":                           {},
+	"password":                        {},
+	"value":                           {},
+	"real_value":                      {},
+	"secret":                          {},
+	"client_secret":                   {},
+	"webhook_secret":                  {},
+	"webhook_token":                   {},
+	"manual_webhook_secret_github":    {},
+	"manual_webhook_secret_gitlab":    {},
+	"manual_webhook_secret_bitbucket": {},
+	"manual_webhook_secret_gitea":     {},
+	"private_key":                     {},
+	"postgres_password":               {},
+	"mysql_root_password":             {},
+	"mysql_password":                  {},
+	"mariadb_root_password":           {},
+	"mariadb_password":                {},
+	"mongo_initdb_root_password":      {},
+	"redis_password":                  {},
+	"keydb_password":                  {},
+	"clickhouse_admin_password":       {},
+	"dragonfly_password":              {},
+}
+
+// debugVisibleSensitiveKeys are tagged `sensitive:"true"` so table, json and
+// pretty output hide them by default, but they are identifying details rather
+// than credentials, so --debug leaves them readable for troubleshooting.
+var debugVisibleSensitiveKeys = map[string]struct{}{
+	"username":    {},
+	"key":         {},
+	"script":      {},
+	"public_key":  {},
+	"email":       {},
+	"actor_email": {},
+	"ip":          {},
+	"ip_address":  {},
+	"user":        {},
+	"port":        {},
+}
+
 func redactJSONForLog(jsonBody []byte) string {
 	var value any
 	if err := json.Unmarshal(jsonBody, &value); err != nil {
@@ -336,7 +391,13 @@ func redactSensitiveFields(value any) {
 	switch typed := value.(type) {
 	case map[string]any:
 		for key, child := range typed {
-			if key == "token" || key == "password" {
+			if _, sensitive := sensitiveDebugLogKeys[key]; sensitive {
+				typed[key] = "********"
+				continue
+			}
+			// Keys with no struct tag behind them (notification and settings
+			// payloads are untyped maps) are caught by name.
+			if text, isString := child.(string); isString && text != "" && redact.IsCredentialKey(key) {
 				typed[key] = "********"
 				continue
 			}

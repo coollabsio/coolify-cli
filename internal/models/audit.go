@@ -21,12 +21,12 @@ type AuditEvent struct {
 	ResourceName *string `json:"resource_name,omitempty"`
 	Description  *string `json:"description,omitempty"`
 
-	ActorEmail     *string `json:"actor_email,omitempty" table:"-"`
+	ActorEmail     *string `json:"actor_email,omitempty" table:"-" sensitive:"true"`
 	ActorTokenID   *int    `json:"actor_token_id,omitempty" table:"-"`
 	ActorTokenName *string `json:"actor_token_name,omitempty" table:"-"`
 	Metadata       any     `json:"metadata,omitempty" table:"-"`
 	Changes        any     `json:"changes,omitempty" table:"-"`
-	IPAddress      *string `json:"ip_address,omitempty" table:"-"`
+	IPAddress      *string `json:"ip_address,omitempty" table:"-" sensitive:"true"`
 	UserAgent      *string `json:"user_agent,omitempty" table:"-"`
 }
 

@@ -73,6 +73,47 @@ func TestClient_DebugRedactsSensitiveResponseFields(t *testing.T) {
 	assert.Contains(t, logs.String(), `"token":"********"`)
 }
 
+func TestClient_DebugRedactsPrivateKeyMaterial(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"key-1","public_key":"ssh-ed25519 dummy-public","private_key":"-----BEGIN OPENSSH PRIVATE KEY-----\ndummy-private-material"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Get(context.Background(), "security/keys/key-1", &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "dummy-private-material")
+	assert.Contains(t, logs.String(), `"private_key":"********"`)
+	assert.Contains(t, logs.String(), "dummy-public", "public keys are not secrets")
+}
+
+func TestClient_DebugRedactsWebhookSecret(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"uuid":"app-1"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Post(context.Background(), "github-apps", map[string]string{"client_secret": "dummy-client-secret", "webhook_secret": "dummy-webhook-secret"}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "dummy-client-secret")
+	assert.NotContains(t, logs.String(), "dummy-webhook-secret")
+	assert.Contains(t, logs.String(), `"client_secret":"********"`)
+	assert.Contains(t, logs.String(), `"webhook_secret":"********"`)
+}
+
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with defaults", func(t *testing.T) {
 		client := NewClient("https://app.coolify.io", "test-token")
@@ -524,4 +565,44 @@ func TestClient_PostMultipart_DebugLogsFieldNamesOnly(t *testing.T) {
 	assert.Contains(t, logs.String(), "multipart/form-data")
 	assert.Contains(t, logs.String(), "upload_id")
 	assert.NotContains(t, logs.String(), "secret-data")
+}
+
+func TestClient_DebugRedactsCredentialNamedKeysOutsideTheTaggedSet(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"smtp_password":"resp-secret","smtp_host":"mail.example.com","telegram_enabled":true}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Patch(context.Background(), "notifications/telegram", map[string]any{"telegram_token": "req-secret", "telegram_enabled": true}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "req-secret")
+	assert.NotContains(t, logs.String(), "resp-secret")
+	assert.Contains(t, logs.String(), "mail.example.com")
+	assert.Contains(t, logs.String(), `"telegram_enabled":true`)
+}
+
+func TestClient_DebugKeepsNonCredentialFieldsReadable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"ip":"203.0.113.7","user":"root","port":22,"email":"dev@example.com","username":"octocat","key":"APP_ENV","script":"#!/bin/sh"}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	require.NoError(t, client.Get(context.Background(), "servers/srv-1", &response))
+	for _, visible := range []string{"203.0.113.7", "root", "dev@example.com", "octocat", "APP_ENV"} {
+		assert.Contains(t, logs.String(), visible)
+	}
 }

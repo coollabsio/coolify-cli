@@ -172,6 +172,25 @@ func TestRegistryList_JSONOutputIncludesFullUsage(t *testing.T) {
 	assert.Nil(t, decoded.Error)
 }
 
+func TestRegistryList_JSONOutputMasksUsernameWithoutShowSensitive(t *testing.T) {
+	for _, format := range []string{"json", "pretty"} {
+		t.Run(format, func(t *testing.T) {
+			newRegistryTestAPI(t, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(registryListFixture))
+			})
+
+			stdout, _, err := runRegistryCommand(t, "", "list", "srv-1", "--format", format)
+			require.NoError(t, err)
+			assert.NotContains(t, stdout, "octocat", "usernames are masked without -s")
+			assert.Contains(t, stdout, "ghcr.io", "non-sensitive fields are untouched")
+
+			stdout, _, err = runRegistryCommand(t, "", "list", "srv-1", "--format", format, "-s")
+			require.NoError(t, err)
+			assert.Contains(t, stdout, "octocat")
+		})
+	}
+}
+
 func TestRegistryList_PrintsErrorFieldAsWarning(t *testing.T) {
 	newRegistryTestAPI(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"registries": [], "error": "The server is not reachable. Validate the server to read its registry logins."}`))
