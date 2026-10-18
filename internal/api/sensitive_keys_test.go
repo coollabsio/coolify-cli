@@ -25,8 +25,13 @@ func TestSensitiveDebugLogKeys_CoversEveryTaggedField(t *testing.T) {
 	require.NotEmpty(t, tagged, "found no sensitive:\"true\" tags — the source scan is broken, not the code")
 
 	for name, where := range tagged {
-		if _, ok := sensitiveDebugLogKeys[name]; !ok {
-			t.Errorf("%s is tagged sensitive:\"true\" but its JSON name %q is missing from sensitiveDebugLogKeys in client.go — --debug would log it in full", where, name)
+		_, credential := sensitiveDebugLogKeys[name]
+		_, visible := debugVisibleSensitiveKeys[name]
+		if !credential && !visible {
+			t.Errorf("%s is tagged sensitive:\"true\" but its JSON name %q is in neither sensitiveDebugLogKeys (masked in --debug) nor debugVisibleSensitiveKeys (deliberately shown); decide which in client.go", where, name)
+		}
+		if credential && visible {
+			t.Errorf("%q is listed as both masked and visible in --debug", name)
 		}
 	}
 }

@@ -83,3 +83,18 @@ func TestRedact_NilSensitivePointerStaysNull(t *testing.T) {
 	require.Len(t, got, 1)
 	assert.Nil(t, got[0]["username"], "an absent credential must not be rendered as a present, masked one")
 }
+
+func TestRedact_EmptySensitiveValuesAreNotMasked(t *testing.T) {
+	data := map[string]any{"server": models.Server{IP: "", User: "", Port: 0}}
+
+	var buf bytes.Buffer
+	f, err := NewFormatter(FormatJSON, Options{Writer: &buf})
+	require.NoError(t, err)
+	require.NoError(t, f.Format(data))
+
+	var got map[string]map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &got))
+	assert.Empty(t, got["server"]["ip"])
+	assert.Empty(t, got["server"]["user"])
+	assert.InDelta(t, 0, got["server"]["port"], 0, "an unset port stays a number")
+}

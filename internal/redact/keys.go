@@ -18,7 +18,7 @@ var credentialKeyFragments = []string{
 
 // nonCredentialKeySuffixes mark keys that name or point at a credential
 // without containing one (e.g. integration_token_uuid, actor_token_name).
-var nonCredentialKeySuffixes = []string{"_uuid", "_id", "_ids", "_name", "_at", "_enabled"}
+var nonCredentialKeySuffixes = []string{"public_key", "_uuid", "_id", "_ids", "_name", "_at", "_enabled"}
 
 // IsCredentialKey reports whether an untyped JSON key looks like it holds a
 // credential, so its string value should be masked.

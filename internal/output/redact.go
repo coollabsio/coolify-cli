@@ -148,9 +148,10 @@ func appendStructFields(v reflect.Value, result *orderedMap, visited map[uintptr
 		}
 
 		if isSensitiveField(field) {
-			// An absent credential stays null: masking it would claim one exists.
-			if (fv.Kind() == reflect.Pointer || fv.Kind() == reflect.Interface) && fv.IsNil() {
-				result.set(name, nil)
+			// An unset value (null, "", 0) is shown as is: masking it would
+			// claim a credential exists.
+			if fv.IsZero() {
+				result.set(name, fv.Interface())
 				continue
 			}
 			result.set(name, SensitiveOverlay)

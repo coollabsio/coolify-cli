@@ -321,24 +321,23 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 	return nil
 }
 
-// sensitiveDebugLogKeys are the JSON field names of every struct field
-// tagged `sensitive:"true"` across internal/models and internal/config.
-// Debug logging works on decoded, untyped JSON (request/response bodies can
-// be arbitrary maps, not just tagged structs), so it can't walk Go struct
-// tags directly like internal/output's formatters do; this set is the
-// closest equivalent for that generic shape.
+// sensitiveDebugLogKeys are the JSON names of credentials (tokens, passwords,
+// secrets, private keys, env var values) tagged `sensitive:"true"` across
+// internal/models and internal/config. --debug masks them in request and
+// response bodies. Debug logging works on decoded, untyped JSON, so it cannot
+// read struct tags the way internal/output does; names are the equivalent.
+// Credential-looking names outside this set are still caught by
+// redact.IsCredentialKey.
 //
 // TestSensitiveDebugLogKeys_CoversEveryTaggedField fails if a new
-// `sensitive:"true"` tag lands without its JSON name being added here.
+// `sensitive:"true"` tag has its JSON name in neither this set nor
+// debugVisibleSensitiveKeys.
 var sensitiveDebugLogKeys = map[string]struct{}{
 	"token":                           {},
 	"password":                        {},
-	"username":                        {},
 	"value":                           {},
 	"real_value":                      {},
-	"key":                             {},
 	"secret":                          {},
-	"script":                          {},
 	"client_secret":                   {},
 	"webhook_secret":                  {},
 	"webhook_token":                   {},
@@ -346,12 +345,7 @@ var sensitiveDebugLogKeys = map[string]struct{}{
 	"manual_webhook_secret_gitlab":    {},
 	"manual_webhook_secret_bitbucket": {},
 	"manual_webhook_secret_gitea":     {},
-	"public_key":                      {},
 	"private_key":                     {},
-	"email":                           {},
-	"ip":                              {},
-	"user":                            {},
-	"port":                            {},
 	"postgres_password":               {},
 	"mysql_root_password":             {},
 	"mysql_password":                  {},
@@ -362,8 +356,22 @@ var sensitiveDebugLogKeys = map[string]struct{}{
 	"keydb_password":                  {},
 	"clickhouse_admin_password":       {},
 	"dragonfly_password":              {},
-	"actor_email":                     {},
-	"ip_address":                      {},
+}
+
+// debugVisibleSensitiveKeys are tagged `sensitive:"true"` so table, json and
+// pretty output hide them by default, but they are identifying details rather
+// than credentials, so --debug leaves them readable for troubleshooting.
+var debugVisibleSensitiveKeys = map[string]struct{}{
+	"username":    {},
+	"key":         {},
+	"script":      {},
+	"public_key":  {},
+	"email":       {},
+	"actor_email": {},
+	"ip":          {},
+	"ip_address":  {},
+	"user":        {},
+	"port":        {},
 }
 
 func redactJSONForLog(jsonBody []byte) string {

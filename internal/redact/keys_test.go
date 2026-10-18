@@ -21,6 +21,8 @@ func TestIsCredentialKey(t *testing.T) {
 		{"discord_webhook_url", true},
 		{"client_secret", true},
 		{"Telegram_Token", true},
+		{"public_key", false},
+		{"ssh_public_key", false},
 		{"token_name", false},
 		{"actor_token_name", false},
 		{"integration_token_uuid", false},
