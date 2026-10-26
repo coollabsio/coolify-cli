@@ -103,7 +103,7 @@ You can change the default context with `coolify context use <context_name>` or 
   - `-d, --default` - Set as default context
   - `-f, --force` - Force overwrite if context already exists
 - `coolify context delete <context_name>` - Delete a context
-- `coolify context get <context_name>` - Get details of a specific context
+- `coolify context get <context_name>` - Get details of a specific context (name, URL, default; the API token is never shown)
 - `coolify context set-token <context_name> <token>` - Update the API token for a context
 - `coolify context set-default <context_name>` - Set a context as the default
 - `coolify context update <context_name>` - Update a context's properties
@@ -583,7 +583,7 @@ All commands support these global flags:
 - `--context <name>` - Use a specific context instead of default
 - `--token <token>` - Override the authentication token
 - `--format <format>` - Output format: `table` (default), `json`, or `pretty`
-- `-s, --show-sensitive` - Show sensitive information (tokens, IPs, etc.)
+- `-s, --show-sensitive` - Show sensitive information (tokens, passwords, IPs, etc.) in table, `json` and `pretty` output
 - `--debug` - Enable debug mode
 
 ## Examples
@@ -796,6 +796,8 @@ coolify server list --format=json
 # Pretty JSON (for debugging)
 coolify server list --format=pretty
 ```
+
+Sensitive values (tokens, passwords, private keys, secrets, server IPs, e-mails) are masked as `********` in every format. Add `-s` / `--show-sensitive` to show them. Some fields, such as database passwords, are not shown as table columns; use `--format json -s` to see them. Saved context tokens are never printed.
 
 ## Architecture
 

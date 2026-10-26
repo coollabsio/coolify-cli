@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
-	"github.com/coollabsio/coolify-cli/internal/config"
 	"github.com/coollabsio/coolify-cli/internal/output"
 )
 
@@ -28,38 +27,28 @@ func NewGetCommand() *cobra.Command {
 			instancesInterface := instancesRaw.([]any)
 
 			format, _ := cmd.Flags().GetString("format")
-			showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
 
-			// Convert interface{} to config.Instance structs
-			var instances []config.Instance
+			// Use the same credential-free view model as `context list`, so
+			// get output can never expose the token, even with --show-sensitive.
+			var results []contextSummary
 			for _, item := range instancesInterface {
 				itemMap := item.(map[string]any)
-
-				instance := config.Instance{
-					Name:    getString(itemMap, "name"),
+				if getString(itemMap, "name") != name {
+					continue
+				}
+				results = append(results, contextSummary{
+					Name:    name,
 					FQDN:    getString(itemMap, "fqdn"),
-					Token:   getString(itemMap, "token"),
 					Default: getBool(itemMap, "default"),
-				}
-				instances = append(instances, instance)
-			}
-
-			// If a name was provided, filter to that single instance
-			var results []config.Instance
-			for _, inst := range instances {
-				if inst.Name == name {
-					results = append(results, inst)
-					break
-				}
+				})
+				break
 			}
 
 			if len(results) == 0 {
 				return fmt.Errorf("Context '%s' not found", name)
 			}
 
-			formatter, err := output.NewFormatter(format, output.Options{
-				ShowSensitive: showSensitive,
-			})
+			formatter, err := output.NewFormatter(format, output.Options{})
 			if err != nil {
 				return err
 			}

@@ -180,7 +180,9 @@ coolify team members list
 - `completion` command supports shells: `bash`, `zsh`, `fish`, `powershell`
 - Resource statuses: `running`, `stopped`, `error`
 - Teams use numeric IDs (not UUIDs) - this is the only resource that uses IDs
-- Fields marked `sensitive:"true"` (tokens, passwords, IPs, emails) are hidden by default; use `--show-sensitive` to reveal
+- Fields marked `sensitive:"true"` (tokens, passwords, private keys, secrets, IPs, emails) are masked as `********` by default in `table`, `json` and `pretty` output; use `--show-sensitive` to reveal
+- Database passwords are not table columns; use `--format json --show-sensitive` to see them
+- `context list` and `context get` never print the saved API token
 
 ---
 

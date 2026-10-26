@@ -55,7 +55,7 @@ All commands support `--format` flag:
 - `--context <name>` - use a specific saved context
 - `--token <token>` - override token from config
 - `--format table|json|pretty` - choose output format
-- `--show-sensitive` - reveal sensitive values
+- `--show-sensitive` - reveal sensitive values in every output format
 - `--debug` - enable debug output
 
 ## Common Workflows
