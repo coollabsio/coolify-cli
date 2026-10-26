@@ -84,6 +84,50 @@ func TestApplicationCreateSettings_MarshalNewAPIFields(t *testing.T) {
 	}
 }
 
+func TestDockerfileLocation_MarshalRequestShape(t *testing.T) {
+	location := "/api/Dockerfile"
+	tests := []struct {
+		name string
+		req  any
+	}{
+		{name: "public create", req: ApplicationCreatePublicRequest{DockerfileLocation: &location}},
+		{name: "github create", req: ApplicationCreateGitHubAppRequest{DockerfileLocation: &location}},
+		{name: "deploy key create", req: ApplicationCreateDeployKeyRequest{DockerfileLocation: &location}},
+		{name: "update", req: ApplicationUpdateRequest{DockerfileLocation: &location}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := json.Marshal(tt.req)
+			require.NoError(t, err)
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(data, &body))
+			assert.Equal(t, location, body["dockerfile_location"])
+		})
+	}
+}
+
+func TestDockerfileLocation_OmittedWhenUnset(t *testing.T) {
+	requests := map[string]any{
+		"public create":     ApplicationCreatePublicRequest{},
+		"github create":     ApplicationCreateGitHubAppRequest{},
+		"deploy key create": ApplicationCreateDeployKeyRequest{},
+		"update":            ApplicationUpdateRequest{},
+	}
+
+	for name, req := range requests {
+		t.Run(name, func(t *testing.T) {
+			data, err := json.Marshal(req)
+			require.NoError(t, err)
+
+			var body map[string]any
+			require.NoError(t, json.Unmarshal(data, &body))
+			assert.NotContains(t, body, "dockerfile_location")
+		})
+	}
+}
+
 func TestDockerComposeDomains_MarshalRequestShape(t *testing.T) {
 	domains := []DockerComposeDomain{
 		{Name: "litellm", Domain: "https://litellm.example.com"},

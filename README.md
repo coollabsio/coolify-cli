@@ -178,6 +178,7 @@ Commands can use `server` or `servers` interchangeably.
   - `--base-directory <path>` - Base directory
   - `--publish-directory <path>` - Publish directory
   - `--dockerfile <content>` - Dockerfile content
+  - `--dockerfile-location <path>` - Path to the Dockerfile relative to the base directory, e.g. `/api/Dockerfile`
   - `--docker-image <image>` - Docker image name
   - `--docker-tag <tag>` - Docker image tag
   - `--ports-exposes <ports>` - Exposed ports
@@ -213,7 +214,7 @@ Commands can use `server` or `servers` interchangeably.
   - `--ports-exposes <ports>` - Exposed ports, e.g., '3000' or '3000,8080' (required)
   - `--domains <domains>` - Domain(s) for the application
   - `--instant-deploy` - Deploy immediately after creation
-  - More flags: `--name`, `--description`, `--base-directory`, `--publish-directory`, `--build-command`, `--start-command`, `--install-command`, `--health-check-enabled`, `--health-check-path`, `--limits-memory`, `--limits-cpus`, `--ports-mappings`, `--git-commit-sha`, `--destination-uuid`, `--dockerfile-target-build`
+  - More flags: `--name`, `--description`, `--base-directory`, `--publish-directory`, `--build-command`, `--start-command`, `--install-command`, `--health-check-enabled`, `--health-check-path`, `--limits-memory`, `--limits-cpus`, `--ports-mappings`, `--git-commit-sha`, `--destination-uuid`, `--dockerfile-target-build`, `--dockerfile-location`
 - `coolify app create github` - Create an application from a private repository using a GitHub App
   - Same flags as `public`, plus `--github-app-uuid <uuid>` (required)
   - `--git-repository` takes the `owner/repo` format
