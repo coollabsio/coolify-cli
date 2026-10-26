@@ -247,6 +247,8 @@ coolify cloud-token create --provider hetzner --name production --provider-token
 coolify cloud-token validate <uuid>
 coolify server hetzner locations <cloud-token-uuid>
 coolify server hetzner create --cloud-token <uuid> --location <location> --server-type <type> --image <id>
+coolify server hostinger catalog <cloud-token-uuid>
+coolify server hostinger create --cloud-token <uuid> --item-id <price-id> --data-center-id <id> --template-id <id> --private-key <uuid>
 ` + "```" + `
 
 ## Common Aliases

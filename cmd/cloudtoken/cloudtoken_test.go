@@ -39,3 +39,13 @@ func TestPrepareOutput_RedactsCloudTokensWithoutMutatingResponse(t *testing.T) {
 	assert.Equal(t, secret, *token.Token)
 	assert.Same(t, token, prepareOutput(token, true))
 }
+
+func TestCreateCommand_ListsHostingerProvider(t *testing.T) {
+	cmd := newCreate()
+	assert.Contains(t, cmd.Flags().Lookup("provider").Usage, "hostinger")
+
+	require.NoError(t, cmd.Flags().Set("provider", "linode"))
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hostinger")
+}

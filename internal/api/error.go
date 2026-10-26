@@ -10,6 +10,11 @@ type Error struct {
 	StatusCode int
 	Message    string
 	Path       string
+	// Body is the raw response body, kept for callers that need structured
+	// error details beyond Message (for example validation errors).
+	Body []byte
+	// RetryAfter is the Retry-After response header, if present.
+	RetryAfter string
 }
 
 // Error implements the error interface

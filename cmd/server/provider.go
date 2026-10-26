@@ -1,7 +1,10 @@
 package server
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,7 +17,7 @@ import (
 func providerOutput(cmd *cobra.Command, value any) error {
 	format, _ := cmd.Flags().GetString("format")
 	showSensitive, _ := cmd.Flags().GetBool("show-sensitive")
-	formatter, err := output.NewFormatter(format, output.Options{ShowSensitive: showSensitive})
+	formatter, err := output.NewFormatter(format, output.Options{ShowSensitive: showSensitive, Writer: cmd.OutOrStdout()})
 	if err != nil {
 		return err
 	}
@@ -219,4 +222,110 @@ func newVultrCreateCommand() *cobra.Command {
 	cmd.Flags().StringVar(&req.CloudInitScript, "cloud-init", "", "Cloud-init YAML")
 	cmd.Flags().BoolVar(&req.InstantValidate, "validate", false, "Validate after creation")
 	return cmd
+}
+
+func NewHostingerCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "hostinger", Short: "Provision servers with Hostinger (paid VPS purchase)"}
+	with := func(call func(*service.HostingerService, *cobra.Command, string) (any, error)) func(*cobra.Command, string) (any, error) {
+		return func(cmd *cobra.Command, token string) (any, error) {
+			client, err := cli.GetAPIClient(cmd)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get API client: %w", err)
+			}
+			return call(service.NewHostingerService(client), cmd, token)
+		}
+	}
+	catalog := providerOptionCommand("catalog", "List Hostinger VPS plans and prices (item IDs for create)", with(func(s *service.HostingerService, cmd *cobra.Command, token string) (any, error) {
+		items, err := s.Catalog(cmd.Context(), token)
+		if err != nil {
+			return nil, err
+		}
+		return models.FlattenHostingerCatalog(items), nil
+	}))
+	catalog.Aliases = []string{"plans"}
+	catalog.Long = "List Hostinger VPS plans with one row per billing option. Use the item_id column as --item-id when creating a server. Prices are in cents; first_period_price_cents is charged for the first billing period."
+	cmd.AddCommand(
+		providerOptionCommand("data-centers", "List Hostinger data centers", with(func(s *service.HostingerService, cmd *cobra.Command, token string) (any, error) {
+			return s.DataCenters(cmd.Context(), token)
+		})),
+		catalog,
+		providerOptionCommand("templates", "List Hostinger OS templates", with(func(s *service.HostingerService, cmd *cobra.Command, token string) (any, error) {
+			return s.Templates(cmd.Context(), token)
+		})),
+		providerOptionCommand("ssh-keys", "List Hostinger SSH keys", with(func(s *service.HostingerService, cmd *cobra.Command, token string) (any, error) {
+			return s.SSHKeys(cmd.Context(), token)
+		})),
+		providerOptionCommand("post-install-scripts", "List Hostinger post-install scripts", with(func(s *service.HostingerService, cmd *cobra.Command, token string) (any, error) {
+			return s.PostInstallScripts(cmd.Context(), token)
+		})),
+		newHostingerCreateCommand(),
+	)
+	return cmd
+}
+
+func newHostingerCreateCommand() *cobra.Command {
+	var req models.HostingerServerCreateRequest
+	var force bool
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Purchase a Hostinger VPS and add it as a server (paid)",
+		Long: `Purchase a Hostinger VPS and add it to Coolify as a server.
+
+This is a real purchase: Hostinger charges your account for the selected plan
+and billing period (--item-id, see "coolify server hostinger catalog"), and the
+subscription renews monthly or yearly until you cancel it in Hostinger.
+You are asked to confirm unless --force is given.`,
+		Example: `  coolify server hostinger catalog <cloud_token_uuid>
+  coolify server hostinger create --cloud-token <uuid> --item-id hostingercom-vps-kvm1-usd-1m \
+    --data-center-id 9 --template-id 1002 --private-key <key_uuid>`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if req.CloudProviderTokenUUID == "" || req.ItemID == "" || req.DataCenterID == 0 || req.TemplateID == 0 || req.PrivateKeyUUID == "" {
+				return fmt.Errorf("--cloud-token, --item-id, --data-center-id, --template-id, and --private-key are required")
+			}
+			if !force {
+				confirmed, err := confirmHostingerPurchase(cmd, req.ItemID)
+				if err != nil {
+					return err
+				}
+				if !confirmed {
+					fmt.Fprintln(cmd.ErrOrStderr(), "Server creation cancelled.")
+					return nil
+				}
+			}
+			client, err := cli.GetAPIClient(cmd)
+			if err != nil {
+				return fmt.Errorf("failed to get API client: %w", err)
+			}
+			response, err := service.NewHostingerService(client).Create(cmd.Context(), req)
+			if errors.Is(err, service.ErrHostingerPaymentPending) {
+				return fmt.Errorf("%w. No server was added to Coolify. Check the order in your Hostinger account before retrying to avoid a duplicate purchase", err)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to create Hostinger server: %w", err)
+			}
+			return providerOutput(cmd, response)
+		},
+	}
+	cmd.Flags().StringVar(&req.CloudProviderTokenUUID, "cloud-token", "", "Cloud provider token UUID")
+	cmd.Flags().StringVar(&req.ItemID, "item-id", "", "Hostinger catalog price ID (plan + billing period, e.g. hostingercom-vps-kvm1-usd-1m)")
+	cmd.Flags().IntVar(&req.DataCenterID, "data-center-id", 0, "Hostinger data center ID")
+	cmd.Flags().IntVar(&req.TemplateID, "template-id", 0, "Hostinger OS template ID")
+	cmd.Flags().StringVar(&req.PrivateKeyUUID, "private-key", "", "Coolify private key UUID")
+	cmd.Flags().StringVar(&req.Name, "name", "", "Server name (auto-generated if omitted)")
+	cmd.Flags().BoolVar(&req.EnableBackups, "enable-backups", false, "Enable weekly Hostinger backups (extra cost; off by default)")
+	cmd.Flags().IntSliceVar(&req.PublicKeyIDs, "ssh-key-ids", nil, "Additional Hostinger SSH key IDs")
+	cmd.Flags().IntVar(&req.PostInstallScriptID, "post-install-script-id", 0, "Hostinger post-install script ID")
+	cmd.Flags().BoolVar(&req.InstantValidate, "validate", false, "Validate after creation")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Skip the purchase confirmation prompt")
+	return cmd
+}
+
+func confirmHostingerPurchase(cmd *cobra.Command, itemID string) (bool, error) {
+	fmt.Fprintf(cmd.ErrOrStderr(), "This purchases a Hostinger VPS (%s) billed to your Hostinger account and renewed until cancelled. Continue? (yes/no): ", itemID)
+	response, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+	if err != nil && response == "" {
+		return false, fmt.Errorf("failed to read input: %w", err)
+	}
+	response = strings.ToLower(strings.TrimSpace(response))
+	return response == "yes" || response == "y", nil
 }

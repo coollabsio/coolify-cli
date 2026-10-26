@@ -25,6 +25,7 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewHetznerCommand())
 	cmd.AddCommand(NewDigitalOceanCommand())
 	cmd.AddCommand(NewVultrCommand())
+	cmd.AddCommand(NewHostingerCommand())
 	cmd.AddCommand(NewDockerCleanupCommand())
 	cmd.AddCommand(NewLogDrainsCommand())
 	cmd.AddCommand(NewSentinelCommand())
