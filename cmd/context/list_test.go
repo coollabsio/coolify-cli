@@ -18,6 +18,17 @@ const sentinelToken = "sentinel-secret-token"
 
 func executeListCommand(t *testing.T, format string, showSensitive bool) string {
 	t.Helper()
+	args := []string{"list", "--format", format}
+	if showSensitive {
+		args = append(args, "--show-sensitive")
+	}
+	return executeContextCommand(t, NewListCommand(), args...)
+}
+
+// executeContextCommand runs cmd with two saved contexts that both hold
+// sentinelToken and returns what it printed to stdout.
+func executeContextCommand(t *testing.T, cmd *cobra.Command, args ...string) string {
+	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
 	viper.Set("instances", []any{map[string]any{
@@ -35,11 +46,8 @@ func executeListCommand(t *testing.T, format string, showSensitive bool) string 
 	root := &cobra.Command{Use: "test"}
 	root.PersistentFlags().String("format", "table", "")
 	root.PersistentFlags().Bool("show-sensitive", false, "")
-	root.AddCommand(NewListCommand())
-	root.SetArgs([]string{"list", "--format", format})
-	if showSensitive {
-		root.SetArgs([]string{"list", "--format", format, "--show-sensitive"})
-	}
+	root.AddCommand(cmd)
+	root.SetArgs(args)
 
 	read, write, err := os.Pipe()
 	require.NoError(t, err)

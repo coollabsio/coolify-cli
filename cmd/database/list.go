@@ -45,7 +45,7 @@ func NewListCommand() *cobra.Command {
 			}
 
 			if !showSensitive && format == output.FormatTable {
-				fmt.Println("\nNote: Use -s to show sensitive information.")
+				fmt.Println("\nNote: Passwords are not shown in table output. Use --format json -s to show them.")
 			}
 
 			return nil

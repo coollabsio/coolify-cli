@@ -14,8 +14,8 @@ func NewJSONFormatter(opts Options) *JSONFormatter {
 	return &JSONFormatter{opts: opts}
 }
 
-// Format formats the data as compact JSON
+// Format formats the data as compact JSON. Fields tagged sensitive:"true" are masked unless ShowSensitive is set.
 func (f *JSONFormatter) Format(data interface{}) error {
 	encoder := json.NewEncoder(f.opts.Writer)
-	return encoder.Encode(data)
+	return encoder.Encode(visibleData(data, f.opts))
 }
