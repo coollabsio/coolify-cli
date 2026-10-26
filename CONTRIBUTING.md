@@ -588,7 +588,7 @@ feat: add server domains list command
 - [ ] Code coverage meets requirements (70%+ minimum)
 - [ ] Code is formatted (`go fmt ./...`)
 - [ ] README.md updated (if adding new commands)
-- [ ] CLAUDE.md updated (if changing architecture)
+- [ ] AGENTS.md updated (if changing architecture)
 - [ ] Commit messages are descriptive
 - [ ] PR description explains the changes
 - [ ] All global flags are supported (format, show-sensitive, debug)
@@ -609,7 +609,7 @@ Releases are automated using GoReleaser:
 - **Issues**: [Open an issue](https://github.com/coollabsio/coolify-cli/issues) for bugs or feature requests
 - **Architecture**: Read [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation
 - **API Reference**: See the [OpenAPI specification](https://github.com/coollabsio/coolify/blob/v4.x/openapi.json)
-- **Code Guidance**: See [CLAUDE.md](CLAUDE.md) for AI assistant guidance
+- **Code Guidance**: See [AGENTS.md](AGENTS.md) for AI assistant guidance
 
 ## License
 

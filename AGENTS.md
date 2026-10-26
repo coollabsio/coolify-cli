@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file gives guidance to coding agents that work in this repository.
 
 ## Project Overview
 
@@ -118,10 +118,47 @@ go fmt ./...
 
 ## Release Process
 
-- Uses GoReleaser for multi-platform builds (Linux, Darwin, Windows on amd64/arm64)
-- Release workflow: `.github/workflows/release-cli.yml` triggers on GitHub releases
-- GoReleaser config: `.goreleaser.yml`
-- Install script: `scripts/install.sh` downloads from GitHub releases
+To release the CLI, create a GitHub release. The automation does all other steps.
+
+### Steps
+
+1. Merge all changes into `main`.
+2. Create a GitHub release with a new semver tag on `main`:
+   ```bash
+   gh release create v1.12.0 --target main --generate-notes
+   ```
+3. Do NOT bump `internal/version/checker.go` manually. The workflow does it.
+
+### What the automation does
+
+The workflow `.github/workflows/release-cli.yml` starts on `release: created`.
+
+| Job | Action |
+|---|---|
+| `release-cli` | GoReleaser (`.goreleaser.yml`) builds binaries for linux, darwin, and windows on amd64 and arm64. It injects the tag into `internal/version.version` with ldflags. It uploads the archives and `checksums.txt` to the release. |
+| `release-cli` | GoReleaser updates the Homebrew formula in `coollabsio/homebrew-coolify-cli`. |
+| `update-version` | Writes the tag into the fallback `version = "..."` in `internal/version/checker.go`, commits `chore: bump version to <tag>`, pushes `main`, and force-moves the tag to that commit. |
+
+The fallback version in `checker.go` is used only by local `go build`. Release binaries always get the version from the tag.
+
+### Distribution channels
+
+- `coolify update`: self-update from GitHub releases. The CLI also shows a notice when a newer tag exists.
+- `brew upgrade coolify-cli`: Homebrew tap.
+- `scripts/install.sh`: downloads the latest GitHub release.
+
+### Verify a release
+
+```bash
+gh run list --workflow release-cli.yml -L 1           # release-cli must be "success"
+gh release view <tag> --json assets -q '.assets[].name'  # 6 archives + checksums.txt
+```
+
+Download one archive, extract it, and run `./coolify version`. The output must be the tag without the `v`.
+
+### Known issue
+
+If `checker.go` already contains the new version (manual bump), `update-version` fails at `git commit` with "nothing to commit". The release is still correct: the binaries and the Homebrew formula are already published, and the job does not push or move the tag. To prevent the failure, do not bump the version manually.
 
 ## Key Patterns
 
