@@ -14,7 +14,7 @@ func NewListBranchesCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "branches <app_uuid> <owner/repo>",
 		Short: "List branches for a repository",
-		Long: `List all branches for a specific repository. Provide the app UUID and repository in owner/repo format.
+		Long: `List all branches for a specific repository. Provide the app UUID (numeric ID also accepted) and repository in owner/repo format.
 
 Example: coolify github branches abc-123-def owner/repository`,
 		Args: cli.ExactArgs(2, "<app_uuid> <owner/repo>"),

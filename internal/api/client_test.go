@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +33,25 @@ func TestClient_DebugRedactsSensitiveJSONFields(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, logs.String(), "provider-secret")
 	assert.Contains(t, logs.String(), `"token":"********"`)
+}
+
+func TestClient_DebugRedactsPasswordInRequestBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"message":"Logged in to ghcr.io."}`))
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "coolify-token", WithDebug(true), WithRetries(0))
+	var response map[string]any
+	err := client.Post(context.Background(), "servers/srv-1/registries", map[string]string{"registry": "ghcr.io", "username": "octocat", "password": "ghp_secret"}, &response)
+	require.NoError(t, err)
+	assert.NotContains(t, logs.String(), "ghp_secret")
+	assert.Contains(t, logs.String(), `"password":"********"`)
 }
 
 func TestClient_DebugRedactsSensitiveResponseFields(t *testing.T) {
@@ -107,6 +128,34 @@ func TestClient_Get_Success(t *testing.T) {
 	assert.Len(t, servers, 2)
 	assert.Equal(t, "uuid-1", servers[0].UUID)
 	assert.Equal(t, "server-1", servers[0].Name)
+}
+
+// Laravel redirects to an HTML page on validation errors unless the request
+// asks for JSON. The client must send Accept: application/json so the real
+// 422 error reaches the user instead of a decode failure after the redirect.
+func TestClient_Post_SendsAcceptJSON_GetsValidationError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<!DOCTYPE html><html></html>"))
+			return
+		}
+		if r.Header.Get("Accept") != "application/json" {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"The base_url points to a local or private address that is not allowed."}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token")
+	err := client.Post(context.Background(), "security/integration-tokens", map[string]string{"name": "x"}, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "422")
+	assert.Contains(t, err.Error(), "local or private address")
 }
 
 func TestClient_Get_StringResponse(t *testing.T) {
@@ -386,4 +435,118 @@ func TestClient_Debug(t *testing.T) {
 	err := client.Get(context.Background(), "test", &result)
 
 	require.NoError(t, err)
+}
+
+func TestClient_PostMultipart_StreamsFieldsAndFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/v1/databases/db-1/imports/uploads", r.URL.Path)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+		assert.NotEqual(t, int64(-1), r.ContentLength, "content length should be known")
+
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		require.NoError(t, r.ParseMultipartForm(1<<20))
+		assert.Equal(t, "upload-1", r.FormValue("upload_id"))
+		assert.Equal(t, "0", r.FormValue("dzchunkindex"))
+		file, header, err := r.FormFile("file")
+		require.NoError(t, err)
+		defer file.Close()
+		assert.Equal(t, "dump.sql", header.Filename)
+		content, err := io.ReadAll(file)
+		require.NoError(t, err)
+		assert.Equal(t, "SELECT 1;", string(content))
+
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"upload_id":"upload-1","filename":"dump.sql"}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token", WithRetries(0))
+	var result map[string]any
+	err := client.PostMultipart(context.Background(), "databases/db-1/imports/uploads",
+		map[string]string{"upload_id": "upload-1", "dzchunkindex": "0"},
+		MultipartFile{FieldName: "file", FileName: "dump.sql", Content: strings.NewReader("SELECT 1;"), Size: 9},
+		&result)
+	require.NoError(t, err)
+	assert.Equal(t, "dump.sql", result["filename"])
+}
+
+func TestClient_PostMultipart_UnknownSizeUsesChunkedBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, int64(-1), r.ContentLength)
+		file, _, err := r.FormFile("file")
+		require.NoError(t, err)
+		defer file.Close()
+		content, _ := io.ReadAll(file)
+		assert.Equal(t, "abc", string(content))
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token", WithRetries(0))
+	reader := io.MultiReader(strings.NewReader("abc")) // not seekable
+	err := client.PostMultipart(context.Background(), "upload", nil,
+		MultipartFile{FieldName: "file", FileName: "a.sql", Content: reader, Size: -1}, nil)
+	require.NoError(t, err)
+}
+
+func TestClient_PostMultipart_ValidationError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"Validation failed."}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token")
+	err := client.PostMultipart(context.Background(), "upload", nil,
+		MultipartFile{FieldName: "file", FileName: "a.txt", Content: strings.NewReader("x"), Size: 1}, nil)
+	require.Error(t, err)
+	var apiErr *Error
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusUnprocessableEntity, apiErr.StatusCode)
+	assert.Contains(t, err.Error(), "Validation failed.")
+}
+
+func TestClient_PostMultipart_RetriesSeekableContentFromStart(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		file, _, err := r.FormFile("file")
+		require.NoError(t, err)
+		defer file.Close()
+		content, _ := io.ReadAll(file)
+		assert.Equal(t, "payload", string(content))
+		if attempts == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token", WithRetries(1))
+	err := client.PostMultipart(context.Background(), "upload", nil,
+		MultipartFile{FieldName: "file", FileName: "a.sql", Content: strings.NewReader("payload"), Size: 7}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 2, attempts)
+}
+
+func TestClient_PostMultipart_DebugLogsFieldNamesOnly(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logs)
+	t.Cleanup(func() { log.SetOutput(previousWriter) })
+
+	client := NewClient(server.URL, "test-token", WithDebug(true), WithRetries(0))
+	err := client.PostMultipart(context.Background(), "upload", map[string]string{"upload_id": "u-1"},
+		MultipartFile{FieldName: "file", FileName: "a.sql", Content: strings.NewReader("secret-data"), Size: 11}, nil)
+	require.NoError(t, err)
+	assert.Contains(t, logs.String(), "multipart/form-data")
+	assert.Contains(t, logs.String(), "upload_id")
+	assert.NotContains(t, logs.String(), "secret-data")
 }

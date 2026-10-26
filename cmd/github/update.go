@@ -14,7 +14,7 @@ func NewUpdateCommand() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:   "update <app_uuid>",
 		Short: "Update a GitHub App integration",
-		Long:  `Update an existing GitHub App integration. Provide the app UUID and the fields you want to update.`,
+		Long:  `Update an existing GitHub App integration. Provide the app UUID (numeric ID also accepted) and the fields you want to update.`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

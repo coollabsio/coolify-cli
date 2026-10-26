@@ -120,7 +120,7 @@ Commands can use `server` or `servers` interchangeably.
 
 - `coolify server list` - List all servers
 - `coolify server get <uuid>` - Get a server by UUID
-  - `--resources` - Get the resources and their status of a server
+  - `--resources` - List the resources deployed on the server (uuid, name, type, status) instead of the server details
 - `coolify server add <name> <ip> <private_key_uuid>` - Add a new server
   - `-p, --port <port>` - SSH port (default: 22)
   - `-u, --user <user>` - SSH user (default: root)
@@ -141,6 +141,15 @@ Commands can use `server` or `servers` interchangeably.
   - `--cloud-token <uuid>`, `--item-id <price_id>`, `--data-center-id <id>`, `--template-id <id>`, `--private-key <uuid>` - Required
   - `--name`, `--enable-backups` (default: false; backups cost extra), `--ssh-key-ids`, `--post-install-script-id`, `--validate` - Optional
   - `-f, --force` - Skip the purchase confirmation prompt
+- `coolify server registry list <server_uuid>` - List the Docker registries a server is logged in to and which resources use them (requires a token with `read:sensitive`; usernames are hidden in table output unless `-s` is given)
+- `coolify server registry login <server_uuid> [<server_uuid>...]` - Run `docker login` on one or more servers
+  - `--registry <host>` - Registry host, optionally with a port, e.g. `ghcr.io`, `registry.example.com:5000`, `docker.io` (required)
+  - `-u, --username <username>` - Registry username (required)
+  - `--password-stdin` - Read the password or access token from stdin. Without it, the password is prompted without echo in a terminal. There is no flag for the password itself
+  - Example: `echo "$GHCR_TOKEN" | coolify server registry login <server_uuid> --registry ghcr.io -u octocat --password-stdin`
+- `coolify server registry check <server_uuid> <registry>` - Check that the saved login still works
+- `coolify server registry logout <server_uuid> <registry>` - Run `docker logout` on the server
+  - `-f, --force` - Skip confirmation prompt
 
 ### Projects
 - `coolify projects list` - List all projects
@@ -148,6 +157,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify projects create` - Create a new project
   - `--name <name>` - Project name (required)
   - `--description <description>` - Project description
+- `coolify projects environments get <project_uuid> <environment_name_or_uuid>` - Get an environment and its applications, databases and services (alias: `env`)
 
 ### Resources
 - `coolify resources list` - List all resources
@@ -186,6 +196,9 @@ Commands can use `server` or `servers` interchangeably.
   - `--service <name>` - Docker Compose service name (select one container in multi-service compose apps)
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
+- `coolify app secret-manager set <app_uuid>` - Set the external secret manager an application reads secrets from
+  - `--integration-token <uuid>` - Secret manager integration token UUID (required, see [Secret Manager Integration Tokens](#secret-manager-integration-tokens))
+  - `--settings <json>` - Provider settings as a JSON object: Doppler `{"project":"...","config":"..."}` (service account tokens), Infisical `{"project_id":"...","environment":"...","secret_path":"/"}`, Vault `{"mount":"...","path":"..."}`
 - Git-backed application create variants (`public`, `github`, and `deploy-key`) and `app update` support repeatable `--compose-domain <service>=<url>[,<url>]` flags for Docker Compose routing. On update, the supplied entries replace the existing mapping.
 - All application create variants support `--tag` and `--tags`; create and update expose the full application settings surface.
 
@@ -221,6 +234,24 @@ Commands can use `server` or `servers` interchangeably.
   - `--environment-name <name>` - Environment name (or use `--environment-uuid <uuid>`)
 
 #### Application Previews
+- `coolify app previews list <app_uuid>` - List preview deployments
+- `coolify app previews get <app_uuid> <pr_id>` - Get a preview deployment
+- `coolify app previews create <app_uuid> <pr_id>` - Open a preview deployment and queue its deployment (redeploys an existing preview)
+  - `--git-type <type>` - Git provider of the pull request: `github`, `gitlab`, `gitea`, or `bitbucket` (required unless the application uses a GitHub App or GitLab App source)
+  - `--commit <sha>` - Commit SHA to deploy (required for Bitbucket)
+  - `--docker-tag <tag>` - Docker image tag (Docker Image applications; required for a new preview)
+  - `--url <url>` - Pull request URL
+  - `--force` - Rebuild without cache
+  - `--no-deploy` - Only create the preview, do not queue a deployment
+- `coolify app previews update <app_uuid> <pr_id>` - Replace the domains of a preview deployment
+  - `--domains <domains>` - Domains (comma-separated)
+  - `--compose-domain <service>=<url>` - Docker Compose service domain (repeatable)
+  - `--force-domain-override` - Save the domains even when another resource uses them
+- `coolify app previews logs <app_uuid> <pr_id>` - Get runtime logs of a preview deployment
+  - `--lines, -n <n>` - Number of log lines to retrieve (default: 100, `-1` for all)
+  - `--follow, -f` - Follow log output (like tail -f)
+  - `--show-timestamps` - Show timestamps in log output
+  - `--service <name>` - Docker Compose service name (selects one container in multi-service apps)
 - `coolify app previews delete <app_uuid> <pr_id>` - Delete a preview deployment
   - `--force` - Skip confirmation prompt
 
@@ -285,7 +316,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify database list` - List all databases
 - `coolify database get <uuid>` - Get database details
 - `coolify database create <type>` - Create a new database
-  - Supported types: `postgresql`, `mysql`, `mariadb`, `mongodb`, `redis`, `keydb`, `clickhouse`, `dragonfly`
+  - Supported types: `postgresql`, `mysql`, `mariadb`, `mongodb`, `redis`, `keydb`, `clickhouse`, `dragonfly`, `sqlite`
   - `--server-uuid <uuid>` - Server UUID (required)
   - `--project-uuid <uuid>` - Project UUID (required)
   - `--environment-name <name>` - Environment name (required unless using --environment-uuid)
@@ -300,7 +331,9 @@ Commands can use `server` or `servers` interchangeably.
   - `--limits-memory <size>` - Memory limit (e.g., '512m', '2g')
   - `--limits-cpus <cpus>` - CPU limit (e.g., '0.5', '2')
   - Database-specific flags (postgres-user, mysql-root-password, etc.)
+  - `--sqlite-databases <files>` - SQLite: comma-separated database file names (e.g. `app.db,cache.db`). SQLite does not support `--is-public`/`--public-port`.
 - `coolify database update <uuid>` - Update database configuration
+  - `--sqlite-databases <files>` - SQLite: comma-separated database file names
 - `coolify database delete <uuid>` - Delete a database
   - `--delete-configurations` - Delete configurations (default: true)
   - `--delete-volumes` - Delete volumes (default: true)
@@ -336,6 +369,21 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify database backup trigger <database_uuid> <backup_uuid>` - Trigger an immediate backup
 - `coolify database backup executions <database_uuid> <backup_uuid>` - List backup executions
 - `coolify database backup delete-execution <database_uuid> <backup_uuid> <execution_uuid>` - Delete a backup execution
+
+#### Database Import (Restore)
+- `coolify database import start <database_uuid>` - Import a backup into the database (exactly one source):
+  - `--file <path>` - Upload a local backup file (max 10 GiB, uploaded in 10 MB chunks), then import it
+  - `--upload-id <id>` - Import a file previously uploaded with `import upload`
+  - `--s3-storage-uuid <uuid> --s3-path <path>` - Import a backup from S3 storage
+  - `--server-path <path>` - Import a file on the database's server (token needs `deploy` permission)
+  - `--dump-all` - The backup contains all databases
+  - `--replace-existing` - PostgreSQL: drop matching objects before restoring a single-database archive
+  - `--keep-owners` - PostgreSQL: restore owners and privileges from a single-database archive
+  - `--restore-mysql-users` - MySQL/MariaDB all-databases backups: also restore users, passwords and privileges
+  - `--sqlite-database <file>` - SQLite: database file to restore into
+  - `--wait` - Wait until the import finishes (non-zero exit on failure); `--poll-interval <duration>` (default `3s`)
+- `coolify database import upload <database_uuid> <file>` - Upload a backup file and print its upload ID
+- `coolify database import status <database_uuid> <activity_id>` - Show import status and output (`--wait` to follow)
 
 #### Database Environment Variables
 - `coolify database env list <database_uuid>` - List all environment variables
@@ -393,6 +441,7 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service application get <service_uuid> <application_uuid>` - Get a service application
 - `coolify service application update <service_uuid> <application_uuid>` - Update a service application
 - `coolify service application logs <service_uuid> <application_uuid>` - Get application logs
+  - `--lines, -n <n>` - Number of log lines to retrieve (default: 100)
 - `coolify service application start|restart|stop <service_uuid> <application_uuid>` - Manage its lifecycle
 
 #### Service Databases
@@ -401,6 +450,9 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service database update <service_uuid> <database_uuid>` - Update metadata, image, log drain, or public access
 - `coolify service database logs <service_uuid> <database_uuid>` - Get database logs
 - `coolify service database start|restart|stop <service_uuid> <database_uuid>` - Manage its lifecycle
+- `coolify service database import start <service_uuid> <database_uuid>` - Import a backup (same source/option flags as `coolify database import start`)
+- `coolify service database import upload <service_uuid> <database_uuid> <file>` - Upload a backup file and print its upload ID
+- `coolify service database import status <service_uuid> <database_uuid> <activity_id>` - Show import status (`--wait` to follow)
 
 #### Service Environment Variables
 - `coolify service env list <service_uuid>` - List all environment variables
@@ -452,6 +504,8 @@ Commands can use `server` or `servers` interchangeably.
   - `-f, --force` - Skip confirmation prompt
 
 ### GitHub Apps
+Commands that take `<app_uuid>` also accept the app's numeric ID; UUIDs are resolved to IDs via `coolify github list`.
+
 - `coolify github list` - List all GitHub App integrations
 - `coolify github get <app_uuid>` - Get GitHub App details
 - `coolify github create` - Create a new GitHub App integration
@@ -491,7 +545,32 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify team list` - List all teams
 - `coolify team get <team_id>` - Get team details
 - `coolify team current` - Get current team
+- `coolify team update` - Update the team bound to the API token
+  - `--build-server-fallback=<true|false>` - Allow deployments to fall back to the deployment server when no usable dedicated build server is available (required)
 - `coolify team members list [team_id]` - List team members
+
+### Secret Manager Integration Tokens
+
+Commands can use `integration-token` or `integration-tokens` interchangeably.
+
+- `coolify integration-token create` - Create and validate a Doppler, Infisical, or Vault integration token
+  - `--provider <doppler|infisical|vault>` - Secret manager provider (required)
+  - `--name <name>` - Friendly token name (required)
+  - `--metadata <json>` - Provider metadata: Infisical `{"base_url":"...","client_id":"..."}`, Vault `{"base_url":"...","namespace":"..."}` (namespace optional)
+  - `--provider-token-stdin` - Read the provider token from stdin. Otherwise it is read from `COOLIFY_INTEGRATION_TOKEN`, or prompted without echo in a terminal. There is no flag for the token itself and it is never printed
+  - Example: `echo "$DOPPLER_TOKEN" | coolify integration-token create --provider doppler --name prod --provider-token-stdin`
+
+### Audit Events
+
+Commands can use `audit`, `audit-events`, or `audit-log` interchangeably. Only team admins and owners can view audit events.
+
+- `coolify audit list` - List audit events of the current team, newest first
+  - `--per-page <n>` - Events per page, 1-100 (default: 25)
+  - `--page <n>` - Page number (default: 1)
+  - `--search <text>` - Search text
+  - `--action <action>` - Filter by action, e.g. `created`, `updated`, `deleted`
+  - `--source <all|ui|api|mcp|webhook|system|scheduler>` - Filter by source
+  - Actor e-mail, token, metadata, changes, IP address and user agent are only returned for API tokens with `read:sensitive`; use `--format json` to see them
 
 ### Private Keys
 
@@ -597,6 +676,13 @@ coolify database backup create <database-uuid> \
   --save-s3 \
   --retention-days-locally 7
 coolify database backup trigger <database-uuid> <backup-uuid>
+
+# Restore a local dump and wait for the import to finish
+coolify database import start <database-uuid> --file ./dump.sql.gz --wait
+
+# Restore from S3 into a database that belongs to a service
+coolify service database import start <service-uuid> <database-uuid> \
+  --s3-storage-uuid <s3-uuid> --s3-path /backups/db.dump
 ```
 
 ### Service Management

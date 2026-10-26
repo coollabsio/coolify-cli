@@ -52,14 +52,18 @@ All commands support `--format` flag:
 Aliases are derived from the CLI command tree:
 - `coolify app destinations` | `coolify app destination`
 - `coolify app env` | `coolify app envs` | `coolify app environment`
+- `coolify app previews create` | `coolify app previews open` | `coolify app previews deploy`
 - `coolify app previews` | `coolify app preview`
+- `coolify app secret-manager` | `coolify app secret-managers`
 - `coolify app start` | `coolify app deploy`
 - `coolify app storage` | `coolify app storages`
 - `coolify app tag` | `coolify app tags`
 - `coolify app task` | `coolify app tasks` | `coolify app scheduled-task` | `coolify app scheduled-tasks`
 - `coolify app` | `coolify apps` | `coolify application` | `coolify applications`
+- `coolify audit` | `coolify audit-events` | `coolify audit-log`
 - `coolify cloud-init` | `coolify cloudinit` | `coolify cloud-init-script`
 - `coolify cloud-token` | `coolify cloud-tokens`
+- `coolify database import` | `coolify database imports`
 - `coolify database storage` | `coolify database storages`
 - `coolify database tag` | `coolify database tags`
 - `coolify database` | `coolify databases` | `coolify db` | `coolify dbs`
@@ -67,6 +71,7 @@ Aliases are derived from the CLI command tree:
 - `coolify destination` | `coolify destinations`
 - `coolify github` | `coolify gh` | `coolify github-app` | `coolify github-apps`
 - `coolify gitlab` | `coolify gl` | `coolify gitlab-app` | `coolify gitlab-apps`
+- `coolify integration-token` | `coolify integration-tokens`
 - `coolify notification` | `coolify notifications`
 - `coolify private-key` | `coolify private-keys` | `coolify key` | `coolify keys`
 - `coolify project environments` | `coolify project environment` | `coolify project env`
@@ -78,8 +83,10 @@ Aliases are derived from the CLI command tree:
 - `coolify server digitalocean` | `coolify server digital-ocean` | `coolify server do`
 - `coolify server domains` | `coolify server domain`
 - `coolify server hostinger catalog` | `coolify server hostinger plans`
+- `coolify server registry` | `coolify server registries`
 - `coolify server` | `coolify servers`
 - `coolify service application` | `coolify service applications` | `coolify service app` | `coolify service apps`
+- `coolify service database import` | `coolify service database imports`
 - `coolify service database` | `coolify service databases` | `coolify service db` | `coolify service dbs`
 - `coolify service storage` | `coolify service storages`
 - `coolify service tag` | `coolify service tags`
@@ -1577,12 +1584,90 @@ Parameters:
     description: Target environment UUID (required)
     required: true
 
+Command: coolify app previews create <app_uuid> <pr_id>
+Description: Open or redeploy a preview deployment
+Parameters:
+  - name: --commit
+    type: string
+    description: Commit SHA to deploy (required for Bitbucket)
+    required: false
+  - name: --docker-tag
+    type: string
+    description: Docker image tag (Docker Image applications only)
+    required: false
+  - name: --force
+    type: boolean
+    description: Rebuild without cache
+    required: false
+    default: false
+  - name: --git-type
+    type: string
+    description: Git provider of the pull request: github, gitlab, gitea, or bitbucket
+    required: false
+  - name: --no-deploy
+    type: boolean
+    description: Only create the preview, do not queue a deployment
+    required: false
+    default: false
+  - name: --url
+    type: string
+    description: Pull request URL
+    required: false
+
 Command: coolify app previews delete <app_uuid> <pr_id>
 Description: Delete a preview deployment for an application. First argument is the application UUID, second is the pull request ID.
 Parameters:
   - name: --force
     type: boolean
     description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify app previews get <app_uuid> <pr_id>
+Description: Get a preview deployment of an application by pull request ID.
+Parameters: (None)
+
+Command: coolify app previews list <app_uuid>
+Description: List the preview deployments of an application, newest pull request first.
+Parameters: (None)
+
+Command: coolify app previews logs <app_uuid> <pr_id>
+Description: Get preview deployment logs
+Parameters:
+  - name: --follow (-f)
+    type: boolean
+    description: Follow log output (like tail -f)
+    required: false
+    default: false
+  - name: --lines (-n)
+    type: integer
+    description: Number of log lines to retrieve (-1 for all)
+    required: false
+    default: 100
+  - name: --service
+    type: string
+    description: Docker Compose service name (selects one container in multi-service apps)
+    required: false
+  - name: --show-timestamps
+    type: boolean
+    description: Show timestamps in log output
+    required: false
+    default: false
+
+Command: coolify app previews update <app_uuid> <pr_id>
+Description: Update the domains of a preview deployment
+Parameters:
+  - name: --compose-domain
+    type: stringArray
+    description: Docker Compose service domain in <service>=<url>[,<url>] format (repeatable)
+    required: false
+  - name: --domains
+    type: string
+    description: Domains (comma-separated)
+    required: false
+  - name: --force-domain-override
+    type: boolean
+    description: Save the domains even when another resource uses them
     required: false
     default: false
 
@@ -1605,6 +1690,18 @@ Parameters:
 Command: coolify app run-storage-backup <uuid> <storage_uuid>
 Description: Run volume backup schedule now
 Parameters: (None)
+
+Command: coolify app secret-manager set <app_uuid>
+Description: Set the secret manager source of an application
+Parameters:
+  - name: --integration-token
+    type: string
+    description: UUID of the secret manager integration token (required)
+    required: true
+  - name: --settings
+    type: string
+    description: Provider settings as a JSON object
+    required: false
 
 Command: coolify app start <uuid>
 Description: Start an application (initiates a deployment).
@@ -2065,6 +2162,32 @@ Parameters:
     description: Use Docker Build Secrets for build-time variables
     required: false
     default: false
+
+Command: coolify audit list
+Description: List audit events, newest first
+Parameters:
+  - name: --action
+    type: string
+    description: Filter by action, e.g. created, updated, deleted (all = every action)
+    required: false
+  - name: --page
+    type: integer
+    description: Page number
+    required: false
+    default: 1
+  - name: --per-page
+    type: integer
+    description: Events per page (1-100)
+    required: false
+    default: 25
+  - name: --search
+    type: string
+    description: Search text
+    required: false
+  - name: --source
+    type: string
+    description: Filter by source: all, ui, api, mcp, webhook, system, scheduler
+    required: false
 
 Command: coolify cloud-init create
 Description: Create a cloud-init script
@@ -2533,6 +2656,10 @@ Parameters:
     type: string
     description: Server UUID (required)
     required: true
+  - name: --sqlite-databases
+    type: string
+    description: SQLite: comma-separated database file names (e.g. 'app.db,cache.db')
+    required: false
   - name: --tag
     type: stringArray
     description: Tag to assign (repeatable)
@@ -2660,6 +2787,82 @@ Parameters:
 
 Command: coolify database get <uuid>
 Description: Get detailed information about a specific database by UUID.
+Parameters: (None)
+
+Command: coolify database import start <database_uuid>
+Description: Start an import into the database
+Parameters:
+  - name: --dump-all
+    type: boolean
+    description: The backup contains all databases
+    required: false
+    default: false
+  - name: --file
+    type: string
+    description: Local backup file to upload and import
+    required: false
+  - name: --keep-owners
+    type: boolean
+    description: PostgreSQL: restore object owners and privileges from a single-database archive
+    required: false
+    default: false
+  - name: --poll-interval
+    type: duration
+    description: Status polling interval when --wait is set
+    required: false
+    default: 3s
+  - name: --replace-existing
+    type: boolean
+    description: PostgreSQL: drop matching objects before restoring a single-database archive
+    required: false
+    default: false
+  - name: --restore-mysql-users
+    type: boolean
+    description: MySQL/MariaDB all-databases backups: also restore users, passwords and privileges
+    required: false
+    default: false
+  - name: --s3-path
+    type: string
+    description: Path of the backup in the S3 storage
+    required: false
+  - name: --s3-storage-uuid
+    type: string
+    description: S3 storage UUID to import from (requires --s3-path)
+    required: false
+  - name: --server-path
+    type: string
+    description: Absolute path of the backup on the database's server
+    required: false
+  - name: --sqlite-database
+    type: string
+    description: SQLite: database file to restore into (e.g. app.db)
+    required: false
+  - name: --upload-id
+    type: string
+    description: ID of a previously uploaded backup file
+    required: false
+  - name: --wait
+    type: boolean
+    description: Wait until the import finishes; exits non-zero if it fails
+    required: false
+    default: false
+
+Command: coolify database import status <database_uuid> <activity_id>
+Description: Show the status of an import
+Parameters:
+  - name: --poll-interval
+    type: duration
+    description: Status polling interval when --wait is set
+    required: false
+    default: 3s
+  - name: --wait
+    type: boolean
+    description: Wait until the import finishes; exits non-zero if it fails
+    required: false
+    default: false
+
+Command: coolify database import upload <database_uuid> <file>
+Description: Upload a local backup file (max 10 GiB) in chunks. Prints the upload ID to pass to 'start --upload-id'.
 Parameters: (None)
 
 Command: coolify database list
@@ -2903,6 +3106,10 @@ Parameters:
     description: Public port
     required: false
     default: 0
+  - name: --sqlite-databases
+    type: string
+    description: Comma-separated SQLite database file names (SQLite only)
+    required: false
 
 Command: coolify deploy batch <name1,name2,...>
 Description: Deploy multiple resources by name
@@ -3084,7 +3291,7 @@ Parameters:
     required: false
 
 Command: coolify github delete <app_uuid>
-Description: Delete a GitHub App integration. The app must not be used by any applications.
+Description: Delete a GitHub App integration. Accepts the app UUID (numeric ID also accepted). The app must not be used by any applications.
 Parameters:
   - name: --force (-f)
     type: boolean
@@ -3093,7 +3300,7 @@ Parameters:
     default: false
 
 Command: coolify github get <app_uuid>
-Description: Get detailed information about a specific GitHub App integration.
+Description: Get detailed information about a specific GitHub App integration. Accepts the app UUID (numeric ID also accepted).
 Parameters: (None)
 
 Command: coolify github list
@@ -3101,11 +3308,11 @@ Description: List all GitHub App integrations configured in Coolify.
 Parameters: (None)
 
 Command: coolify github repos <app_uuid>
-Description: List all repositories that are accessible by the specified GitHub App.
+Description: List all repositories that are accessible by the specified GitHub App. Accepts the app UUID (numeric ID also accepted).
 Parameters: (None)
 
 Command: coolify github update <app_uuid>
-Description: Update an existing GitHub App integration. Provide the app UUID and the fields you want to update.
+Description: Update an existing GitHub App integration. Provide the app UUID (numeric ID also accepted) and the fields you want to update.
 Parameters:
   - name: --api-url
     type: string
@@ -3281,6 +3488,27 @@ Parameters:
     description: Webhook secret token
     required: false
 
+Command: coolify integration-token create
+Description: Create and validate a secret manager integration token
+Parameters:
+  - name: --metadata
+    type: string
+    description: Provider metadata as a JSON object (required for infisical and vault)
+    required: false
+  - name: --name
+    type: string
+    description: Friendly token name (required)
+    required: true
+  - name: --provider
+    type: string
+    description: Secret manager provider: doppler, infisical, vault (required)
+    required: true
+  - name: --provider-token-stdin
+    type: boolean
+    description: Read the provider token from stdin
+    required: false
+    default: false
+
 Command: coolify mcp disable
 Description: Disable the Coolify MCP server (API: POST /mcp/disable). Requires a root team API token.
 Parameters: (None)
@@ -3374,6 +3602,10 @@ Parameters:
     description: Skip confirmation prompt
     required: false
     default: false
+
+Command: coolify project environments get <project_uuid> <environment>
+Description: Get an environment and its resources
+Parameters: (None)
 
 Command: coolify project environments list <project_uuid>
 Description: List environments in a project
@@ -3702,7 +3934,7 @@ Description: Get server details by uuid
 Parameters:
   - name: --resources
     type: boolean
-    description: With resources
+    description: Show the resources deployed on the server instead of the server details
     required: false
     default: false
 
@@ -3927,9 +4159,53 @@ Parameters:
     description: Redirect URL
     required: false
 
+Command: coolify server registry check <server_uuid> <registry>
+Description: Check that the saved registry login of a server still works
+Parameters: (None)
+
+Command: coolify server registry list <server_uuid>
+Description: List registry logins of a server
+Parameters: (None)
+
+Command: coolify server registry login <server_uuid> [<server_uuid>...]
+Description: Log in to a Docker registry on one or more servers
+Parameters:
+  - name: --password-stdin
+    type: boolean
+    description: Read the password or access token from stdin
+    required: false
+    default: false
+  - name: --registry
+    type: string
+    description: Registry host, optionally with a port (e.g. ghcr.io, registry.example.com:5000, docker.io for Docker Hub) (required)
+    required: true
+  - name: --username (-u)
+    type: string
+    description: Registry username (required)
+    required: true
+
+Command: coolify server registry logout <server_uuid> <registry>
+Description: Log out from a Docker registry on a server
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
+
 Command: coolify server remove <uuid>
 Description: Remove a server
-Parameters: (None)
+Parameters:
+  - name: --delete-from-provider
+    type: boolean
+    description: Also delete the server from its cloud provider (Hetzner, Vultr or DigitalOcean). This cannot be undone
+    required: false
+    default: false
+  - name: --force
+    type: boolean
+    description: Also delete all resources on the server
+    required: false
+    default: false
 
 Command: coolify server sentinel get <server_uuid>
 Description: Get Sentinel settings
@@ -4258,6 +4534,82 @@ Parameters:
 
 Command: coolify service database get <service-uuid> <database-uuid>
 Description: Get a database in a service
+Parameters: (None)
+
+Command: coolify service database import start <service_uuid> <database_uuid>
+Description: Start an import into the database
+Parameters:
+  - name: --dump-all
+    type: boolean
+    description: The backup contains all databases
+    required: false
+    default: false
+  - name: --file
+    type: string
+    description: Local backup file to upload and import
+    required: false
+  - name: --keep-owners
+    type: boolean
+    description: PostgreSQL: restore object owners and privileges from a single-database archive
+    required: false
+    default: false
+  - name: --poll-interval
+    type: duration
+    description: Status polling interval when --wait is set
+    required: false
+    default: 3s
+  - name: --replace-existing
+    type: boolean
+    description: PostgreSQL: drop matching objects before restoring a single-database archive
+    required: false
+    default: false
+  - name: --restore-mysql-users
+    type: boolean
+    description: MySQL/MariaDB all-databases backups: also restore users, passwords and privileges
+    required: false
+    default: false
+  - name: --s3-path
+    type: string
+    description: Path of the backup in the S3 storage
+    required: false
+  - name: --s3-storage-uuid
+    type: string
+    description: S3 storage UUID to import from (requires --s3-path)
+    required: false
+  - name: --server-path
+    type: string
+    description: Absolute path of the backup on the database's server
+    required: false
+  - name: --sqlite-database
+    type: string
+    description: SQLite: database file to restore into (e.g. app.db)
+    required: false
+  - name: --upload-id
+    type: string
+    description: ID of a previously uploaded backup file
+    required: false
+  - name: --wait
+    type: boolean
+    description: Wait until the import finishes; exits non-zero if it fails
+    required: false
+    default: false
+
+Command: coolify service database import status <service_uuid> <database_uuid> <activity_id>
+Description: Show the status of an import
+Parameters:
+  - name: --poll-interval
+    type: duration
+    description: Status polling interval when --wait is set
+    required: false
+    default: 3s
+  - name: --wait
+    type: boolean
+    description: Wait until the import finishes; exits non-zero if it fails
+    required: false
+    default: false
+
+Command: coolify service database import upload <service_uuid> <database_uuid> <file>
+Description: Upload a local backup file (max 10 GiB) in chunks. Prints the upload ID to pass to 'start --upload-id'.
 Parameters: (None)
 
 Command: coolify service database list <service-uuid>
@@ -5108,6 +5460,15 @@ Parameters: (None)
 Command: coolify teams members list [team_id]
 Description: List members of a specific team by ID, or list members of the current team if no ID is provided.
 Parameters: (None)
+
+Command: coolify teams update
+Description: Update settings of the team bound to the API token
+Parameters:
+  - name: --build-server-fallback
+    type: boolean
+    description: Allow deployments to fall back to the deployment server when no build server is usable (required)
+    required: true
+    default: false
 
 Command: coolify update
 Description: Update Coolify CLI

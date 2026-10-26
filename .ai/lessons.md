@@ -1,0 +1,3 @@
+- Go is not on the host PATH: run Go via Docker, e.g. `docker run --rm -v "$PWD":/src -v gomodcache:/go/pkg/mod -w /src golang:1.26 go test ./...`.
+- After adding/renaming commands, regenerate `llms.txt`/`llms-full.txt` with `go run ./coolify docs llms` (CI diff check fails otherwise).
+- Live smoke tests: local Coolify dev at http://localhost:8000 has seeded API tokens (`root`, `read`, `write`, ...). Use a temporary HOME so the real CLI config is not changed.

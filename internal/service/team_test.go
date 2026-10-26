@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
+	"github.com/coollabsio/coolify-cli/internal/models"
 )
 
 func TestTeamService_List(t *testing.T) {
@@ -288,5 +289,51 @@ func TestTeamService_CurrentMembers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTeamService_UpdateCurrent(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodPatch {
+				t.Errorf("Expected PATCH, got %s", r.Method)
+			}
+			if r.URL.Path != "/api/v1/team" {
+				t.Errorf("Expected path /api/v1/team, got %s", r.URL.Path)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("failed to decode body: %v", err)
+			}
+			// The field is required by the API, so false must be sent explicitly.
+			if got, ok := body["is_build_server_fallback_enabled"]; !ok || got != enabled || len(body) != 1 {
+				t.Errorf("unexpected body %v", body)
+			}
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 0, "name": "Root Team", "is_build_server_fallback_enabled": enabled})
+		}))
+
+		svc := NewTeamService(api.NewClient(server.URL, "test-token"))
+		team, err := svc.UpdateCurrent(context.Background(), models.TeamUpdateRequest{IsBuildServerFallbackEnabled: enabled})
+		server.Close()
+		if err != nil {
+			t.Fatalf("UpdateCurrent() error = %v", err)
+		}
+		if team.Name != "Root Team" || team.IsBuildServerFallbackEnabled == nil || *team.IsBuildServerFallbackEnabled != enabled {
+			t.Errorf("unexpected team %+v", team)
+		}
+	}
+}
+
+func TestTeamService_UpdateCurrent_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message":"This action is unauthorized."}`))
+	}))
+	defer server.Close()
+
+	svc := NewTeamService(api.NewClient(server.URL, "test-token"))
+	if _, err := svc.UpdateCurrent(context.Background(), models.TeamUpdateRequest{}); err == nil {
+		t.Fatal("expected error for 403 response")
 	}
 }

@@ -39,6 +39,7 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(apptask.NewExecuteTaskCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
+	cmd.AddCommand(NewSecretManagerCommand())
 
 	// Add env subcommand with its children
 	envCmd := &cobra.Command{
@@ -78,6 +79,11 @@ func NewAppCommand() *cobra.Command {
 		Short:   "Manage application preview deployments",
 		Long:    `Manage preview deployments created from pull requests. Requires the application UUID.`,
 	}
+	previewsCmd.AddCommand(previews.NewListPreviewsCommand())
+	previewsCmd.AddCommand(previews.NewGetPreviewCommand())
+	previewsCmd.AddCommand(previews.NewCreatePreviewCommand())
+	previewsCmd.AddCommand(previews.NewUpdatePreviewCommand())
+	previewsCmd.AddCommand(previews.NewLogsPreviewCommand())
 	previewsCmd.AddCommand(previews.NewDeletePreviewCommand())
 	cmd.AddCommand(previewsCmd)
 

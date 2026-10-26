@@ -14,7 +14,7 @@ func NewGetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <app_uuid>",
 		Short: "Get GitHub App details by UUID",
-		Long:  `Get detailed information about a specific GitHub App integration.`,
+		Long:  `Get detailed information about a specific GitHub App integration. Accepts the app UUID (numeric ID also accepted).`,
 		Args:  cli.ExactArgs(1, "<app_uuid>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

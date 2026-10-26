@@ -81,6 +81,17 @@ func (s *ProjectService) ListEnvironments(ctx context.Context, projectUUID strin
 	return environments, nil
 }
 
+// GetEnvironment retrieves an environment (with its resources) by name or UUID
+func (s *ProjectService) GetEnvironment(ctx context.Context, projectUUID, envNameOrUUID string) (*models.EnvironmentDetails, error) {
+	var environment models.EnvironmentDetails
+	path := fmt.Sprintf("projects/%s/%s", url.PathEscape(projectUUID), url.PathEscape(envNameOrUUID))
+	err := s.client.Get(ctx, path, &environment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment %s in project %s: %w", envNameOrUUID, projectUUID, err)
+	}
+	return &environment, nil
+}
+
 // CreateEnvironment creates an environment in a project
 func (s *ProjectService) CreateEnvironment(ctx context.Context, projectUUID string, req models.EnvironmentCreateRequest) (*models.UUID, error) {
 	var resp models.UUID

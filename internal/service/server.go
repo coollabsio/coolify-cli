@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -31,11 +33,11 @@ func (s *ServerService) Get(ctx context.Context, uuid string) (*models.Server, e
 	return &server, err
 }
 
-// GetResources returns resources for a server
-func (s *ServerService) GetResources(ctx context.Context, uuid string) (*models.Resources, error) {
-	var resources models.Resources
-	err := s.client.Get(ctx, "servers/"+uuid+"?resources=true", &resources)
-	return &resources, err
+// GetResources returns the resources deployed on a server (GET /servers/{uuid}/resources)
+func (s *ServerService) GetResources(ctx context.Context, uuid string) ([]models.ServerResource, error) {
+	var resources []models.ServerResource
+	err := s.client.Get(ctx, "servers/"+url.PathEscape(uuid)+"/resources", &resources)
+	return resources, err
 }
 
 // GetDomains returns domains for a server
@@ -59,9 +61,10 @@ func (s *ServerService) Update(ctx context.Context, uuid string, req models.Serv
 	return &response, err
 }
 
-// Delete deletes a server by UUID
-func (s *ServerService) Delete(ctx context.Context, uuid string) error {
-	return s.client.Delete(ctx, "servers/"+uuid)
+// Delete deletes a server by UUID. force also deletes all resources on the server,
+// deleteFromProvider also deletes the server from its cloud provider.
+func (s *ServerService) Delete(ctx context.Context, uuid string, force, deleteFromProvider bool) error {
+	return s.client.Delete(ctx, fmt.Sprintf("servers/%s?force=%t&delete_from_provider=%t", uuid, force, deleteFromProvider))
 }
 
 // Validate validates a server by UUID

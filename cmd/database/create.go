@@ -18,16 +18,19 @@ func NewCreateCommand() *cobra.Command {
 		Short: "Create a new database",
 		Long: `Create a new database of the specified type.
 
-Supported types: postgresql, mysql, mariadb, mongodb, redis, keydb, clickhouse, dragonfly
+Supported types: postgresql, mysql, mariadb, mongodb, redis, keydb, clickhouse, dragonfly, sqlite
+
+SQLite databases cannot be made public (--is-public/--public-port are rejected).
 
 Examples:
   coolify databases create postgresql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production
-  coolify databases create mysql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production --name="My MySQL"`,
+  coolify databases create mysql --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production --name="My MySQL"
+  coolify databases create sqlite --server-uuid=<uuid> --project-uuid=<uuid> --environment-name=production --sqlite-databases=app.db,cache.db`,
 		Args: cli.ExactArgs(1, "<type>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			dbType := args[0]
-			validTypes := []string{"postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "clickhouse", "dragonfly"}
+			validTypes := []string{"postgresql", "mysql", "mariadb", "mongodb", "redis", "keydb", "clickhouse", "dragonfly", "sqlite"}
 			isValid := false
 			for _, t := range validTypes {
 				if t == dbType {
@@ -50,6 +53,10 @@ Examples:
 
 			if environmentName == "" && environmentUUID == "" {
 				return fmt.Errorf("either --environment-name or --environment-uuid must be provided")
+			}
+
+			if dbType == "sqlite" && (cmd.Flags().Changed("is-public") || cmd.Flags().Changed("public-port")) {
+				return fmt.Errorf("--is-public and --public-port are not supported for sqlite databases")
 			}
 
 			req := &models.DatabaseCreateRequest{
@@ -216,6 +223,14 @@ Examples:
 				}
 			}
 
+			// SQLite specific
+			if dbType == "sqlite" {
+				if cmd.Flags().Changed("sqlite-databases") {
+					files, _ := cmd.Flags().GetString("sqlite-databases")
+					req.SqliteDatabases = &files
+				}
+			}
+
 			client, err := cli.GetAPIClient(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get API client: %w", err)
@@ -288,6 +303,9 @@ Examples:
 
 	// Dragonfly flags
 	cmd.Flags().String("dragonfly-password", "", "Dragonfly password")
+
+	// SQLite flags
+	cmd.Flags().String("sqlite-databases", "", "SQLite: comma-separated database file names (e.g. 'app.db,cache.db')")
 
 	return cmd
 }
