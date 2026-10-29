@@ -196,9 +196,8 @@ Commands can use `server` or `servers` interchangeably.
   - `--service <name>` - Docker Compose service name (select one container in multi-service compose apps)
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
-- `coolify app secret-manager set <app_uuid>` - Set the external secret manager an application reads secrets from
-  - `--integration-token <uuid>` - Secret manager integration token UUID (required, see [Secret Manager Integration Tokens](#secret-manager-integration-tokens))
-  - `--settings <json>` - Provider settings as a JSON object: Doppler `{"project":"...","config":"..."}` (service account tokens), Infisical `{"project_id":"...","environment":"...","secret_path":"/"}`, Vault `{"mount":"...","path":"..."}`
+- `coolify app secret-manager get|set|remove|keys|add-reference|import <app_uuid>` - Manage the external secret manager source of an application (see [Secret Managers](#secret-managers))
+- `coolify app dns status|create|replace|release <app_uuid>` - Manage Cloudflare DNS records for the domains of an application (see [Cloudflare DNS](#cloudflare-dns))
 - Git-backed application create variants (`public`, `github`, and `deploy-key`) and `app update` support repeatable `--compose-domain <service>=<url>[,<url>]` flags for Docker Compose routing. On update, the supplied entries replace the existing mapping.
 - All application create variants support `--tag` and `--tags`; create and update expose the full application settings surface.
 
@@ -549,16 +548,54 @@ Commands that take `<app_uuid>` also accept the app's numeric ID; UUIDs are reso
   - `--build-server-fallback=<true|false>` - Allow deployments to fall back to the deployment server when no usable dedicated build server is available (required)
 - `coolify team members list [team_id]` - List team members
 
-### Secret Manager Integration Tokens
+### Integration Tokens
 
-Commands can use `integration-token` or `integration-tokens` interchangeably.
+Commands can use `integration-token` or `integration-tokens` interchangeably. Only team admins and owners can manage integration tokens. The token secret is never printed.
 
-- `coolify integration-token create` - Create and validate a Doppler, Infisical, or Vault integration token
-  - `--provider <doppler|infisical|vault>` - Secret manager provider (required)
+- `coolify integration-token list` - List the integration tokens of the team
+- `coolify integration-token get <token_uuid>` - Get an integration token
+- `coolify integration-token create` - Create and validate a Cloudflare, Doppler, Infisical, or Vault integration token
+  - `--provider <cloudflare|doppler|infisical|vault>` - Provider (required)
   - `--name <name>` - Friendly token name (required)
-  - `--metadata <json>` - Provider metadata: Infisical `{"base_url":"...","client_id":"..."}`, Vault `{"base_url":"...","namespace":"..."}` (namespace optional)
+  - `--capabilities <list>` - Cloudflare: `dns`, `tunnel` (default `dns`; `tunnel` needs `dns`)
+  - `--automatic-dns=<true|false>` - Cloudflare: create DNS records when a domain is added (default: true)
+  - `--proxied-dns` - Cloudflare: create new records proxied (orange cloud)
+  - `--metadata <json>` - Secret managers: Infisical `{"base_url":"...","client_id":"..."}`, Vault `{"base_url":"...","namespace":"..."}` (namespace optional)
   - `--provider-token-stdin` - Read the provider token from stdin. Otherwise it is read from `COOLIFY_INTEGRATION_TOKEN`, or prompted without echo in a terminal. There is no flag for the token itself and it is never printed
-  - Example: `echo "$DOPPLER_TOKEN" | coolify integration-token create --provider doppler --name prod --provider-token-stdin`
+  - Example: `echo "$CF_TOKEN" | coolify integration-token create --provider cloudflare --name cloudflare --provider-token-stdin`
+- `coolify integration-token update <token_uuid>` - Rename a token, rotate its secret, or change its settings. Options you do not set keep their value
+  - `--name`, `--capabilities`, `--metadata`, `--automatic-dns`, `--proxied-dns` - Same as create
+  - `--rotate` - Enter a new secret (with `--provider-token-stdin`, `COOLIFY_INTEGRATION_TOKEN`, or the hidden prompt). Required when `base_url`, `client_id`, or `namespace` changes
+- `coolify integration-token delete <token_uuid>` - Delete a token that no resource uses and that manages no DNS records (`--force` skips the confirmation)
+- `coolify integration-token sync-zones <token_uuid>` - Read the DNS zones of a Cloudflare token again
+- `coolify integration-token zones` - List the DNS zones that the Cloudflare tokens of the team can access
+
+### Cloudflare DNS
+
+Applications and services can point their domains to their server with a Cloudflare token (see [Integration Tokens](#integration-tokens)). Use `app` or `service` with the same subcommands.
+
+- `coolify app dns status <app_uuid>` - Show the DNS providers and managed records of each domain
+- `coolify app dns create <app_uuid> --hostname <host>` - Create the DNS record of a domain
+  - `--integration-token <uuid>` - Cloudflare token to use when several manage the zone
+  - `--address <ip>` - A public address of the server (default: the first one)
+  - When another record uses the hostname, the command fails and prints the `replace` command to run
+- `coolify app dns replace <app_uuid> --hostname <host> --record-id <id> --current <value>` - Overwrite the conflicting record (`--force` skips the confirmation)
+- `coolify app dns release <app_uuid> <hostname>` - Release the managed record of a hostname the application no longer uses. Coolify deletes it at Cloudflare only when it created it and nothing else uses it
+  - `--keep-record` - Release the reference but keep the record at Cloudflare
+  - `--force` - Skip the confirmation
+
+### Secret Managers
+
+Applications, services, and databases can read secrets from Doppler, Infisical, or Vault. Use `app`, `service`, or `database` with the same subcommands. Secret values are never printed.
+
+- `coolify app secret-manager get <app_uuid>` - Show the source and the secret manager tokens that can be linked
+- `coolify app secret-manager set <app_uuid>` - Set the secret manager source
+  - `--integration-token <uuid>` - Secret manager integration token UUID (required)
+  - `--settings <json>` - Provider settings as a JSON object: Doppler `{"project":"...","config":"..."}` (service account tokens), Infisical `{"project_id":"...","environment":"...","secret_path":"/"}`, Vault `{"mount":"...","path":"..."}`
+- `coolify app secret-manager remove <app_uuid>` - Remove the source (`--force` skips the confirmation). Existing `{{vault.*}}` variables fail the next deployment until you remove them
+- `coolify app secret-manager keys <app_uuid>` - List the key names of the remote secrets
+- `coolify app secret-manager add-reference <app_uuid> --key <KEY>` - Add a `{{vault.KEY}}` variable for one remote key
+- `coolify app secret-manager import <app_uuid>` - Add a `{{vault.KEY}}` variable for every remote key that has no variable yet
 
 ### Audit Events
 

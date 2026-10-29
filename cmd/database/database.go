@@ -8,6 +8,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/database/importcmd"
 	"github.com/coollabsio/coolify-cli/cmd/database/storage"
 	"github.com/coollabsio/coolify-cli/cmd/database/tag"
+	"github.com/coollabsio/coolify-cli/cmd/secretmanager"
 )
 
 // NewDatabaseCommand creates the database parent command with all subcommands
@@ -33,6 +34,7 @@ func NewDatabaseCommand() *cobra.Command {
 	cmd.AddCommand(NewCloneCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
+	cmd.AddCommand(secretmanager.NewCommand(secretmanager.Resource{APIType: "databases", Command: "database", Arg: "<database_uuid>"}))
 
 	// Add env subcommand
 	envCmd := &cobra.Command{
