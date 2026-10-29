@@ -42,35 +42,45 @@ func NewIntegrationTokenCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "integration-token",
 		Aliases: []string{"integration-tokens"},
-		Short:   "Manage secret manager integration tokens",
-		Long: `Manage integration tokens for external secret managers (Doppler, Infisical, Vault).
+		Short:   "Manage Cloudflare and secret manager integration tokens",
+		Long: `Manage integration tokens for Cloudflare (DNS, Tunnel) and external secret managers (Doppler, Infisical, Vault).
+The token secret is never shown.
 
-Applications use an integration token as their secret source, see:
-  coolify app secret-manager set <app_uuid> --integration-token <token_uuid>`,
+Resources use a secret manager token as their secret source, see:
+  coolify app secret-manager set <app_uuid> --integration-token <token_uuid>
+Cloudflare tokens manage the DNS records of domains, see:
+  coolify app dns create <app_uuid> --hostname app.example.com`,
 	}
-	cmd.AddCommand(NewCreateCommand())
+	cmd.AddCommand(NewListCommand(), NewGetCommand(), NewCreateCommand(), NewUpdateCommand(), NewDeleteCommand(), NewSyncZonesCommand(), NewZonesCommand())
 	return cmd
 }
 
-// NewCreateCommand creates a secret manager integration token (POST /security/integration-tokens)
+// NewCreateCommand creates an integration token (POST /security/integration-tokens)
 func NewCreateCommand() *cobra.Command {
 	var provider, name, metadata string
-	var tokenStdin bool
+	var capabilities []string
+	var tokenStdin, automaticDNS, proxiedDNS bool
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create and validate a secret manager integration token",
-		Long: `Create a Doppler, Infisical or Vault integration token. Coolify validates the
-token with the provider before saving it.
+		Short: "Create and validate an integration token",
+		Long: `Create a Cloudflare, Doppler, Infisical or Vault integration token. Coolify validates the
+token with the provider before saving it. A Cloudflare token also gets its DNS zones.
 
 The provider token is never accepted as a flag value and never printed. Pass it
 with --provider-token-stdin, the ` + TokenEnvVar + ` environment variable, or
 enter it at the hidden prompt when running in a terminal.
 
+Cloudflare options:
+  --capabilities dns,tunnel   (default dns; tunnel needs dns)
+  --automatic-dns=false       do not create DNS records when a domain is added (default true)
+  --proxied-dns               create new records proxied (orange cloud)
+
 Provider specific --metadata (JSON object):
   doppler    none (token must start with dp.st. or dp.sa.)
   infisical  {"base_url":"https://app.infisical.com","client_id":"<machine identity client id>"}
   vault      {"base_url":"https://vault.example.com","namespace":"<optional>"}`,
-		Example: `  echo "$DOPPLER_TOKEN" | coolify integration-token create --provider doppler --name prod --provider-token-stdin
+		Example: `  echo "$CF_TOKEN" | coolify integration-token create --provider cloudflare --name cloudflare --provider-token-stdin
+  echo "$DOPPLER_TOKEN" | coolify integration-token create --provider doppler --name prod --provider-token-stdin
   COOLIFY_INTEGRATION_TOKEN=hvs.xxx coolify integration-token create --provider vault --name vault \
     --metadata '{"base_url":"https://vault.example.com"}'`,
 		Args: cobra.NoArgs,
@@ -81,9 +91,16 @@ Provider specific --metadata (JSON object):
 			}
 
 			req := models.IntegrationTokenCreateRequest{
-				Provider: strings.ToLower(strings.TrimSpace(provider)),
-				Name:     strings.TrimSpace(name),
-				Metadata: meta,
+				Provider:     strings.ToLower(strings.TrimSpace(provider)),
+				Name:         strings.TrimSpace(name),
+				Metadata:     meta,
+				Capabilities: capabilities,
+			}
+			if cmd.Flags().Changed("automatic-dns") {
+				req.AutomaticDNS = &automaticDNS
+			}
+			if cmd.Flags().Changed("proxied-dns") {
+				req.ProxiedDNS = &proxiedDNS
 			}
 			// Validate everything except the token before prompting for it.
 			if err := service.ValidateIntegrationTokenOptions(req); err != nil {
@@ -115,10 +132,13 @@ Provider specific --metadata (JSON object):
 		},
 	}
 
-	cmd.Flags().StringVar(&provider, "provider", "", "Secret manager provider: "+strings.Join(models.IntegrationTokenProviders, ", ")+" (required)")
+	cmd.Flags().StringVar(&provider, "provider", "", "Provider: "+strings.Join(models.IntegrationTokenProviders, ", ")+" (required)")
 	cmd.Flags().StringVar(&name, "name", "", "Friendly token name (required)")
 	cmd.Flags().StringVar(&metadata, "metadata", "", "Provider metadata as a JSON object (required for infisical and vault)")
 	cmd.Flags().BoolVar(&tokenStdin, "provider-token-stdin", false, "Read the provider token from stdin")
+	cmd.Flags().StringSliceVar(&capabilities, "capabilities", nil, "Capabilities: dns, tunnel (cloudflare) or secrets")
+	cmd.Flags().BoolVar(&automaticDNS, "automatic-dns", true, "Cloudflare: create DNS records when a domain is added")
+	cmd.Flags().BoolVar(&proxiedDNS, "proxied-dns", false, "Cloudflare: create new records proxied")
 	return cmd
 }
 

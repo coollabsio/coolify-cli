@@ -3,6 +3,8 @@ package service
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/dns"
+	"github.com/coollabsio/coolify-cli/cmd/secretmanager"
 	serviceapplication "github.com/coollabsio/coolify-cli/cmd/service/application"
 	servicedatabase "github.com/coollabsio/coolify-cli/cmd/service/database"
 	"github.com/coollabsio/coolify-cli/cmd/service/env"
@@ -35,6 +37,8 @@ func NewServiceCommand() *cobra.Command {
 	cmd.AddCommand(svctask.NewExecuteTaskCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
+	cmd.AddCommand(dns.NewCommand(dns.Resource{APIType: "services", Command: "service", Arg: "<service_uuid>"}))
+	cmd.AddCommand(secretmanager.NewCommand(secretmanager.Resource{APIType: "services", Command: "service", Arg: "<service_uuid>"}))
 	cmd.AddCommand(serviceapplication.NewCommand())
 	cmd.AddCommand(servicedatabase.NewCommand())
 

@@ -9,6 +9,7 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/application/storage"
 	"github.com/coollabsio/coolify-cli/cmd/application/tag"
 	apptask "github.com/coollabsio/coolify-cli/cmd/application/task"
+	"github.com/coollabsio/coolify-cli/cmd/dns"
 )
 
 // NewAppCommand creates the app parent command
@@ -40,6 +41,7 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(NewRunStorageBackupCommand())
 	cmd.AddCommand(tag.NewCommand())
 	cmd.AddCommand(NewSecretManagerCommand())
+	cmd.AddCommand(dns.NewCommand(dns.Resource{APIType: "applications", Command: "app", Arg: "<app_uuid>"}))
 
 	// Add env subcommand with its children
 	envCmd := &cobra.Command{

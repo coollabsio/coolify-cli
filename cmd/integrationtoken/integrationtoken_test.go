@@ -83,7 +83,7 @@ func TestCreateCommand_Errors(t *testing.T) {
 	}{
 		{name: "no token source", args: []string{"--provider", "doppler", "--name", "n"}, wantErr: "no provider token given"},
 		{name: "empty stdin", args: []string{"--provider", "doppler", "--name", "n", "--provider-token-stdin"}, stdin: "\n", wantErr: "must not be empty"},
-		{name: "invalid provider", args: []string{"--provider", "aws", "--name", "n", "--provider-token-stdin"}, stdin: "x", wantErr: "--provider must be one of: doppler, infisical, vault"},
+		{name: "invalid provider", args: []string{"--provider", "aws", "--name", "n", "--provider-token-stdin"}, stdin: "x", wantErr: "--provider must be one of: cloudflare, doppler, infisical, vault"},
 		{name: "missing name", args: []string{"--provider", "doppler", "--provider-token-stdin"}, stdin: "dp.st.x", wantErr: "--name is required"},
 		{name: "bad metadata json", args: []string{"--provider", "vault", "--name", "n", "--metadata", "{nope", "--provider-token-stdin"}, stdin: "x", wantErr: "--metadata must be a JSON object"},
 		{name: "infisical needs metadata", args: []string{"--provider", "infisical", "--name", "n", "--provider-token-stdin"}, stdin: "x", wantErr: "client_id"},

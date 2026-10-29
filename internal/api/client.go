@@ -79,6 +79,11 @@ func (c *Client) Delete(ctx context.Context, path string) error {
 	return c.doRequest(ctx, "DELETE", path, nil, nil)
 }
 
+// DeleteWithResult makes a DELETE request to the API and decodes the response body into result.
+func (c *Client) DeleteWithResult(ctx context.Context, path string, result interface{}) error {
+	return c.doRequest(ctx, "DELETE", path, nil, result)
+}
+
 // Patch makes a PATCH request to the API
 func (c *Client) Patch(ctx context.Context, path string, body, result interface{}) error {
 	return c.doRequest(ctx, "PATCH", path, body, result)

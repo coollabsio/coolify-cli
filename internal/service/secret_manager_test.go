@@ -88,7 +88,7 @@ func TestValidateIntegrationTokenCreateRequest(t *testing.T) {
 		{name: "doppler service account", req: models.IntegrationTokenCreateRequest{Provider: "doppler", Name: "n", Token: "dp.sa.x"}},
 		{name: "infisical", req: models.IntegrationTokenCreateRequest{Provider: "infisical", Name: "n", Token: "secret", Metadata: infisicalMeta}},
 		{name: "vault", req: models.IntegrationTokenCreateRequest{Provider: "vault", Name: "n", Token: "hvs", Metadata: map[string]any{"base_url": "https://v"}}},
-		{name: "unknown provider", req: models.IntegrationTokenCreateRequest{Provider: "aws", Name: "n", Token: "t"}, wantErr: "--provider must be one of: doppler, infisical, vault"},
+		{name: "unknown provider", req: models.IntegrationTokenCreateRequest{Provider: "aws", Name: "n", Token: "t"}, wantErr: "--provider must be one of: cloudflare, doppler, infisical, vault"},
 		{name: "empty provider", req: models.IntegrationTokenCreateRequest{Name: "n", Token: "t"}, wantErr: "--provider"},
 		{name: "missing name", req: models.IntegrationTokenCreateRequest{Provider: "doppler", Token: "dp.st.x"}, wantErr: "--name is required"},
 		{name: "missing token", req: models.IntegrationTokenCreateRequest{Provider: "doppler", Name: "n"}, wantErr: "must not be empty"},
@@ -135,7 +135,7 @@ func TestSecretManagerService_ConfigureApplication(t *testing.T) {
 	defer server.Close()
 
 	svc := NewSecretManagerService(api.NewClient(server.URL, "test-token"))
-	resp, err := svc.ConfigureApplication(context.Background(), "app-uuid", models.ApplicationSecretManagerRequest{
+	resp, err := svc.Configure(context.Background(), "applications", "app-uuid", models.ApplicationSecretManagerRequest{
 		IntegrationTokenUUID: "tok-uuid",
 		Settings:             map[string]any{"mount": "secret", "path": "apps/web"},
 	})
@@ -153,11 +153,11 @@ func TestSecretManagerService_ConfigureApplication_Errors(t *testing.T) {
 	defer server.Close()
 
 	svc := NewSecretManagerService(api.NewClient(server.URL, "test-token"))
-	_, err := svc.ConfigureApplication(context.Background(), "app-uuid", models.ApplicationSecretManagerRequest{IntegrationTokenUUID: "x"})
+	_, err := svc.Configure(context.Background(), "applications", "app-uuid", models.ApplicationSecretManagerRequest{IntegrationTokenUUID: "x"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "integration token not found")
 
-	_, err = svc.ConfigureApplication(context.Background(), "app-uuid", models.ApplicationSecretManagerRequest{})
+	_, err = svc.Configure(context.Background(), "applications", "app-uuid", models.ApplicationSecretManagerRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--integration-token is required")
 }

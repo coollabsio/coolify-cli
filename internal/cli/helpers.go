@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"strings"
 
 	compareVersion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
@@ -96,4 +98,15 @@ func CheckMinimumVersion(ctx context.Context, client *api.Client, minimumVersion
 	}
 
 	return nil
+}
+
+// Confirm asks a yes/no question on the command's input. It returns true for "y" or "yes".
+func Confirm(cmd *cobra.Command, question string) (bool, error) {
+	fmt.Fprintf(cmd.ErrOrStderr(), "%s (yes/no): ", question)
+	answer, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
+	if err != nil && answer == "" {
+		return false, fmt.Errorf("failed to read confirmation (use --force to skip it): %w", err)
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes", nil
 }
