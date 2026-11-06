@@ -93,6 +93,7 @@ Example:
 			}
 			if cmd.Flags().Changed("dockerfile") {
 				dockerfile, _ := cmd.Flags().GetString("dockerfile")
+				dockerfile = appflags.EncodeContent(dockerfile)
 				req.Dockerfile = &dockerfile
 				hasUpdates = true
 			}

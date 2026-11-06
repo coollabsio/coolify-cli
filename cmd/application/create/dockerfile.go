@@ -19,6 +19,9 @@ func NewDockerfileCommand() *cobra.Command {
 		Short: "Create an application from a custom Dockerfile",
 		Long: `Create a new application from a custom Dockerfile content.
 
+Pass the raw Dockerfile text. The CLI base64-encodes it for the API; content that is
+already base64-encoded is sent as is.
+
 Examples:
   coolify app create dockerfile --server-uuid <uuid> --project-uuid <uuid> --environment-name production \
     --dockerfile "FROM node:18\nWORKDIR /app\nCOPY . .\nRUN npm install\nCMD [\"npm\", \"start\"]"
@@ -49,7 +52,7 @@ Examples:
 			req := &models.ApplicationCreateDockerfileRequest{
 				ServerUUID:  serverUUID,
 				ProjectUUID: projectUUID,
-				Dockerfile:  dockerfile,
+				Dockerfile:  appflags.EncodeContent(dockerfile),
 			}
 
 			if environmentName != "" {
