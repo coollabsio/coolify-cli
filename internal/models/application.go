@@ -511,7 +511,7 @@ type ApplicationCreatePublicRequest struct {
 
 	// Environment (one of these is required)
 	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment,omitempty"`
+	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
 
 	// Optional fields
 	Name                   *string               `json:"name,omitempty"`
@@ -559,7 +559,7 @@ type ApplicationCreateGitHubAppRequest struct {
 
 	// Environment (one of these is required)
 	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment,omitempty"`
+	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
 
 	// Optional fields (same as public)
 	Name                   *string               `json:"name,omitempty"`
@@ -603,7 +603,7 @@ type ApplicationCreateDeployKeyRequest struct {
 
 	// Environment (one of these is required)
 	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment,omitempty"`
+	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
 
 	// Optional fields (same as public)
 	Name                   *string               `json:"name,omitempty"`
@@ -643,7 +643,7 @@ type ApplicationCreateDockerfileRequest struct {
 
 	// Environment (one of these is required)
 	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment,omitempty"`
+	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
 
 	// Optional fields
 	Name                   *string  `json:"name,omitempty"`
@@ -678,7 +678,7 @@ type ApplicationCreateDockerImageRequest struct {
 
 	// Environment (one of these is required)
 	EnvironmentName *string `json:"environment_name,omitempty"`
-	EnvironmentUUID *string `json:"environment,omitempty"`
+	EnvironmentUUID *string `json:"environment_uuid,omitempty"`
 
 	// Optional fields
 	Name                   *string  `json:"name,omitempty"`
