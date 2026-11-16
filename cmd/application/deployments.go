@@ -91,19 +91,29 @@ Use --follow to continuously stream new logs.`,
 			format, _ := cmd.Flags().GetString("format")
 			deploySvc := service.NewDeploymentService(client)
 
-			// Function to get logs based on whether we have a deployment UUID
-			// Returns raw or formatted based on format flag
-			getLogs := func() (string, error) {
-				if deploymentUUID != "" {
-					return deploySvc.GetLogsByDeploymentWithFormat(ctx, deploymentUUID, debugLogs, format)
+			// getLogs returns the formatted logs of the requested (or latest)
+			// deployment and whether that deployment has ended.
+			getLogs := func() (string, bool, error) {
+				uuid := deploymentUUID
+				if uuid == "" {
+					deployments, err := deploySvc.ListByApplicationWithPagination(ctx, appUUID, 0, 1)
+					if err != nil {
+						return "", false, err
+					}
+					if len(deployments) == 0 {
+						return "No deployments found for this application", true, nil
+					}
+					uuid = deployments[0].UUID
 				}
-				// Get logs from the latest deployment
-				// Use take=1 internally to efficiently fetch only the most recent deployment
-				return deploySvc.GetLogsByApplicationWithFormat(ctx, appUUID, 1, debugLogs, format)
+				deployment, err := deploySvc.Get(ctx, uuid)
+				if err != nil {
+					return "", false, err
+				}
+				return service.FormatDeploymentLogs(deployment, debugLogs, format), deployment.IsTerminal(), nil
 			}
 
 			if !follow {
-				logs, err := getLogs()
+				logs, _, err := getLogs()
 				if err != nil {
 					return fmt.Errorf("failed to get deployment logs: %w", err)
 				}
@@ -123,25 +133,23 @@ Use --follow to continuously stream new logs.`,
 			sigChan := make(chan os.Signal, 1)
 			signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-			lastLogs := ""
-
-			logs, err := getLogs()
+			lastLogs, done, err := getLogs()
 			if err != nil {
 				return fmt.Errorf("failed to get deployment logs: %w", err)
 			}
-			fmt.Print(logs)
-			lastLogs = logs
+			fmt.Print(lastLogs)
 
-			for {
+			for !done {
 				select {
 				case <-sigChan:
 					fmt.Println("\nStopping log follow...")
 					return nil
 				case <-ticker.C:
-					logs, err := getLogs()
+					logs, finished, err := getLogs()
 					if err != nil {
 						continue
 					}
+					done = finished
 					if logs != lastLogs {
 						if len(logs) > len(lastLogs) && strings.HasPrefix(logs, lastLogs) {
 							fmt.Print(logs[len(lastLogs):])
@@ -152,6 +160,7 @@ Use --follow to continuously stream new logs.`,
 					}
 				}
 			}
+			return nil
 		},
 	}
 

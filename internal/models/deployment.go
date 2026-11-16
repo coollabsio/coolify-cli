@@ -18,6 +18,15 @@ type Deployment struct {
 	UpdatedAt     *string `json:"updated_at,omitempty" table:"-"`
 }
 
+// IsTerminal reports whether the deployment has stopped running.
+func (d *Deployment) IsTerminal() bool {
+	switch d.Status {
+	case "finished", "failed", "cancelled-by-user", "cancelled":
+		return true
+	}
+	return false
+}
+
 // DeployResponse wraps deployment trigger responses
 type DeployResponse struct {
 	Message        string `json:"message"`

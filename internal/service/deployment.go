@@ -189,9 +189,13 @@ func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, d
 	if err != nil {
 		return "", fmt.Errorf("failed to get deployment details: %w", err)
 	}
+	return FormatDeploymentLogs(deployment, showHidden, format), nil
+}
 
+// FormatDeploymentLogs renders a deployment's logs as json, pretty, or table text.
+func FormatDeploymentLogs(deployment *models.Deployment, showHidden bool, format string) string {
 	if deployment.Logs == nil || *deployment.Logs == "" {
-		return fmt.Sprintf("No logs available for deployment %s (Status: %s)", deployment.UUID, deployment.Status), nil
+		return fmt.Sprintf("No logs available for deployment %s (Status: %s)", deployment.UUID, deployment.Status)
 	}
 
 	// For JSON/pretty format, filter hidden logs if needed
@@ -220,7 +224,7 @@ func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, d
 
 		// For JSON format, return the filtered logs
 		if format == "json" {
-			return logsJSON, nil
+			return logsJSON
 		}
 
 		// For pretty format, pretty-print the filtered JSON
@@ -228,14 +232,14 @@ func (s *DeploymentService) GetLogsByDeploymentWithFormat(ctx context.Context, d
 		// Try to unmarshal and marshal with indent - if either fails, return raw JSON
 		if json.Unmarshal([]byte(logsJSON), &prettyJSON) == nil {
 			if prettyBytes, err := json.MarshalIndent(prettyJSON, "", "  "); err == nil {
-				return string(prettyBytes), nil
+				return string(prettyBytes)
 			}
 		}
-		return logsJSON, nil
+		return logsJSON
 	}
 
 	// For table/text format, parse and format the logs
 	// ParseAndFormatLogs will return original if parsing fails
 	formattedLogs, _ := models.ParseAndFormatLogs(*deployment.Logs, showHidden)
-	return formattedLogs, nil
+	return formattedLogs
 }
