@@ -9,6 +9,8 @@ import (
 	"github.com/coollabsio/coolify-cli/cmd/application/storage"
 	"github.com/coollabsio/coolify-cli/cmd/application/tag"
 	apptask "github.com/coollabsio/coolify-cli/cmd/application/task"
+	"github.com/coollabsio/coolify-cli/cmd/common"
+	"github.com/coollabsio/coolify-cli/internal/service"
 )
 
 // NewAppCommand creates the app parent command
@@ -30,6 +32,8 @@ func NewAppCommand() *cobra.Command {
 	cmd.AddCommand(NewStopCommand())
 	cmd.AddCommand(NewRestartCommand())
 	cmd.AddCommand(NewLogsCommand())
+	cmd.AddCommand(common.NewContainerMetricsCommand("application", (*service.MetricsService).ApplicationMetrics))
+	cmd.AddCommand(common.NewTrafficCommand("application", (*service.MetricsService).ApplicationTraffic))
 	cmd.AddCommand(NewDeploymentsCommand())
 	cmd.AddCommand(NewMoveCommand())
 	cmd.AddCommand(NewCloneCommand())

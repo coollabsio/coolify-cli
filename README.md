@@ -133,6 +133,11 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify server remove <uuid>` - Remove a server
 - `coolify server validate <uuid>` - Validate a server connection
 - `coolify server domains <uuid>` - Get server domains by UUID
+- `coolify server metrics <uuid>` - Get Sentinel metrics of a server: one row per series with points, latest, average, and maximum value (`--format json` prints the raw `[unix_ms, value]` points)
+  - `--types <list>` - Comma-separated metric types: `cpu`, `memory`, `disk`, `network`, `load` (default: `cpu,memory`)
+  - `--minutes <n>` - Minutes of history before now (API default: 10)
+  - `--from <time>` - Start of the history, ISO 8601 (e.g. `2026-11-20T08:00:00Z`); cannot be combined with `--minutes`
+  - `--to <time>` - End of the history, ISO 8601 (default: now); needs `--from`
 - `coolify server destinations list <server_uuid>` - List a server's destinations
 - `coolify server destinations create <server_uuid>` - Create a server destination
 - `coolify server hetzner|digitalocean|vultr|hostinger` - List provider options and provision a server
@@ -194,6 +199,13 @@ Commands can use `server` or `servers` interchangeably.
   - `-n, --lines <n>` - Number of log lines to retrieve (default: 100)
   - `--show-timestamps` - Include timestamps in logs
   - `--service <name>` - Docker Compose service name (select one container in multi-service compose apps)
+- `coolify app metrics <uuid>` - Get CPU (percent) and memory (MB) metrics of the application container from Sentinel
+  - `--minutes <n>` - Minutes of history before now (API default: 10)
+  - `--from <time>` - Start of the history, ISO 8601 (e.g. `2026-11-20T08:00:00Z`); cannot be combined with `--minutes`
+  - `--to <time>` - End of the history, ISO 8601 (default: now); needs `--from`
+- `coolify app traffic <uuid>` - Get traffic analytics of the application from the proxy access log
+  - `--range <24h|7d|30d>` - Time range (default: `24h`)
+  - Table output shows the overview (requests, unique visitors, error rate, p50/p95/p99 latency, bytes, status counts), the top paths, and the top values per dimension. `--format json` prints the full API response, including the time series
 - `coolify app move <uuid> --environment-uuid <uuid>` - Move an application to another environment
 - `coolify app tag list|add|remove` - Manage application tags
 - `coolify app secret-manager set <app_uuid>` - Set the external secret manager an application reads secrets from
@@ -343,6 +355,10 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify database stop <uuid>` - Stop a database
 - `coolify database restart <uuid>` - Restart a database
 - `coolify database logs <uuid>` - Get database logs
+- `coolify database metrics <uuid>` - Get CPU (percent) and memory (MB) metrics of the database container from Sentinel
+  - `--minutes <n>` - Minutes of history before now (API default: 10)
+  - `--from <time>` - Start of the history, ISO 8601 (e.g. `2026-11-20T08:00:00Z`); cannot be combined with `--minutes`
+  - `--to <time>` - End of the history, ISO 8601 (default: now); needs `--from`
 - `coolify database move <uuid> --environment-uuid <uuid>` - Move a database to another environment
 - `coolify database tag list|add|remove` - Manage database tags
 - Database creation supports repeatable `--tag` and comma-separated `--tags`.
@@ -432,6 +448,9 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service restart <uuid>` - Restart a service
 - `coolify service delete <uuid>` - Delete a service
 - `coolify service logs <uuid> --sub-service-name <name>` - Get logs for a service application or database
+- `coolify service traffic <uuid>` - Get traffic analytics of the service from the proxy access log
+  - `--range <24h|7d|30d>` - Time range (default: `24h`)
+  - Table output shows the overview (requests, unique visitors, error rate, p50/p95/p99 latency, bytes, status counts), the top paths, and the top values per dimension. `--format json` prints the full API response, including the time series
 - `coolify service move <uuid> --environment-uuid <uuid>` - Move a service to another environment
 - `coolify service tag list|add|remove` - Manage service tags
 - Service creation supports repeatable `--tag` and comma-separated `--tags`.

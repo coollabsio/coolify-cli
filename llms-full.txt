@@ -1578,6 +1578,23 @@ Parameters:
     required: false
     default: false
 
+Command: coolify app metrics <uuid>
+Description: Get application CPU and memory metrics
+Parameters:
+  - name: --from
+    type: string
+    description: Start of the history, ISO 8601 (e.g. 2026-11-20T08:00:00Z)
+    required: false
+  - name: --minutes
+    type: integer
+    description: Minutes of history before now (API default: 10). Cannot be used with --from or --to
+    required: false
+    default: 0
+  - name: --to
+    type: string
+    description: End of the history, ISO 8601 (default: now). Needs --from
+    required: false
+
 Command: coolify app move <uuid>
 Description: Move an application to another environment
 Parameters:
@@ -1964,6 +1981,15 @@ Parameters:
     description: Timeout in seconds
     required: false
     default: 300
+
+Command: coolify app traffic <uuid>
+Description: Get application traffic analytics
+Parameters:
+  - name: --range
+    type: string
+    description: Time range: 24h, 7d, 30d
+    required: false
+    default: 24h
 
 Command: coolify app update <uuid>
 Description: Update application configuration
@@ -2884,6 +2910,23 @@ Parameters:
     description: Include timestamps in logs
     required: false
     default: false
+
+Command: coolify database metrics <uuid>
+Description: Get database CPU and memory metrics
+Parameters:
+  - name: --from
+    type: string
+    description: Start of the history, ISO 8601 (e.g. 2026-11-20T08:00:00Z)
+    required: false
+  - name: --minutes
+    type: integer
+    description: Minutes of history before now (API default: 10). Cannot be used with --from or --to
+    required: false
+    default: 0
+  - name: --to
+    type: string
+    description: End of the history, ISO 8601 (default: now). Needs --from
+    required: false
 
 Command: coolify database move <uuid>
 Description: Move a database to another environment
@@ -4119,6 +4162,27 @@ Parameters:
     description: JSON fields to patch
     required: false
 
+Command: coolify server metrics <server_uuid>
+Description: Get server metrics
+Parameters:
+  - name: --from
+    type: string
+    description: Start of the history, ISO 8601 (e.g. 2026-11-20T08:00:00Z)
+    required: false
+  - name: --minutes
+    type: integer
+    description: Minutes of history before now (API default: 10). Cannot be used with --from or --to
+    required: false
+    default: 0
+  - name: --to
+    type: string
+    description: End of the history, ISO 8601 (default: now). Needs --from
+    required: false
+  - name: --types
+    type: string
+    description: Comma-separated metric types: cpu, memory, disk, network, load (API default: cpu,memory)
+    required: false
+
 Command: coolify server proxy get <server_uuid>
 Description: Get proxy settings
 Parameters: (None)
@@ -5130,6 +5194,15 @@ Parameters:
     description: Timeout in seconds
     required: false
     default: 300
+
+Command: coolify service traffic <uuid>
+Description: Get service traffic analytics
+Parameters:
+  - name: --range
+    type: string
+    description: Time range: 24h, 7d, 30d
+    required: false
+    default: 24h
 
 Command: coolify settings email get
 Description: Get instance email settings
