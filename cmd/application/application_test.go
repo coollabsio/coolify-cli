@@ -38,7 +38,7 @@ func TestNewApplicationCommands_ExposeParityFlags(t *testing.T) {
 		"is-git-shallow-clone-enabled", "is-git-submodules-enabled", "is-gzip-enabled",
 		"is-pr-deployments-public-enabled", "is-preview-deployments-enabled",
 		"is-raw-compose-deployment-enabled", "is-stripprefix-enabled", "stop-grace-period",
-		"use-build-secrets",
+		"use-build-secrets", "dockerfile-location",
 	} {
 		assert.NotNil(t, NewUpdateCommand().Flags().Lookup(flag), "missing --%s", flag)
 	}

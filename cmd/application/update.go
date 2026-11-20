@@ -121,6 +121,11 @@ Example:
 				req.DockerfileTargetBuild = &targetBuild
 				hasUpdates = true
 			}
+			if cmd.Flags().Changed("dockerfile-location") {
+				location, _ := cmd.Flags().GetString("dockerfile-location")
+				req.DockerfileLocation = &location
+				hasUpdates = true
+			}
 			if cmd.Flags().Changed("health-check-enabled") {
 				enabled, _ := cmd.Flags().GetBool("health-check-enabled")
 				req.HealthCheckEnabled = &enabled
@@ -177,6 +182,7 @@ Example:
 	cmd.Flags().String("docker-image", "", "Docker image name")
 	cmd.Flags().String("docker-tag", "", "Docker image tag")
 	cmd.Flags().String("dockerfile-target-build", "", "Dockerfile target build stage")
+	cmd.Flags().String("dockerfile-location", "", "Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile")
 	cmd.Flags().String("ports-exposes", "", "Exposed ports")
 	cmd.Flags().String("ports-mappings", "", "Port mappings")
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health check")
