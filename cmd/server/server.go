@@ -29,6 +29,7 @@ func NewServerCommand() *cobra.Command {
 	cmd.AddCommand(NewDockerCleanupCommand())
 	cmd.AddCommand(NewLogDrainsCommand())
 	cmd.AddCommand(NewSentinelCommand())
+	cmd.AddCommand(NewMetricsCommand())
 	cmd.AddCommand(NewCloudflareTunnelCommand())
 	cmd.AddCommand(NewProxyCommand())
 	cmd.AddCommand(NewRegistryCommand())

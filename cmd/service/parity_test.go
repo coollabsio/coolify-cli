@@ -8,7 +8,7 @@ import (
 
 func TestServiceCommandRegistersParityCommands(t *testing.T) {
 	command := NewServiceCommand()
-	for _, name := range []string{"logs", "move", "tag", "application", "database"} {
+	for _, name := range []string{"logs", "traffic", "move", "tag", "application", "database"} {
 		child, _, err := command.Find([]string{name})
 		require.NoError(t, err)
 		require.Equal(t, name, child.Name())

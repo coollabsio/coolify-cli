@@ -3,11 +3,13 @@ package database
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/coollabsio/coolify-cli/cmd/common"
 	"github.com/coollabsio/coolify-cli/cmd/database/backup"
 	"github.com/coollabsio/coolify-cli/cmd/database/env"
 	"github.com/coollabsio/coolify-cli/cmd/database/importcmd"
 	"github.com/coollabsio/coolify-cli/cmd/database/storage"
 	"github.com/coollabsio/coolify-cli/cmd/database/tag"
+	"github.com/coollabsio/coolify-cli/internal/service"
 )
 
 // NewDatabaseCommand creates the database parent command with all subcommands
@@ -29,6 +31,7 @@ func NewDatabaseCommand() *cobra.Command {
 	cmd.AddCommand(NewUpdateCommand())
 	cmd.AddCommand(NewDeleteCommand())
 	cmd.AddCommand(NewLogsCommand())
+	cmd.AddCommand(common.NewContainerMetricsCommand("database", (*service.MetricsService).DatabaseMetrics))
 	cmd.AddCommand(NewMoveCommand())
 	cmd.AddCommand(NewCloneCommand())
 	cmd.AddCommand(NewRunStorageBackupCommand())
