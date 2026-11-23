@@ -8,14 +8,14 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
-// skippedNames are never packed, at any depth.
-var skippedNames = map[string]bool{
-	".git":         true,
-	"node_modules": true,
-	linkFileName:   true,
-	".DS_Store":    true,
+// isSkipped reports whether a file or folder is left out of the archive.
+// Hidden entries (.env, .git, editor and tool state) would be served as public
+// files, so only .well-known keeps its leading dot.
+func isSkipped(name string) bool {
+	return name == "node_modules" || (strings.HasPrefix(name, ".") && name != ".well-known")
 }
 
 // packedSite is a gzip tar of a folder in a temporary file. Remove it with
@@ -23,6 +23,7 @@ var skippedNames = map[string]bool{
 type packedSite struct {
 	Path      string
 	Files     int
+	Skipped   []string
 	HasIndex  bool
 	TotalSize int64
 }
@@ -59,7 +60,10 @@ func packFolder(dir string) (_ *packedSite, err error) {
 		if path == root {
 			return nil
 		}
-		if skippedNames[entry.Name()] {
+		if isSkipped(entry.Name()) {
+			if rel, relErr := filepath.Rel(root, path); relErr == nil && entry.Name() != linkFileName && entry.Name() != ".DS_Store" {
+				site.Skipped = append(site.Skipped, filepath.ToSlash(rel))
+			}
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}

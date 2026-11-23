@@ -38,7 +38,7 @@ type FolderDeployResult struct {
 
 const folderDeployLong = `Pack a folder of static files (default: the current folder) and deploy it as a static site.
 
-The folder is uploaded as a .tar.gz. .git, node_modules, .coolify.json and .DS_Store are skipped.
+The folder is uploaded as a .tar.gz. node_modules and hidden files and folders (.env, .git, ...) are skipped, except .well-known.
 Symlinks are not allowed. Put index.html at the root of the folder.
 
 The first deploy creates a static site application and writes .coolify.json in the
@@ -54,7 +54,6 @@ Examples:
 func addFolderDeployFlags(cmd *cobra.Command) {
 	cmd.Flags().String("app", "", "Deploy to this static site application UUID instead of the linked one")
 	cmd.Flags().Bool("no-link", false, "Do not write the link file .coolify.json")
-	cmd.Flags().Bool("force", false, "Rebuild the image even when this site version was built before")
 	cmd.Flags().String("server", "", "Server UUID for a new application (default: the only usable server)")
 	cmd.Flags().String("project", "", "Project UUID for a new application (default: the only project)")
 	cmd.Flags().String("environment", "production", "Environment name for a new application")
@@ -117,6 +116,9 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 	if !site.HasIndex {
 		fmt.Fprintf(stderr, "Warning: %s has no index.html at its root.\n", dir)
 	}
+	if len(site.Skipped) > 0 {
+		fmt.Fprintf(stderr, "Skipped hidden files and folders: %s\n", strings.Join(site.Skipped, ", "))
+	}
 	fmt.Fprintf(stderr, "Packed %d files (%s) from %s\n", site.Files, cli.HumanBytes(site.TotalSize), dir)
 
 	svc := service.NewStaticArchiveService(client)
@@ -138,10 +140,6 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 		result.Created = true
 	} else {
 		req := &models.StaticArchiveDeployRequest{UploadID: upload.UploadID}
-		if cmd.Flags().Changed("force") {
-			force, _ := cmd.Flags().GetBool("force")
-			req.ForceRebuild = &force
-		}
 		deployed, err := svc.Deploy(ctx, appUUID, req)
 		if err != nil {
 			return err
@@ -212,14 +210,12 @@ func buildCreateRequest(ctx context.Context, cmd *cobra.Command, client *api.Cli
 		name = filepath.Base(abs)
 	}
 	domains, _ := cmd.Flags().GetString("domain")
-	instantDeploy := true
 	req := &models.StaticArchiveCreateRequest{
 		ProjectUUID:     projectUUID,
 		ServerUUID:      serverUUID,
 		EnvironmentName: environment,
 		Name:            name,
 		Domains:         domains,
-		InstantDeploy:   &instantDeploy,
 	}
 	if cmd.Flags().Changed("spa") {
 		spa, _ := cmd.Flags().GetBool("spa")

@@ -3317,11 +3317,6 @@ Parameters:
     description: Environment name for a new application
     required: false
     default: production
-  - name: --force
-    type: boolean
-    description: Rebuild the image even when this site version was built before
-    required: false
-    default: false
   - name: --name
     type: string
     description: Name of a new application (default: the folder name)
