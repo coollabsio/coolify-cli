@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/coollabsio/coolify-cli/internal/cli"
 )
 
 type recordedRequest struct {
@@ -248,7 +250,7 @@ func TestBuildStartRequest_SourceValidation(t *testing.T) {
 }
 
 func TestHumanBytes(t *testing.T) {
-	assert.Equal(t, "512 B", humanBytes(512))
-	assert.Equal(t, "1.5 KiB", humanBytes(1536))
-	assert.Equal(t, "10.0 MiB", humanBytes(10*1024*1024))
+	assert.Equal(t, "512 B", cli.HumanBytes(512))
+	assert.Equal(t, "1.5 KiB", cli.HumanBytes(1536))
+	assert.Equal(t, "10.0 MiB", cli.HumanBytes(10*1024*1024))
 }

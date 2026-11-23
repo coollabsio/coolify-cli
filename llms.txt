@@ -108,6 +108,7 @@ coolify app env sync <app-uuid> --file .env.production --build-time --preview
 ### Deployments
 
 ```bash
+coolify deploy ./dist
 coolify deploy list
 coolify deploy name my-application
 coolify deploy batch api,worker,frontend --force
