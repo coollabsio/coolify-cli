@@ -2,13 +2,9 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/coollabsio/coolify-cli/internal/api"
@@ -62,9 +58,6 @@ func NewDatabaseImportService(client *api.Client) *DatabaseImportService {
 	return &DatabaseImportService{client: client, ChunkSize: DefaultImportChunkSize}
 }
 
-// UploadProgress is called after every uploaded chunk.
-type UploadProgress func(sent, total int64)
-
 // Upload uploads a local backup file in chunks (DropZone protocol, as used by
 // the Coolify UI) and returns the upload whose UploadID can start an import.
 func (s *DatabaseImportService) Upload(ctx context.Context, target DatabaseImportTarget, filePath string, progress UploadProgress) (*models.DatabaseImportUpload, error) {
@@ -89,48 +82,9 @@ func (s *DatabaseImportService) Upload(ctx context.Context, target DatabaseImpor
 		return nil, fmt.Errorf("backup file %s exceeds the 10 GiB import limit", filePath)
 	}
 
-	chunkSize := s.ChunkSize
-	if chunkSize <= 0 {
-		chunkSize = DefaultImportChunkSize
-	}
-	totalChunks := (size + chunkSize - 1) / chunkSize
-
-	uploadID, err := newUUIDv4()
+	upload, err := uploadChunks[models.DatabaseImportUpload](ctx, s.client, target.basePath()+"/uploads", file, size, s.ChunkSize, nil, progress)
 	if err != nil {
 		return nil, err
-	}
-
-	path := target.basePath() + "/uploads"
-	fileName := filepath.Base(filePath)
-	var upload models.DatabaseImportUpload
-	for index := int64(0); index < totalChunks; index++ {
-		offset := index * chunkSize
-		length := min(chunkSize, size-offset)
-		fields := map[string]string{
-			"upload_id":         uploadID,
-			"dzuuid":            uploadID,
-			"dzchunkindex":      strconv.FormatInt(index, 10),
-			"dztotalchunkcount": strconv.FormatInt(totalChunks, 10),
-			"dztotalfilesize":   strconv.FormatInt(size, 10),
-			"dzchunksize":       strconv.FormatInt(chunkSize, 10),
-			"dzchunkbyteoffset": strconv.FormatInt(offset, 10),
-		}
-		part := api.MultipartFile{
-			FieldName: "file",
-			FileName:  fileName,
-			Content:   io.NewSectionReader(file, offset, length),
-			Size:      length,
-		}
-
-		// Intermediate chunks answer {upload_id, done, status}; only the final
-		// chunk returns the assembled file's metadata.
-		upload = models.DatabaseImportUpload{}
-		if err := s.client.PostMultipart(ctx, path, fields, part, &upload); err != nil {
-			return nil, fmt.Errorf("failed to upload chunk %d/%d: %w", index+1, totalChunks, err)
-		}
-		if progress != nil {
-			progress(offset+length, size)
-		}
 	}
 
 	if upload.Filename == "" {
@@ -179,15 +133,4 @@ func (s *DatabaseImportService) Wait(ctx context.Context, target DatabaseImportT
 		case <-ticker.C:
 		}
 	}
-}
-
-// newUUIDv4 returns a random RFC 4122 version 4 UUID.
-func newUUIDv4() (string, error) {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", fmt.Errorf("failed to generate upload id: %w", err)
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }

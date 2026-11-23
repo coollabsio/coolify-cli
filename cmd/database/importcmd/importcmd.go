@@ -6,14 +6,11 @@ package importcmd
 import (
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/coollabsio/coolify-cli/internal/cli"
 	"github.com/coollabsio/coolify-cli/internal/models"
@@ -257,11 +254,11 @@ func buildStartRequest(cmd *cobra.Command) (req *models.DatabaseImportRequest, l
 
 func uploadFile(cmd *cobra.Command, svc *service.DatabaseImportService, target service.DatabaseImportTarget, path string) (*models.DatabaseImportUpload, error) {
 	stderr := cmd.ErrOrStderr()
-	showProgress := isTerminal(stderr)
+	showProgress := cli.IsTerminal(stderr)
 	name := filepath.Base(path)
 	uploaded, err := svc.Upload(cmd.Context(), target, path, func(sent, total int64) {
 		if showProgress {
-			fmt.Fprintf(stderr, "\rUploading %s: %3d%% (%s / %s)", name, sent*100/total, humanBytes(sent), humanBytes(total))
+			fmt.Fprintf(stderr, "\rUploading %s: %3d%% (%s / %s)", name, sent*100/total, cli.HumanBytes(sent), cli.HumanBytes(total))
 		}
 	})
 	if showProgress {
@@ -312,22 +309,4 @@ func format(cmd *cobra.Command, data any) error {
 func isTableFormat(cmd *cobra.Command) bool {
 	formatName, _ := cmd.Flags().GetString("format")
 	return formatName == "" || formatName == output.FormatTable
-}
-
-func isTerminal(w io.Writer) bool {
-	f, ok := w.(*os.File)
-	return ok && term.IsTerminal(int(f.Fd()))
-}
-
-func humanBytes(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	div, exp := int64(unit), 0
-	for m := n / unit; m >= unit; m /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }

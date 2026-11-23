@@ -15,9 +15,13 @@ const dockerTagMinVersion = "4.0.0-beta.471"
 // NewDeploymentCommand creates the deployment parent command with all subcommands
 func NewDeploymentCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy",
-		Short: "Deploy related commands",
+		Use:   "deploy [folder]",
+		Short: "Deploy a folder as a static site, or deploy resources and manage deployments",
+		Long:  folderDeployLong,
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runFolderDeploy,
 	}
+	addFolderDeployFlags(cmd)
 
 	// Add all deployment subcommands
 	cmd.AddCommand(NewUUIDCommand())

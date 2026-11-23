@@ -135,6 +135,7 @@ coolify app env create <uuid> --key API_KEY --value secret123
 coolify app env sync <uuid> --file .env.production --build-time --preview
 
 # Deploy workflows
+coolify deploy ./dist --project <project-uuid> --server <server-uuid>
 coolify deploy name my-application
 coolify deploy batch api,worker,frontend --force
 coolify deploy list
@@ -3300,7 +3301,51 @@ Parameters:
     description: Comma-separated SQLite database file names (SQLite only)
     required: false
 
-Command: coolify deploy batch <name1,name2,...>
+Command: coolify deploy [folder]
+Description: Deploy a folder as a static site, or deploy resources and manage deployments
+Parameters:
+  - name: --app
+    type: string
+    description: Deploy to this static site application UUID instead of the linked one
+    required: false
+  - name: --domain
+    type: string
+    description: Domains of a new application, comma-separated (default: a generated domain)
+    required: false
+  - name: --environment
+    type: string
+    description: Environment name for a new application
+    required: false
+    default: production
+  - name: --force
+    type: boolean
+    description: Rebuild the image even when this site version was built before
+    required: false
+    default: false
+  - name: --name
+    type: string
+    description: Name of a new application (default: the folder name)
+    required: false
+  - name: --no-link
+    type: boolean
+    description: Do not write the link file .coolify.json
+    required: false
+    default: false
+  - name: --project
+    type: string
+    description: Project UUID for a new application (default: the only project)
+    required: false
+  - name: --server
+    type: string
+    description: Server UUID for a new application (default: the only usable server)
+    required: false
+  - name: --spa
+    type: boolean
+    description: Serve index.html for unknown paths of a new application (single-page app)
+    required: false
+    default: false
+
+Command: coolify deploy [folder] batch <name1,name2,...>
 Description: Deploy multiple resources by name
 Parameters:
   - name: --docker-tag
@@ -3318,7 +3363,7 @@ Parameters:
     required: false
     default: 0
 
-Command: coolify deploy cancel <uuid>
+Command: coolify deploy [folder] cancel <uuid>
 Description: Cancel an in-progress deployment. This will stop the deployment process and clean up any temporary resources.
 Parameters:
   - name: --force (-f)
@@ -3327,15 +3372,15 @@ Parameters:
     required: false
     default: false
 
-Command: coolify deploy get <uuid>
+Command: coolify deploy [folder] get <uuid>
 Description: Get detailed information about a specific deployment by its UUID.
 Parameters: (None)
 
-Command: coolify deploy list
+Command: coolify deploy [folder] list
 Description: List all currently running deployments across all resources.
 Parameters: (None)
 
-Command: coolify deploy name <resource_name>
+Command: coolify deploy [folder] name <resource_name>
 Description: Deploy by resource name
 Parameters:
   - name: --docker-tag
@@ -3353,7 +3398,7 @@ Parameters:
     required: false
     default: 0
 
-Command: coolify deploy uuid <uuid>
+Command: coolify deploy [folder] uuid <uuid>
 Description: Deploy by uuid
 Parameters:
   - name: --docker-tag

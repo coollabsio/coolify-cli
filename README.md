@@ -532,6 +532,18 @@ Commands can use `server` or `servers` interchangeably.
 - `coolify service storage delete <service_uuid> <storage_uuid>` - Delete a storage from a service
 
 ### Deployments
+- `coolify deploy [folder]` - Pack a folder (default: the current folder) as a `.tar.gz` and deploy it as a static site
+  - The first deploy creates a static site application and writes `.coolify.json` (`{"context", "application_uuid"}`, mode 0600) in the current working directory. Later deploys from that directory in the same context deploy a new version to the same application
+  - Skips `.git`, `node_modules`, `.coolify.json`, and `.DS_Store`. Fails on symlinks and on an empty folder. Warns when the folder has no `index.html` at its root
+  - `--app <uuid>` - Deploy to this static site application instead of the linked one
+  - `--no-link` - Do not write `.coolify.json`
+  - `--force` - Rebuild the image even when this site version was built before
+  - `--server <uuid>` - Server for a new application (default: the only usable server)
+  - `--project <uuid>` - Project for a new application (default: the only project)
+  - `--environment <name>` - Environment for a new application (default: `production`)
+  - `--name <name>` - Name of a new application (default: the folder name)
+  - `--domain <urls>` - Comma-separated domains of a new application (default: a generated domain)
+  - `--spa` - Serve `index.html` for unknown paths (single-page app)
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID
   - `--force` - Force deployment
   - `--pull-request-id <id>` - Pull request ID for preview deployments

@@ -215,6 +215,7 @@ coolify app env sync <app-uuid> --file .env.production --build-time --preview
 ### Deployments
 
 ` + "```bash" + `
+coolify deploy ./dist
 coolify deploy list
 coolify deploy name my-application
 coolify deploy batch api,worker,frontend --force
@@ -351,6 +352,7 @@ coolify app env create <uuid> --key API_KEY --value secret123
 coolify app env sync <uuid> --file .env.production --build-time --preview
 
 # Deploy workflows
+coolify deploy ./dist --project <project-uuid> --server <server-uuid>
 coolify deploy name my-application
 coolify deploy batch api,worker,frontend --force
 coolify deploy list
