@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -182,12 +183,25 @@ func (s *DatabaseService) DeleteBackup(ctx context.Context, dbUUID, backupUUID s
 
 // ListBackupExecutions retrieves all executions for a backup configuration
 func (s *DatabaseService) ListBackupExecutions(ctx context.Context, dbUUID, backupUUID string) ([]models.DatabaseBackupExecution, error) {
-	var response models.DatabaseBackupExecutionsResponse
-	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/backups/%s/executions", dbUUID, backupUUID), &response)
+	var body json.RawMessage
+	err := s.client.Get(ctx, fmt.Sprintf("databases/%s/backups/%s/executions", dbUUID, backupUUID), &body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list backup executions for backup %s: %w", backupUUID, err)
 	}
-	return response.Executions, nil
+
+	// Coolify returns a plain array; older versions wrap it in {"executions": [...]}.
+	var executions []models.DatabaseBackupExecution
+	if isJSONArray(body) {
+		err = json.Unmarshal(body, &executions)
+	} else {
+		var response models.DatabaseBackupExecutionsResponse
+		err = json.Unmarshal(body, &response)
+		executions = response.Executions
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to list backup executions for backup %s: %w", backupUUID, err)
+	}
+	return executions, nil
 }
 
 // DeleteBackupExecution deletes a specific backup execution

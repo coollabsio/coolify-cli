@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -70,9 +73,49 @@ func (s *AuditService) List(ctx context.Context, opts models.AuditEventListOptio
 		path += "?" + encoded
 	}
 
-	var page models.AuditEventPage
-	if err := s.client.Get(ctx, path, &page); err != nil {
+	var body json.RawMessage
+	headers, err := s.client.GetWithHeaders(ctx, path, &body)
+	if err != nil {
 		return nil, fmt.Errorf("failed to list audit events: %w", err)
 	}
+	page, err := parseAuditEventPage(body, headers, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list audit events: %w", err)
+	}
+	return page, nil
+}
+
+// auditDefaultPerPage is the page size of GET /audit-events without per_page.
+const auditDefaultPerPage = 25
+
+// parseAuditEventPage reads both response shapes of GET /audit-events: a plain
+// array with the X-Total-Count header, and the paginator object of older Coolify versions.
+func parseAuditEventPage(body json.RawMessage, headers http.Header, opts models.AuditEventListOptions) (*models.AuditEventPage, error) {
+	if !isJSONArray(body) {
+		var page models.AuditEventPage
+		if err := json.Unmarshal(body, &page); err != nil {
+			return nil, err
+		}
+		return &page, nil
+	}
+
+	page := models.AuditEventPage{CurrentPage: max(opts.Page, 1), PerPage: opts.PerPage}
+	if page.PerPage <= 0 {
+		page.PerPage = auditDefaultPerPage
+	}
+	if err := json.Unmarshal(body, &page.Data); err != nil {
+		return nil, err
+	}
+	page.Total = len(page.Data)
+	if total, err := strconv.Atoi(headers.Get("X-Total-Count")); err == nil {
+		page.Total = total
+	}
+	page.LastPage = max(1, (page.Total+page.PerPage-1)/page.PerPage)
 	return &page, nil
+}
+
+// isJSONArray reports whether a JSON document is an array.
+func isJSONArray(body json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(body)
+	return len(trimmed) > 0 && trimmed[0] == '['
 }

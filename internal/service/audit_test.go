@@ -82,6 +82,47 @@ func TestAuditService_List(t *testing.T) {
 	}
 }
 
+func TestAuditService_List_PlainArrayWithTotalHeader(t *testing.T) {
+	tests := []struct {
+		name         string
+		opts         models.AuditEventListOptions
+		totalHeader  string
+		wantPage     int
+		wantPerPage  int
+		wantTotal    int
+		wantLastPage int
+	}{
+		{name: "explicit page", opts: models.AuditEventListOptions{PerPage: 10, Page: 2}, totalHeader: "21", wantPage: 2, wantPerPage: 10, wantTotal: 21, wantLastPage: 3},
+		{name: "server defaults", opts: models.AuditEventListOptions{}, totalHeader: "26", wantPage: 1, wantPerPage: 25, wantTotal: 26, wantLastPage: 2},
+		{name: "no events", opts: models.AuditEventListOptions{}, totalHeader: "0", wantPage: 1, wantPerPage: 25, wantTotal: 0, wantLastPage: 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("X-Total-Count", tt.totalHeader)
+				if tt.wantTotal == 0 {
+					_, _ = w.Write([]byte(`[]`))
+					return
+				}
+				_, _ = w.Write([]byte(`[{"id": 41, "event": "api.application.updated", "source": "api", "action": "updated", "level": "info", "created_at": "2026-10-01T10:00:00.000000Z"}]`))
+			}))
+			defer server.Close()
+
+			page, err := NewAuditService(api.NewClient(server.URL, "test-token")).List(context.Background(), tt.opts)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPage, page.CurrentPage)
+			assert.Equal(t, tt.wantPerPage, page.PerPage)
+			assert.Equal(t, tt.wantTotal, page.Total)
+			assert.Equal(t, tt.wantLastPage, page.LastPage)
+			if tt.wantTotal > 0 {
+				require.Len(t, page.Data, 1)
+				assert.Equal(t, 41, page.Data[0].ID)
+			}
+		})
+	}
+}
+
 func TestAuditService_List_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

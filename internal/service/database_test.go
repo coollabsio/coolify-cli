@@ -779,6 +779,14 @@ func TestDatabaseService_ListBackupExecutions(t *testing.T) {
 			wantCount:  1,
 		},
 		{
+			name:           "plain array",
+			dbUUID:         "db-uuid-1",
+			backupUUID:     "backup-uuid-1",
+			serverResponse: `[{"uuid": "exec-uuid-1", "filename": "backup.sql", "status": "success"}, {"uuid": "exec-uuid-2", "status": "failed"}]`,
+			statusCode:     http.StatusOK,
+			wantCount:      2,
+		},
+		{
 			name:       "empty list",
 			dbUUID:     "db-uuid-2",
 			backupUUID: "backup-uuid-2",

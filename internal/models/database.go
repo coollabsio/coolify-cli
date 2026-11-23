@@ -304,7 +304,7 @@ type DatabaseBackupExecution struct {
 	CreatedAt string  `json:"-" table:"-"`
 }
 
-// DatabaseBackupExecutionsResponse represents the response containing backup executions
+// DatabaseBackupExecutionsResponse is the backup executions response of Coolify versions before the plain-array lists
 type DatabaseBackupExecutionsResponse struct {
 	Executions []DatabaseBackupExecution `json:"executions"`
 }

@@ -62,6 +62,16 @@ func (c *Client) Get(ctx context.Context, path string, result interface{}) error
 	return c.doRequest(ctx, "GET", path, nil, result)
 }
 
+// GetWithHeaders makes a GET request to the API and also returns the response headers,
+// for example X-Total-Count of a paginated list.
+func (c *Client) GetWithHeaders(ctx context.Context, path string, result interface{}) (http.Header, error) {
+	var headers http.Header
+	err := c.withRetry(ctx, func() error {
+		return c.doRequestOnce(ctx, "GET", path, nil, result, &headers)
+	})
+	return headers, err
+}
+
 // Post makes a POST request to the API
 func (c *Client) Post(ctx context.Context, path string, body, result interface{}) error {
 	return c.doRequest(ctx, "POST", path, body, result)
@@ -71,7 +81,7 @@ func (c *Client) Post(ctx context.Context, path string, body, result interface{}
 // non-idempotent requests where a retry could repeat a side effect, such as
 // purchasing a cloud server.
 func (c *Client) PostOnce(ctx context.Context, path string, body, result interface{}) error {
-	return c.doRequestOnce(ctx, "POST", path, body, result)
+	return c.doRequestOnce(ctx, "POST", path, body, result, nil)
 }
 
 // Delete makes a DELETE request to the API
@@ -168,7 +178,7 @@ func (c *Client) doMultipartOnce(ctx context.Context, path string, fields map[st
 		uploadClient.Timeout = minUploadTimeout
 	}
 
-	return c.execute(&uploadClient, req, path, result)
+	return c.execute(&uploadClient, req, path, result, nil)
 }
 
 // GetVersion fetches the API version
@@ -181,7 +191,7 @@ func (c *Client) GetVersion(ctx context.Context) (string, error) {
 // doRequest executes an HTTP request with retry logic
 func (c *Client) doRequest(ctx context.Context, method, path string, body, result interface{}) error {
 	return c.withRetry(ctx, func() error {
-		return c.doRequestOnce(ctx, method, path, body, result)
+		return c.doRequestOnce(ctx, method, path, body, result, nil)
 	})
 }
 
@@ -227,7 +237,7 @@ func (c *Client) withRetry(ctx context.Context, attemptFn func() error) error {
 }
 
 // doRequestOnce executes a single HTTP request
-func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, result interface{}) error {
+func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, result interface{}, headers *http.Header) error {
 	url := c.baseURL + apiV1Path + path
 
 	if c.debug {
@@ -258,12 +268,13 @@ func (c *Client) doRequestOnce(ctx context.Context, method, path string, body, r
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return c.execute(c.httpClient, req, path, result)
+	return c.execute(c.httpClient, req, path, result, headers)
 }
 
 // execute sends a prepared request with authentication, then handles debug
-// logging, error mapping and response decoding.
-func (c *Client) execute(httpClient *http.Client, req *http.Request, path string, result interface{}) error {
+// logging, error mapping and response decoding. When headers is not nil, it
+// receives the headers of a successful response.
+func (c *Client) execute(httpClient *http.Client, req *http.Request, path string, result interface{}, headers *http.Header) error {
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	// Without this, Laravel answers validation errors with a 302 redirect to an HTML page.
 	req.Header.Set("Accept", "application/json")
@@ -311,6 +322,10 @@ func (c *Client) execute(httpClient *http.Client, req *http.Request, path string
 		apiErr.Body = respBody
 		apiErr.RetryAfter = resp.Header.Get("Retry-After")
 		return apiErr
+	}
+
+	if headers != nil {
+		*headers = resp.Header.Clone()
 	}
 
 	// Unmarshal response into result
