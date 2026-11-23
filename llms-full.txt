@@ -2306,7 +2306,151 @@ Description: Output shell completion code for the specified shell
 Parameters: (None)
 
 Command: coolify config
-Description: Display the path to the Coolify CLI configuration file
+Description: Show configuration file location and manage coolify.json
+Parameters: (None)
+
+Command: coolify config apply <link_uuid>
+Description: Plan and apply coolify.json
+Parameters:
+  - name: --file (-f)
+    type: string
+    description: Path to the coolify.json file for an api link (- reads standard input)
+    required: false
+    default: coolify.json
+
+Command: coolify config approve <revision_uuid>
+Description: Approve a revision that waits for approval
+Parameters:
+  - name: --delete-data
+    type: stringSlice
+    description: Key of a removed resource whose data is deleted too (repeatable)
+    required: false
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt for --delete-data
+    required: false
+    default: false
+
+Command: coolify config export <environment_uuid>
+Description: Export an environment as a coolify.json file
+Parameters:
+  - name: --output (-o)
+    type: string
+    description: Write the file to this path instead of standard output
+    required: false
+
+Command: coolify config link create
+Description: Link an environment to coolify.json
+Parameters:
+  - name: --auto-apply
+    type: boolean
+    description: Apply safe changes automatically
+    required: false
+    default: false
+  - name: --branch
+    type: string
+    description: Branch (git mode)
+    required: false
+  - name: --destination-uuid
+    type: string
+    description: Destination on that server, when it has more than one
+    required: false
+  - name: --environment
+    type: string
+    description: Environment name (required)
+    required: true
+  - name: --file-path
+    type: string
+    description: Path of the file in the repository (default coolify.json)
+    required: false
+  - name: --mode
+    type: string
+    description: Link mode: api or git
+    required: false
+    default: api
+  - name: --project
+    type: string
+    description: Project name (required)
+    required: true
+  - name: --repository
+    type: string
+    description: Repository URL (git mode)
+    required: false
+  - name: --server-uuid
+    type: string
+    description: Server that reads the file and runs resources that name no server (git mode)
+    required: false
+  - name: --source-type
+    type: string
+    description: Git source: public, github_app, gitea_app, or deploy_key (git mode)
+    required: false
+  - name: --source-uuid
+    type: string
+    description: UUID of the GitHub app, Gitea app, or deploy key
+    required: false
+
+Command: coolify config link delete <link_uuid>
+Description: Disconnect an environment from coolify.json
+Parameters:
+  - name: --force (-f)
+    type: boolean
+    description: Skip confirmation prompt
+    required: false
+    default: false
+
+Command: coolify config link get <link_uuid>
+Description: Show a coolify.json link
+Parameters: (None)
+
+Command: coolify config link update <link_uuid>
+Description: Change auto apply or the server of a coolify.json link
+Parameters:
+  - name: --auto-apply
+    type: boolean
+    description: Apply safe changes automatically
+    required: false
+    default: false
+  - name: --destination-uuid
+    type: string
+    description: Destination on the new server, when it has more than one
+    required: false
+  - name: --server-uuid
+    type: string
+    description: New default server of the link
+    required: false
+
+Command: coolify config plan <environment_uuid>
+Description: Compare a coolify.json file with an environment
+Parameters:
+  - name: --file (-f)
+    type: string
+    description: Path to the coolify.json file (- reads standard input)
+    required: false
+    default: coolify.json
+
+Command: coolify config release <revision_uuid>
+Description: Release a stuck apply of a revision (team admin)
+Parameters: (None)
+
+Command: coolify config resume <link_uuid>
+Description: Resume the sync of a coolify.json link
+Parameters:
+  - name: --confirm
+    type: boolean
+    description: Resume and apply the file
+    required: false
+    default: false
+
+Command: coolify config retry <revision_uuid>
+Description: Plan the file of a revision again
+Parameters: (None)
+
+Command: coolify config revisions <link_uuid>
+Description: List the revisions of a coolify.json link, newest first
+Parameters: (None)
+
+Command: coolify config suspend <link_uuid>
+Description: Pause the sync of a coolify.json link. Paused resources can be edited in Coolify again. Only a team admin can pause.
 Parameters: (None)
 
 Command: coolify context add <context_name> <url> <token>

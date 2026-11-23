@@ -87,6 +87,33 @@ You can change the default context with `coolify context use <context_name>` or 
 ### Configuration
 - `coolify config` - Show configuration file location
 
+### Config as Code (coolify.json)
+A `coolify.json` file defines the resources of a project environment. These commands export, plan, link, and apply it.
+- `coolify config export <environment_uuid>` - Export an environment as `coolify.json` (no secret values; needs `read:sensitive`)
+  - `-o, --output <path>` - Write to a file instead of standard output
+- `coolify config plan <environment_uuid>` - Compare a file with the environment. Shows changes (resource, change, setting, destructive), errors, warnings, and missing required values. Nothing changes. Exits non-zero when the file has errors (for CI)
+  - `-f, --file <path>` - Path to the file (default `coolify.json`; `-` reads standard input)
+- `coolify config link create` - Link an environment to coolify.json (team admin). Creates a missing project or environment
+  - `--project <name>`, `--environment <name>` (required), `--mode <api|git>` (default `api`), `--auto-apply`
+  - Git mode: `--repository`, `--branch`, `--file-path`, `--source-type <public|github_app|gitea_app|deploy_key>`, `--source-uuid`, `--server-uuid`, `--destination-uuid`
+  - A git link shows its webhook URLs and secret one time (use `-s` to show the secret)
+- `coolify config link get <link_uuid>` - Show a link
+- `coolify config link update <link_uuid>` - `--auto-apply=<bool>`, or `--server-uuid` (+ `--destination-uuid`) to change the default server (needs `deploy`)
+- `coolify config link delete <link_uuid>` - Disconnect. The resources stay (`-f, --force` skips the prompt)
+- `coolify config revisions <link_uuid>` - List revisions, newest first
+- `coolify config apply <link_uuid>` - Api link: plan and apply the file given with `-f <path>`. Git link: plan the head of the branch (no file). Exits non-zero when the revision fails
+- `coolify config suspend <link_uuid>` - Pause the sync (team admin)
+- `coolify config resume <link_uuid>` - Show the plan of the latest file; `--confirm` resumes and applies (needs `deploy`)
+- `coolify config approve <revision_uuid>` - Approve a revision that waits for approval
+  - `--delete-data <key>` - Also delete the data of a removed resource (repeatable; asks first, `-f, --force` skips the prompt)
+- `coolify config release <revision_uuid>` - Release a stuck apply (team admin)
+- `coolify config retry <revision_uuid>` - Plan the file of a revision again
+
+Example CI check:
+```bash
+coolify config plan <environment_uuid> -f coolify.json || exit 1
+```
+
 ### Instance Email Settings
 - `coolify settings email get` - Get instance-wide SMTP and Resend settings
 - `coolify settings email update --json '<settings>'` - Update instance email settings using a root-team admin/owner token with `write:sensitive`
