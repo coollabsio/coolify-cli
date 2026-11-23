@@ -29,6 +29,7 @@ type StaticArchiveCreateRequest struct {
 type StaticArchiveCreated struct {
 	UUID           string `json:"uuid"`
 	Domains        string `json:"domains"`
+	Link           string `json:"link"`
 	DeploymentUUID string `json:"deployment_uuid"`
 }
 
@@ -43,4 +44,5 @@ type StaticArchiveDeployed struct {
 	DeploymentUUID string `json:"deployment_uuid"`
 	SHA            string `json:"sha"`
 	Domains        string `json:"domains"`
+	Link           string `json:"link"`
 }

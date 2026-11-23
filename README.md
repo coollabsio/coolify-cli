@@ -540,7 +540,7 @@ Commands can use `server` or `servers` interchangeably.
   - `--server <uuid>` - Server for a new application (default: the only usable server)
   - `--project <uuid>` - Project for a new application (default: the only project)
   - `--environment <name>` - Environment for a new application (default: `production`)
-  - `--name <name>` - Name of a new application (default: the folder name)
+  - `--name <name>` - Name of a new application (default: the current folder name plus a random ID)
   - `--domain <urls>` - Comma-separated domains of a new application (default: a generated domain)
   - `--spa` - Serve `index.html` for unknown paths (single-page app)
 - `coolify deploy uuid <uuid>` - Deploy a resource by UUID

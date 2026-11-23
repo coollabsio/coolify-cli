@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +35,7 @@ type FolderDeployResult struct {
 	SHA             string `json:"sha"`
 	Domains         string `json:"domains"`
 	Created         bool   `json:"created"`
+	Link            string `json:"link,omitempty" table:"-"`
 }
 
 const folderDeployLong = `Pack a folder of static files (default: the current folder) and deploy it as a static site.
@@ -57,7 +59,7 @@ func addFolderDeployFlags(cmd *cobra.Command) {
 	cmd.Flags().String("server", "", "Server UUID for a new application (default: the only usable server)")
 	cmd.Flags().String("project", "", "Project UUID for a new application (default: the only project)")
 	cmd.Flags().String("environment", "production", "Environment name for a new application")
-	cmd.Flags().String("name", "", "Name of a new application (default: the folder name)")
+	cmd.Flags().String("name", "", "Name of a new application (default: the current folder name plus a random ID)")
 	cmd.Flags().String("domain", "", "Domains of a new application, comma-separated (default: a generated domain)")
 	cmd.Flags().Bool("spa", false, "Serve index.html for unknown paths of a new application (single-page app)")
 }
@@ -100,7 +102,7 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 
 	var createReq *models.StaticArchiveCreateRequest
 	if appUUID == "" {
-		createReq, err = buildCreateRequest(ctx, cmd, client, dir)
+		createReq, err = buildCreateRequest(ctx, cmd, client)
 		if err != nil {
 			return err
 		}
@@ -137,6 +139,7 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 		result.ApplicationUUID = created.UUID
 		result.DeploymentUUID = created.DeploymentUUID
 		result.Domains = created.Domains
+		result.Link = created.Link
 		result.Created = true
 	} else {
 		req := &models.StaticArchiveDeployRequest{UploadID: upload.UploadID}
@@ -147,6 +150,7 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 		result.ApplicationUUID = appUUID
 		result.DeploymentUUID = deployed.DeploymentUUID
 		result.Domains = deployed.Domains
+		result.Link = deployed.Link
 		if deployed.SHA != "" {
 			result.SHA = deployed.SHA
 		}
@@ -166,8 +170,13 @@ func runFolderDeploy(cmd *cobra.Command, args []string) error {
 	if err := formatter.Format(result); err != nil {
 		return err
 	}
-	if format == output.FormatTable && result.DeploymentUUID != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "\nFollow the build with: coolify app deployments logs %s %s\n", result.ApplicationUUID, result.DeploymentUUID)
+	if format == output.FormatTable {
+		if result.Link != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "\nOpen in Coolify: %s\n", result.Link)
+		}
+		if result.DeploymentUUID != "" {
+			fmt.Fprintf(cmd.OutOrStdout(), "\nFollow the build with: coolify app deployments logs %s %s\n", result.ApplicationUUID, result.DeploymentUUID)
+		}
 	}
 	return nil
 }
@@ -182,7 +191,7 @@ func createOnlyFlagsChanged(cmd *cobra.Command) []string {
 	return changed
 }
 
-func buildCreateRequest(ctx context.Context, cmd *cobra.Command, client *api.Client, dir string) (*models.StaticArchiveCreateRequest, error) {
+func buildCreateRequest(ctx context.Context, cmd *cobra.Command, client *api.Client) (*models.StaticArchiveCreateRequest, error) {
 	serverUUID, _ := cmd.Flags().GetString("server")
 	if serverUUID == "" {
 		uuid, err := onlyUsableServer(ctx, client)
@@ -203,11 +212,7 @@ func buildCreateRequest(ctx context.Context, cmd *cobra.Command, client *api.Cli
 	environment, _ := cmd.Flags().GetString("environment")
 	name, _ := cmd.Flags().GetString("name")
 	if name == "" {
-		abs, err := filepath.Abs(dir)
-		if err != nil {
-			return nil, err
-		}
-		name = filepath.Base(abs)
+		name = defaultSiteName()
 	}
 	domains, _ := cmd.Flags().GetString("domain")
 	req := &models.StaticArchiveCreateRequest{
@@ -222,6 +227,23 @@ func buildCreateRequest(ctx context.Context, cmd *cobra.Command, client *api.Cli
 		req.IsSpa = &spa
 	}
 	return req, nil
+}
+
+// defaultSiteName is the name of the current working directory (where the link
+// file goes), plus a random ID, for example "my-app-k3x9p2".
+func defaultSiteName() string {
+	base := "static-site"
+	if wd, err := os.Getwd(); err == nil {
+		if dirName := filepath.Base(wd); dirName != string(filepath.Separator) {
+			base = dirName
+		}
+	}
+	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	suffix := make([]byte, 6)
+	for i := range suffix {
+		suffix[i] = alphabet[rand.IntN(len(alphabet))]
+	}
+	return base + "-" + string(suffix)
 }
 
 func onlyUsableServer(ctx context.Context, client *api.Client) (string, error) {
