@@ -102,6 +102,7 @@ Examples:
 			setOptionalBoolFlag(cmd, "health-check-enabled", &req.HealthCheckEnabled)
 			setOptionalStringFlag(cmd, "health-check-path", &req.HealthCheckPath)
 			setOptionalStringFlag(cmd, "dockerfile-target-build", &req.DockerfileTargetBuild)
+			setOptionalStringFlag(cmd, "dockerfile-location", &req.DockerfileLocation)
 			appflags.ApplySettingsFlags(cmd, &req.ApplicationSettingsRequest)
 			appflags.ApplyTagsFlag(cmd, &req.Tags)
 
@@ -160,6 +161,7 @@ Examples:
 	cmd.Flags().Bool("health-check-enabled", false, "Enable health checks")
 	cmd.Flags().String("health-check-path", "", "Health check path")
 	cmd.Flags().String("dockerfile-target-build", "", "Dockerfile target build stage")
+	cmd.Flags().String("dockerfile-location", "", "Path to the Dockerfile relative to the base directory, e.g. /api/Dockerfile")
 	appflags.BindSettingsFlags(cmd)
 	appflags.BindTagsFlag(cmd)
 	cmd.MarkFlagsMutuallyExclusive("domains", "compose-domain")
